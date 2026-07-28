@@ -13,13 +13,16 @@ interface ActivityItem {
 export default function ActivityTimeline() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await api.getActivityTimeline();
-      setActivities(data);
-    } catch {
+      setActivities(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setError(e.message);
       setActivities([]);
     } finally {
       setLoading(false);
@@ -37,7 +40,8 @@ export default function ActivityTimeline() {
         <button onClick={load}>Refresh</button>
       </header>
 
-      {activities.length === 0 ? <p>No activity recorded.</p> : (
+      {error ? <p style={{ color: '#ef4444' }}>Error: {error}</p>
+        : activities.length === 0 ? <p>No activity recorded.</p> : (
         <div style={{ position: 'relative', paddingLeft: 24 }}>
           <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, width: 2, backgroundColor: '#e5e7eb' }} />
           {activities.map((activity) => (

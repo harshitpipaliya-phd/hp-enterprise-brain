@@ -1,19 +1,82 @@
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
+/**
+ * Single HTTP entry point for the SPA. Every api/*.ts module goes through
+ * request(), so headers and auth are configured in exactly one place.
+ *
+ * API_ORIGIN is the bare Laravel origin; the /api/v1 prefix is applied here so
+ * callers pass resource-relative paths ('/organizations/demo-tenant') and the
+ * route table in routes/api.php stays literally readable in the api modules.
+ */
+const API_ORIGIN: string = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-export { API_BASE };
+const API_BASE = `${API_ORIGIN.replace(/\/+$/, '')}/api/v1`;
+
+export { API_ORIGIN, API_BASE };
+
+/**
+ * Local development credential. AuthenticateJwt accepts the literal string
+ * 'dev-bypass' as a bearer token when APP_ENV is local/development and mints
+ * an admin identity for it. A real accessToken always takes precedence, so
+ * signing in through Login upgrades every subsequent request automatically.
+ */
+export const DEV_BYPASS_TOKEN = 'dev-bypass';
+
+export function authToken(): string {
+  return localStorage.getItem('accessToken') || DEV_BYPASS_TOKEN;
+}
+
+export function isDevBypass(): boolean {
+  return !localStorage.getItem('accessToken');
+}
+
+/**
+ * The Brain-owned controllers (signals, evidence, cases, recommendations,
+ * decisions, outcomes, learnings, risks, policies, executors, notifications,
+ * eso-executions, capabilities) return the raw database row — every column in
+ * snake_case, straight out of `DB::table(...)->get()`. Every screen that
+ * consumes them reads camelCase: executorType, capabilityTags, createdDate,
+ * currentWorkload. The two have never lined up, which is why those screens
+ * render blank columns the moment their tables hold anything.
+ *
+ * Rather than hand-map twenty entity shapes, camelCase aliases are added at
+ * the response boundary. This is deliberately ADDITIVE — the original
+ * snake_case keys are kept — so nothing that already reads a raw column name
+ * breaks, and a value can never be lost to a rename.
+ *
+ * Bounded to plain objects and arrays: Date/File/Blob and other class
+ * instances pass through untouched.
+ */
+function toCamel(key: string): string {
+  return key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+}
+
+function addCamelAliases(value: any, depth = 0): any {
+  if (depth > 8 || value === null || typeof value !== 'object') return value;
+
+  if (Array.isArray(value)) return value.map((v) => addCamelAliases(v, depth + 1));
+
+  if (Object.getPrototypeOf(value) !== Object.prototype) return value;
+
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(value)) {
+    out[k] = addCamelAliases(v, depth + 1);
+  }
+  for (const [k, v] of Object.entries(out)) {
+    const camel = toCamel(k);
+    // Never overwrite a key the server already sent in camelCase.
+    if (camel !== k && !(camel in out)) out[camel] = v;
+  }
+  return out;
+}
 
 let refreshInFlight: Promise<boolean> | null = null;
 let sessionExpiredCallback: (() => void) | null = null;
 
 /**
- * Authentication polish: automatic token refresh on 401. Previously, every
- * one of the 8 API client files had its own copy of request() with no
- * refresh handling at all — a 401 just threw, and the user was silently
- * logged out mid-session. Now a single 401 triggers one refresh attempt
- * (deduplicated via refreshInFlight so 5 simultaneous requests don't each
- * fire their own refresh call), and the original request retries once with
- * the new token. Only if refresh itself fails does the user get logged out.
+ * Authentication polish: automatic token refresh on 401. A single 401 triggers
+ * one refresh attempt (deduplicated via refreshInFlight so 5 simultaneous
+ * requests don't each fire their own refresh call), and the original request
+ * retries once with the new token. Only if refresh itself fails does the user
+ * get logged out.
  */
 async function tryRefresh(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
@@ -23,13 +86,13 @@ async function tryRefresh(): Promise<boolean> {
     try {
       const res = await fetch(`${API_BASE}/auth/refresh`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
       });
       if (!res.ok) return false;
       const tokens = await res.json();
       localStorage.setItem('accessToken', tokens.accessToken);
-      localStorage.setItem('refreshToken', tokens.refreshToken);
+      if (tokens.refreshToken) localStorage.setItem('refreshToken', tokens.refreshToken);
       return true;
     } catch {
       return false;
@@ -46,17 +109,33 @@ export function onSessionExpired(callback: () => void): void {
 }
 
 export async function request(path: string, options: RequestInit = {}, _isRetry = false): Promise<any> {
-  const token = localStorage.getItem('accessToken') || 'dev-bypass';
   const isFormData = options.body instanceof FormData;
-  const hasBody = options.body !== undefined && options.body !== null && !isFormData;
+
   const headers: Record<string, string> = {
-    ...(hasBody ? { 'content-type': 'application/json' } : {}),
+    Accept: 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
-    ...(token ? { authorization: `Bearer ${token}` } : {}),
+    Authorization: `Bearer ${authToken()}`,
   };
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch {
+    // fetch() only rejects on network-layer failure, which for this app means
+    // the Laravel server is not running. Surfacing that as-is beats the
+    // browser's opaque "Failed to fetch" reaching an error banner.
+    throw new Error(`Cannot reach the API at ${API_ORIGIN}. Is the Laravel server running?`);
+  }
 
   if (res.status === 401 && !_isRetry) {
+    // Under dev-bypass there is no session to refresh or expire; a 401 there
+    // means the backend rejected the bypass token (wrong APP_ENV), which is a
+    // configuration error, not an expired session. Logging the user out would
+    // hide the real cause behind a login screen.
+    if (isDevBypass()) {
+      throw new Error('unauthorized: backend rejected the dev-bypass token (APP_ENV must be local or development)');
+    }
     const refreshed = await tryRefresh();
     if (refreshed) return request(path, options, true);
     localStorage.removeItem('accessToken');
@@ -66,7 +145,21 @@ export async function request(path: string, options: RequestInit = {}, _isRetry 
   }
 
   if (res.status === 204) return null;
+
   const text = await res.text();
-  if (!res.ok) throw new Error(text || res.statusText);
-  return text ? JSON.parse(text) : null;
+
+  if (!res.ok) {
+    // Laravel returns {"error":"..."} for domain failures and {"message":"..."}
+    // for validation/500s. Unwrap either so error banners show the reason
+    // rather than a wall of HTML or JSON.
+    try {
+      const body = JSON.parse(text);
+      throw new Error(body.error || body.message || res.statusText);
+    } catch (e: any) {
+      if (e instanceof SyntaxError) throw new Error(res.statusText || `HTTP ${res.status}`);
+      throw e;
+    }
+  }
+
+  return text ? addCamelAliases(JSON.parse(text)) : null;
 }

@@ -91,14 +91,14 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
         <DepartmentCreate
           tenantId={organization.tenantId}
           orgId={organization.id}
-          onCreated={(dept) => { setDepartments([dept, ...departments]); navigate('list'); }}
+          onCreated={() => { navigate('list'); load(); }}
           onCancel={() => navigate('list')}
         />
       )}
       {view === 'edit' && selected && (
         <DepartmentEdit
           department={selected}
-          onUpdated={(dept) => { setDepartments(departments.map((d) => d.id === dept.id ? dept : d)); navigate('details', dept); }}
+          onUpdated={(dept) => { navigate('details', dept); load(); }}
           onCancel={() => navigate('details', selected)}
         />
       )}
@@ -113,7 +113,7 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
       {view === 'archive' && selected && (
         <DepartmentArchiveConfirm
           department={selected}
-          onArchived={(dept) => { setDepartments(departments.map((d) => d.id === dept.id ? dept : d)); navigate('list'); }}
+          onArchived={() => { navigate('list'); load(); }}
           onCancel={() => navigate('details', selected)}
         />
       )}

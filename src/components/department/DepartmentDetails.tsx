@@ -11,9 +11,19 @@ interface Props {
 
 export default function DepartmentDetails({ department, onEdit, onArchive, onBack }: Props) {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditLoading, setAuditLoading] = useState(true);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getAuditLogs(department.tenantId, department.id).then(setAuditLogs).catch(() => {});
+    setAuditLoading(true);
+    setAuditError(null);
+    api
+      .getAuditLogs(department.tenantId, department.id)
+      .then((rows) => setAuditLogs(Array.isArray(rows) ? rows : []))
+      // Swallowing this rendered "No audit logs." for a server error, which
+      // reads as "nothing has happened to this record" — the opposite of true.
+      .catch((e: any) => setAuditError(e.message))
+      .finally(() => setAuditLoading(false));
   }, [department.tenantId, department.id]);
 
   const fields = [
@@ -56,7 +66,9 @@ export default function DepartmentDetails({ department, onEdit, onArchive, onBac
         <button onClick={onArchive} style={{ marginLeft: 8 }}>Archive</button>
       </div>
       <h3 style={{ marginTop: 24 }}>Audit Log</h3>
-      {auditLogs.length === 0 ? <p>No audit logs.</p> : (
+      {auditLoading ? <p>Loading audit log…</p>
+        : auditError ? <p style={{ color: '#ef4444' }}>Error loading audit log: {auditError}</p>
+        : auditLogs.length === 0 ? <p>No audit logs.</p> : (
         <ul>
           {auditLogs.map((log: any) => (
             <li key={log.id}>{log.action} by {log.actorName} on {new Date(log.createdAt).toLocaleString()}</li>

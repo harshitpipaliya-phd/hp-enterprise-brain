@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Department } from './DepartmentApp';
 import { api } from '../../api/department';
 
@@ -15,25 +15,39 @@ export default function DepartmentCreate({ tenantId, orgId, onCreated, onCancel 
     description: '',
     departmentType: 'department' as 'department' | 'division' | 'unit' | 'team',
     parentDepartmentId: '',
-    headId: '',
-    createdBy: 'current-user',
   });
+  const [parents, setParents] = useState<Department[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // The parent department has to be an id that exists in this organization, so
+  // the choices come from the same endpoint the list screen reads rather than
+  // from a free-text box the user has to guess an integer into.
+  useEffect(() => {
+    api.listDepartments(tenantId, orgId).then(setParents).catch(() => setParents([]));
+  }, [tenantId, orgId]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
-      const dept = await api.createDepartment({
-        ...form,
-        tenantId,
-        orgId,
-        parentDepartmentId: form.parentDepartmentId || null,
-        headId: form.headId || null,
+      // DepartmentController::store() validates name, description, parentId and
+      // orgId, and takes created_by from the token. `parentId` is the field
+      // name it expects — sending parentDepartmentId meant the chosen parent
+      // was silently discarded on every create. departmentType and headId have
+      // no columns in hrms_departments.
+      const dept = await api.createDepartment(tenantId, {
+        name: form.name,
+        description: form.description || null,
+        parentId: form.parentDepartmentId ? Number(form.parentDepartmentId) : null,
+        orgId: Number(orgId),
       });
       onCreated(dept);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -58,13 +72,16 @@ export default function DepartmentCreate({ tenantId, orgId, onCreated, onCancel 
           </select>
         </label>
         <label>
-          Parent Department ID <input value={form.parentDepartmentId} onChange={(e) => setForm({ ...form, parentDepartmentId: e.target.value })} />
-        </label>
-        <label>
-          Head ID <input value={form.headId} onChange={(e) => setForm({ ...form, headId: e.target.value })} />
+          Parent Department
+          <select value={form.parentDepartmentId} onChange={(e) => setForm({ ...form, parentDepartmentId: e.target.value })}>
+            <option value="">None (top level)</option>
+            {parents.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
         </label>
         <div>
-          <button type="submit">Create</button>
+          <button type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create'}</button>
           <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>

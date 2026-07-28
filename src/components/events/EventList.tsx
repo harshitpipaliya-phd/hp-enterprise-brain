@@ -15,28 +15,39 @@ interface Event {
 export default function EventList() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState({ type: '', tenantId: '', status: '' });
 
   const load = async () => {
     setLoading(true);
+    setError(null);
     try {
       const params: Record<string, string> = {};
       if (filter.type) params.type = filter.type;
       if (filter.tenantId) params.tenantId = filter.tenantId;
+      if (filter.status) params.status = filter.status;
       const data = await api.listEvents(params);
-      setEvents(data);
-    } catch {
+      setEvents(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      // Was `catch { setEvents([]) }`, which rendered "no events" for a 404 on
+      // an unregistered route — indistinguishable from an empty event store.
+      setError(e.message);
       setEvents([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [filter.type, filter.tenantId, filter.status]);
 
   const handleReplay = async (id: string) => {
-    await api.replayEvent(id);
-    await load();
+    setError(null);
+    try {
+      await api.replayEvent(id);
+      await load();
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
   return (
@@ -57,6 +68,8 @@ export default function EventList() {
           <option value="failed">Failed</option>
         </select>
       </div>
+
+      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>Error: {error}</div>}
 
       {loading ? <div>Loading...</div> : (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>

@@ -27,31 +27,26 @@ import AIWorkspace from './components/workspace/AIWorkspace';
 import KnowledgeLibrary from './components/workspace/KnowledgeLibrary';
 import CommandCenter from './components/workspace/CommandCenter';
 import KasbaExplorer from './components/workspace/KasbaExplorer';
+import Login from './components/auth/Login';
 import { Sidebar, Breadcrumb, breadcrumbFor } from './components/Sidebar';
 import { NotificationBell } from './components/NotificationBell';
 import { ToastProvider, useToast } from './components/Toast';
 import { CommandPalette } from './components/CommandPalette';
 import { api } from './api/organization';
-import { getTenantId } from './utils/tenant';
+import type { OrganizationRow } from './api/organization';
+import { onSessionExpired } from './api/client';
+import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
 
 export type View = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'commandcenter' | 'kasbaexplorer';
 
-export interface Organization {
-  id: string;
-  tenantId: string;
-  name: string;
-  legalName: string | null;
-  orgCode: string;
-  industry: string | null;
-  country: string | null;
-  timezone: string;
-  currency: string;
-  logo: string | null;
-  status: string;
-  createdBy: string;
-  createdDate: string;
-  updatedDate: string;
-}
+/**
+ * The organization shape is now owned by api/organization.ts, which is where
+ * the ERP row is normalized. Re-exported here so the ~10 components that
+ * `import type { Organization } from '../../App'` keep working, and so the two
+ * definitions cannot drift apart again — the previous local copy declared
+ * timezone/currency as non-null strings that the ERP has no columns for.
+ */
+export type Organization = OrganizationRow;
 
 export default function App() {
   return (
@@ -61,13 +56,37 @@ export default function App() {
   );
 }
 
+/**
+ * With no accessToken the client falls back to the dev-bypass bearer token,
+ * which the backend accepts outside production — so the app is usable without
+ * signing in. An explicit sign-out has to be remembered, otherwise the Logout
+ * button would drop straight back into a dev-bypass session and Login would be
+ * unreachable.
+ */
+const SIGNED_OUT_KEY = 'signedOut';
+
+function initialAuthState(): boolean {
+  if (localStorage.getItem('accessToken')) return true;
+  return localStorage.getItem(SIGNED_OUT_KEY) === null;
+}
+
 function AppShell() {
-   const [view, setView] = useState<View>('list');
-  const [tenantId] = useState(getTenantId());
+  const [authenticated, setAuthenticated] = useState(initialAuthState);
+  const [view, setView] = useState<View>('list');
+  // The organizations list is the one call made BEFORE an organization has been
+  // chosen, so it is addressed with the token's own tenant. Every screen after
+  // this point derives its tenant from the selected organization instead
+  // (org.tenantId === org.id), which is where the Brain's rows actually live.
+  const [tenantId, setTenantId] = useState(getAuthTenantId());
   const [selected, setSelected] = useState<Organization | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    onSessionExpired(() => setAuthenticated(false));
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -75,21 +94,58 @@ function AppShell() {
     try {
       const data = await api.listOrganizations(tenantId);
       setOrganizations(data);
+
+      // Re-attach the organization the user last selected so a refresh keeps
+      // the same tenant context instead of dropping back to the empty list.
+      const remembered = getSelectedOrgId();
+      setSelected((current) => current ?? data.find((o) => o.id === remembered) ?? null);
     } catch (e: any) {
       setError(e.message);
+      setOrganizations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [tenantId]);
+  useEffect(() => {
+    if (authenticated) load();
+  }, [authenticated, tenantId]);
+
+  // Every hook above runs unconditionally; the sign-in gate has to come after
+  // them, or the hook count changes between renders when auth flips.
+  if (!authenticated) {
+    return (
+      <Login
+        onLogin={() => {
+          localStorage.removeItem(SIGNED_OUT_KEY);
+          setTenantId(getAuthTenantId());
+          setAuthenticated(true);
+        }}
+      />
+    );
+  }
 
   const navigate = (v: View, org?: Organization) => {
+    if (org) setSelectedOrgId(org.id);
     setSelected(org ?? null);
     setView(v);
   };
 
-  const { showToast } = useToast();
+  const logout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.setItem(SIGNED_OUT_KEY, '1');
+    clearSelectedOrgId();
+    setSelected(null);
+    setOrganizations([]);
+    setAuthenticated(false);
+  };
+
+  /** Re-read the list from the API after any mutation, rather than splicing local state. */
+  const reloadAfter = async (message?: string, tone: 'success' | 'warning' = 'success') => {
+    await load();
+    if (message) showToast(tone, message);
+  };
 
   return (
     <div className="eb-app">
@@ -98,6 +154,7 @@ function AppShell() {
          currentView={view}
          hasSelectedOrg={!!selected}
          onNavigate={(v) => navigate(v, selected ?? undefined)}
+         onLogout={logout}
        />
       <div className="eb-main">
         <div style={{ position: 'relative' }}>
@@ -127,14 +184,14 @@ function AppShell() {
       {view === 'create' && (
         <OrganizationCreate
           tenantId={tenantId}
-          onCreated={(org) => { setOrganizations([org, ...organizations]); navigate('list'); showToast('success', `Organization "${org.name}" created`); }}
+          onCreated={(org) => { navigate('list'); reloadAfter(`Organization "${org.name}" created`); }}
           onCancel={() => navigate('list')}
         />
       )}
       {view === 'edit' && selected && (
         <OrganizationEdit
           organization={selected}
-          onUpdated={(org) => { setOrganizations(organizations.map((o) => o.id === org.id ? org : o)); navigate('details', org); showToast('success', 'Organization updated'); }}
+          onUpdated={(org) => { navigate('details', org); reloadAfter('Organization updated'); }}
           onCancel={() => navigate('details', selected)}
         />
       )}
@@ -232,7 +289,7 @@ function AppShell() {
       {view === 'archive' && selected && (
         <OrganizationArchiveConfirm
           organization={selected}
-          onArchived={(org) => { setOrganizations(organizations.map((o) => o.id === org.id ? org : o)); navigate('list'); showToast('warning', `Organization "${org.name}" archived`); }}
+          onArchived={(org) => { setSelected(null); setView('list'); reloadAfter(`Organization "${org.name}" archived`, 'warning'); }}
           onCancel={() => navigate('details', selected)}
         />
       )}

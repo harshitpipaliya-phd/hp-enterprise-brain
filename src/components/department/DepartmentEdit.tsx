@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Department } from './DepartmentApp';
 import { api } from '../../api/department';
 
@@ -14,24 +14,40 @@ export default function DepartmentEdit({ department, onUpdated, onCancel }: Prop
     description: department.description ?? '',
     departmentType: department.departmentType as 'department' | 'division' | 'unit' | 'team',
     parentDepartmentId: department.parentDepartmentId ?? '',
-    headId: department.headId ?? '',
-    orgId: department.orgId,
     status: department.status as 'active' | 'inactive' | 'archived',
   });
+  const [parents, setParents] = useState<Department[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Real candidate parents from the same organization, minus this department
+  // (a department cannot be its own parent).
+  useEffect(() => {
+    api
+      .listDepartments(department.tenantId, department.orgId)
+      .then((rows) => setParents(rows.filter((d: Department) => d.id !== department.id)))
+      .catch(() => setParents([]));
+  }, [department.tenantId, department.orgId, department.id]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
+      // DepartmentController::update() maps exactly name / description /
+      // parentId onto hrms_departments columns. departmentType, headId and
+      // status have no writable column, so they are not sent rather than being
+      // posted and dropped by validate().
       const dept = await api.updateDepartment(department.tenantId, department.id, {
-        ...form,
-        parentDepartmentId: form.parentDepartmentId || null,
-        headId: form.headId || null,
+        name: form.name,
+        description: form.description || null,
+        parentId: form.parentDepartmentId ? Number(form.parentDepartmentId) : null,
       });
-      if (dept) onUpdated(dept);
+      onUpdated(dept);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -56,10 +72,13 @@ export default function DepartmentEdit({ department, onUpdated, onCancel }: Prop
           </select>
         </label>
         <label>
-          Parent Department ID <input value={form.parentDepartmentId} onChange={(e) => setForm({ ...form, parentDepartmentId: e.target.value })} />
-        </label>
-        <label>
-          Head ID <input value={form.headId} onChange={(e) => setForm({ ...form, headId: e.target.value })} />
+          Parent Department
+          <select value={form.parentDepartmentId} onChange={(e) => setForm({ ...form, parentDepartmentId: e.target.value })}>
+            <option value="">None (top level)</option>
+            {parents.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
         </label>
         <label>
           Status
@@ -70,7 +89,7 @@ export default function DepartmentEdit({ department, onUpdated, onCancel }: Prop
           </select>
         </label>
         <div>
-          <button type="submit">Save</button>
+          <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>

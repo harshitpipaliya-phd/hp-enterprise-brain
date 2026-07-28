@@ -17,7 +17,10 @@ const KASBA_FIELDS: Array<[string, string]> = [
   ['attitude', 'Attitude'],
 ];
 
-export default function CapabilityCreate({ tenantId, orgId, onCreated, onCancel }: Props) {
+// tenantId is not in the create payload: CapabilityController derives tenant_id
+// from the bearer token and would ignore a body-supplied one, per the tenant
+// isolation rule in EnsureTenantScope.
+export default function CapabilityCreate({ orgId, onCreated, onCancel }: Props) {
   const [form, setForm] = useState({
     capabilityCode: '',
     name: '',
@@ -26,23 +29,31 @@ export default function CapabilityCreate({ tenantId, orgId, onCreated, onCancel 
     capabilityType: 'competency',
     difficulty: 'intermediate',
     criticality: 'medium',
-    createdBy: 'current-user',
   });
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
+      // CapabilityController::store() validates name / capabilityCode / orgId /
+      // description / category, derives tenant_id and created_by from the
+      // token, and lets the table defaults supply capabilityType, difficulty
+      // and criticality — those three columns are not writable on create.
       const cap = await api.createCapability({
-        ...form,
-        tenantId,
-        orgId,
+        name: form.name,
+        capabilityCode: form.capabilityCode,
+        orgId: String(orgId),
         description: form.description || null,
+        category: form.category || null,
       });
       onCreated(cap);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -80,7 +91,7 @@ export default function CapabilityCreate({ tenantId, orgId, onCreated, onCancel 
           </select>
         </label>
         <div>
-          <button type="submit">Create</button>
+          <button type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create'}</button>
           <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>

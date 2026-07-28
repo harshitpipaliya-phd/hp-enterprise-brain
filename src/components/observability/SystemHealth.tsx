@@ -10,13 +10,16 @@ export interface HealthStatus {
 export default function SystemHealth() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await api.getHealth();
       setHealth(data);
-    } catch {
+    } catch (e: any) {
+      setError(e.message);
       setHealth(null);
     } finally {
       setLoading(false);
@@ -26,7 +29,7 @@ export default function SystemHealth() {
   useEffect(() => { load(); const interval = setInterval(load, 30000); return () => clearInterval(interval); }, []);
 
   if (loading) return <div>Loading health status...</div>;
-  if (!health) return <div style={{ color: 'red' }}>Unable to fetch health status</div>;
+  if (!health) return <div style={{ padding: 24, color: '#ef4444' }}>Unable to fetch health status{error ? `: ${error}` : ''}</div>;
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 800, margin: '0 auto', padding: 24 }}>

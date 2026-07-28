@@ -31,28 +31,27 @@ export default function PersonEdit({ person, onUpdated, onCancel }: Props) {
     status: person.status as 'active' | 'inactive' | 'archived',
   });
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
+      // PersonController::update() maps exactly firstName / lastName / email /
+      // phone onto tbluser columns. Everything else on this form has no column
+      // to write to, so it is not sent.
       const updated = await api.updatePerson(person.tenantId, person.id, {
-        ...form,
-        displayName: form.displayName || null,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
         phone: form.phone || null,
-        profilePhoto: form.profilePhoto || null,
-        gender: form.gender || null,
-        dateOfBirth: form.dateOfBirth || null,
-        joiningDate: form.joiningDate || null,
-        departmentId: form.departmentId || null,
-        managerId: form.managerId || null,
-        designation: form.designation || null,
-        location: form.location || null,
-        reportingManagerId: form.reportingManagerId || null,
       });
-      if (updated) onUpdated(updated);
+      onUpdated(updated);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -127,7 +126,7 @@ export default function PersonEdit({ person, onUpdated, onCancel }: Props) {
           </select>
         </label>
         <div>
-          <button type="submit">Save</button>
+          <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>

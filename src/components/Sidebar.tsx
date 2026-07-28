@@ -50,7 +50,7 @@ interface SidebarProps {
   currentView: View;
   hasSelectedOrg: boolean;
   onNavigate: (view: View) => void;
-  onLogout?: () => void;
+  onLogout: () => void;
 }
 
 export function Sidebar({ currentView, hasSelectedOrg, onNavigate, onLogout }: SidebarProps) {
@@ -103,12 +103,10 @@ export function Sidebar({ currentView, hasSelectedOrg, onNavigate, onLogout }: S
         );
       })}
 <div className="eb-sidebar-footer">
-         {onLogout && (
-           <button className="eb-sidebar-item" onClick={onLogout}>
-             <span className="eb-sidebar-icon">{'⏻'}</span>
-             {!collapsed && <span className="eb-sidebar-label">Logout</span>}
-           </button>
-         )}
+         <button className="eb-sidebar-item" onClick={onLogout}>
+           <span className="eb-sidebar-icon">{'⏻'}</span>
+           {!collapsed && <span className="eb-sidebar-label">Logout</span>}
+         </button>
        </div>
     </nav>
   );

@@ -18,18 +18,34 @@ export default function OrganizationCreate({ tenantId, onCreated, onCancel }: Pr
     timezone: 'UTC',
     currency: 'USD',
     logo: '',
-    createdBy: 'current-user',
   });
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
-      const org = await api.createOrganization({ ...form, tenantId });
+      // OrganizationController::store() validates name/orgCode/industry/
+      // legalName/logo and stamps created_by from the bearer token, so the
+      // actor is never sent from the browser. country/timezone/currency have
+      // no columns in institute_detail and are dropped server-side.
+      const org = await api.createOrganization(
+        {
+          name: form.name,
+          orgCode: form.orgCode || null,
+          industry: form.industry || null,
+          legalName: form.legalName || null,
+          logo: form.logo || null,
+        },
+        tenantId,
+      );
       onCreated(org);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -63,7 +79,7 @@ export default function OrganizationCreate({ tenantId, onCreated, onCancel }: Pr
           Logo URL <input value={form.logo} onChange={(e) => setForm({ ...form, logo: e.target.value })} />
         </label>
         <div>
-          <button type="submit">Create</button>
+          <button type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create'}</button>
           <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>

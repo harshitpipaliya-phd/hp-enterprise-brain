@@ -14,13 +14,18 @@ interface DeadLetterEntry {
 export default function DeadLetterQueue() {
   const [entries, setEntries] = useState<DeadLetterEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await api.getDLQ();
-      setEntries(data);
-    } catch {
+      setEntries(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      // Swallowing this rendered "No dead letter entries" for a server error —
+      // the most misleading possible output for a failure queue.
+      setError(e.message);
       setEntries([]);
     } finally {
       setLoading(false);
@@ -30,13 +35,23 @@ export default function DeadLetterQueue() {
   useEffect(() => { load(); }, []);
 
   const handleRetry = async (id: string) => {
-    await api.retryDLQ(id);
-    await load();
+    setError(null);
+    try {
+      await api.retryDLQ(id);
+      await load();
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await api.deleteDLQ(id);
-    await load();
+    setError(null);
+    try {
+      await api.deleteDLQ(id);
+      await load();
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
   return (
@@ -46,7 +61,9 @@ export default function DeadLetterQueue() {
         <button onClick={load}>Refresh</button>
       </header>
 
-      {loading ? <div>Loading...</div> : entries.length === 0 ? (
+      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>Error: {error}</div>}
+
+      {loading ? <div>Loading...</div> : error ? null : entries.length === 0 ? (
         <p>No dead letter entries.</p>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>

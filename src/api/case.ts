@@ -18,4 +18,12 @@ export const caseApi = {
     request(`/hypotheses/${tenantId}/case/${caseId}/${id}/support`, { method: 'POST', body: JSON.stringify({}) }),
   confirmHypothesis: (tenantId: string, caseId: string, id: string) =>
     request(`/hypotheses/${tenantId}/case/${caseId}/${id}/confirm`, { method: 'POST', body: JSON.stringify({}) }),
+
+  /**
+   * POST /api/v1/hypotheses/{tenantId}/{id}/status — the generic setter, as
+   * opposed to the reject/support/confirm verbs above which each imply a fixed
+   * target status.
+   */
+  setHypothesisStatus: (tenantId: string, id: string, status: string) =>
+    request(`/hypotheses/${tenantId}/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
 };

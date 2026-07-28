@@ -86,14 +86,14 @@ export default function CapabilityApp({ organization, onBack }: { organization: 
         <CapabilityCreate
           tenantId={organization.tenantId}
           orgId={organization.id}
-          onCreated={(cap) => { setCapabilities([cap, ...capabilities]); navigate('list'); }}
+          onCreated={() => { navigate('list'); load(); }}
           onCancel={() => navigate('list')}
         />
       )}
       {view === 'edit' && selected && (
         <CapabilityEdit
           capability={selected}
-          onUpdated={(cap) => { setCapabilities(capabilities.map((c) => c.id === cap.id ? cap : c)); navigate('details', cap); }}
+          onUpdated={(cap) => { navigate('details', cap); load(); }}
           onCancel={() => navigate('details', selected)}
         />
       )}
@@ -122,7 +122,7 @@ export default function CapabilityApp({ organization, onBack }: { organization: 
       {view === 'archive' && selected && (
         <CapabilityArchiveConfirm
           capability={selected}
-          onArchived={(cap) => { setCapabilities(capabilities.map((c) => c.id === cap.id ? cap : c)); navigate('list'); }}
+          onArchived={() => { navigate('list'); load(); }}
           onCancel={() => navigate('details', selected)}
         />
       )}

@@ -15,18 +15,21 @@ interface AuditLog {
 export default function AuditDashboard() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState({ action: '', entityType: '', q: '' });
 
   const load = async () => {
     setLoading(true);
+    setError(null);
     try {
       const params: Record<string, string> = { limit: '100' };
       if (filter.action) params.action = filter.action;
       if (filter.entityType) params.entityType = filter.entityType;
       if (filter.q) params.q = filter.q;
       const data = await api.getAuditLogs(params);
-      setLogs(data);
-    } catch {
+      setLogs(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setError(e.message);
       setLogs([]);
     } finally {
       setLoading(false);
@@ -41,6 +44,8 @@ export default function AuditDashboard() {
         <h1>Audit Dashboard</h1>
         <button onClick={load}>Refresh</button>
       </header>
+
+      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>Error: {error}</div>}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input placeholder="Search..." value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} style={{ padding: 8, flex: 1 }} />

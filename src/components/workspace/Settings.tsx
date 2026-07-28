@@ -14,19 +14,33 @@ export default function Settings({ tenantId }: { tenantId: string }) {
   const [notifyOnRecommendation, setNotifyOnRecommendation] = useState(true);
   const [notifyOnDecision, setNotifyOnDecision] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [prefsError, setPrefsError] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  // Rows come back as the raw settings table: setting_key / setting_value, with
+  // camelCase aliases added by the client. Swallowing the failure here is what
+  // made a broken settings table look like "no preferences saved yet".
   useEffect(() => {
-    settingsApi.list(tenantId, 'personal').then((settings: Array<{ key: string; value: unknown }>) => {
-      const prefs = settings.find((s) => s.key === 'notification_preferences')?.value as any;
-      if (prefs) {
-        setNotifyOnRecommendation(prefs.recommendation ?? true);
-        setNotifyOnDecision(prefs.decision ?? true);
-      }
-    }).catch(() => {});
+    setLoading(true);
+    setPrefsError(null);
+    settingsApi
+      .list(tenantId, 'personal')
+      .then((settings: any) => {
+        const rows: any[] = Array.isArray(settings) ? settings : [];
+        const row = rows.find((s) => (s.settingKey ?? s.key) === 'notification_preferences');
+        const raw = row?.settingValue ?? row?.value;
+        const prefs = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (prefs) {
+          setNotifyOnRecommendation(prefs.recommendation ?? true);
+          setNotifyOnDecision(prefs.decision ?? true);
+        }
+      })
+      .catch((e: any) => setPrefsError(e.message))
+      .finally(() => setLoading(false));
   }, [tenantId]);
 
   const changeTheme = (value: 'light' | 'dark' | null) => {
@@ -35,9 +49,14 @@ export default function Settings({ tenantId }: { tenantId: string }) {
   };
 
   const saveNotificationPrefs = async () => {
-    await settingsApi.set(tenantId, 'notification_preferences', { recommendation: notifyOnRecommendation, decision: notifyOnDecision }, 'personal');
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setPrefsError(null);
+    try {
+      await settingsApi.set(tenantId, 'notification_preferences', { recommendation: notifyOnRecommendation, decision: notifyOnDecision }, 'personal');
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e: any) {
+      setPrefsError(e.message);
+    }
   };
 
   const changePassword = async (e: React.FormEvent) => {
@@ -80,6 +99,8 @@ export default function Settings({ tenantId }: { tenantId: string }) {
 
       <section>
         <h3>Notification Preferences</h3>
+        {loading && <div style={{ color: theme.textMuted, fontSize: 12, marginTop: 8 }}>Loading preferences…</div>}
+        {prefsError && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 8 }}>Error: {prefsError}</div>}
         <label style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
           <input type="checkbox" checked={notifyOnRecommendation} onChange={(e) => setNotifyOnRecommendation(e.target.checked)} style={{ marginRight: 8 }} />
           Notify me when a new Recommendation is generated

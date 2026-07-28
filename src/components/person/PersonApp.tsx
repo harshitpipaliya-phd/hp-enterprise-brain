@@ -99,8 +99,8 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
           tenantId={organization.tenantId}
           orgId={organization.id}
           onCreated={(person: any) => {
-            setPeople([person, ...people]);
             navigate('list');
+            load();
             if (person.tempPassword) {
               alert('Person created. Temporary password: ' + person.tempPassword + '\n\nThis is a randomly generated placeholder \u2014 it may not match this ERP\'s real login hashing scheme. Use the ERP\'s own password-reset flow before relying on it to log in.');
             }
@@ -111,7 +111,7 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
       {view === 'edit' && selected && (
         <PersonEdit
           person={selected}
-          onUpdated={(person) => { setPeople(people.map((p) => p.id === person.id ? person : p)); navigate('details', person); }}
+          onUpdated={(person) => { navigate('details', person); load(); }}
           onCancel={() => navigate('details', selected)}
         />
       )}
@@ -127,7 +127,7 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
       {view === 'archive' && selected && (
         <PersonArchiveConfirm
           person={selected}
-          onArchived={(person) => { setPeople(people.map((p) => p.id === person.id ? person : p)); navigate('list'); }}
+          onArchived={() => { navigate('list'); load(); }}
           onCancel={() => navigate('details', selected)}
         />
       )}

@@ -1,9 +1,22 @@
 import { request } from './client.js';
 
 export const esoApi = {
-  listAll: (tenantId: string, status?: string) => request(`/eso-executions/${tenantId}${status ? `?status=${status}` : ''}`),
+  /** GET /api/v1/eso-executions/{tenantId} */
+  listAll: (tenantId: string, status?: string) =>
+    request(`/eso-executions/${tenantId}${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+
+  /** POST /api/v1/eso-executions */
+  create: (body: Record<string, unknown>) =>
+    request('/eso-executions', { method: 'POST', body: JSON.stringify(body) }),
+
+  /** GET /api/v1/eso-executions/{tenantId}/eso/{esoId} */
   history: (tenantId: string, esoId: string) => request(`/eso-executions/${tenantId}/eso/${esoId}`),
+
+  /** PATCH /api/v1/eso-executions/{tenantId}/{id}/transition */
   transition: (tenantId: string, id: string, status: string, output?: Record<string, unknown>, error?: string) =>
     request(`/eso-executions/${tenantId}/${id}/transition`, { method: 'PATCH', body: JSON.stringify({ status, output, error }) }),
-  rollback: (tenantId: string, id: string) => request(`/eso-executions/${tenantId}/${id}/rollback`, { method: 'POST' }),
+
+  /** POST /api/v1/eso-executions/{tenantId}/{id}/rollback */
+  rollback: (tenantId: string, id: string) =>
+    request(`/eso-executions/${tenantId}/${id}/rollback`, { method: 'POST' }),
 };

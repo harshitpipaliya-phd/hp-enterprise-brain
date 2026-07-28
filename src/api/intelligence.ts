@@ -24,8 +24,16 @@ export const api = {
 
   // Decisions (Story 6, Executor Resolver)
   listDecisions: (tenantId: string) => request(`/decisions/${tenantId}`),
+  /** POST /api/v1/decisions — records the decision to act on a recommendation. */
   approveRecommendation: (tenantId: string, recommendationId: string, rationale: string) =>
     request('/decisions', { method: 'POST', body: JSON.stringify({ tenantId, recommendationId, rationale }) }),
+  /**
+   * POST /api/v1/decisions/{tenantId}/{id}/approve — the governance act on an
+   * already-recorded decision. Distinct from creating one, and gated on the
+   * decision.approve permission rather than plain create.
+   */
+  approveDecision: (tenantId: string, id: string, body: Record<string, unknown> = {}) =>
+    request(`/decisions/${tenantId}/${id}/approve`, { method: 'POST', body: JSON.stringify(body) }),
 
   // Outcomes (Story 7)
   listOutcomes: (tenantId: string) => request(`/outcomes/${tenantId}`),
@@ -33,6 +41,8 @@ export const api = {
 
   // Learnings (Story 8)
   listLearnings: (tenantId: string) => request(`/learnings/${tenantId}`),
+  /** GET /api/v1/learnings/{tenantId}/reusable — the subset flagged for reuse. */
+  listReusableLearnings: (tenantId: string) => request(`/learnings/${tenantId}/reusable`),
   extractLearning: (body: Record<string, unknown>) => request('/learnings', { method: 'POST', body: JSON.stringify(body) }),
 };
 
@@ -53,6 +63,9 @@ export const decisionIntelligenceApi = {
 
   // Executors (Sprint 3) — the real data behind the Multi-Agent Monitor
   listExecutors: (tenantId: string) => request(`/executors/${tenantId}`),
+  /** POST /api/v1/executors */
+  createExecutor: (body: Record<string, unknown>) =>
+    request('/executors', { method: 'POST', body: JSON.stringify(body) }),
 
   // Evidence (Sprint 2) — the api object already has listEvidence/collectEvidence; this is the one genuinely missing method
   getEvidenceForSignal: (tenantId: string, signalId: string) => request(`/evidence/${tenantId}/signal/${signalId}`),

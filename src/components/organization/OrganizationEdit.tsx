@@ -15,21 +15,33 @@ export default function OrganizationEdit({ organization, onUpdated, onCancel }: 
     orgCode: organization.orgCode,
     industry: organization.industry ?? '',
     country: organization.country ?? '',
-    timezone: organization.timezone,
-    currency: organization.currency,
+    timezone: organization.timezone ?? '',
+    currency: organization.currency ?? '',
     logo: organization.logo ?? '',
     status: organization.status as 'active' | 'inactive' | 'archived',
   });
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
-      const org = await api.updateOrganization(organization.tenantId, organization.id, form);
-      if (org) onUpdated(org);
+      // OrganizationController::update() accepts only these three fields and
+      // maps them onto institute_detail columns. The remaining inputs on this
+      // form have no column to write to, so they are not sent rather than being
+      // posted and silently discarded by validate().
+      const org = await api.updateOrganization(organization.tenantId, organization.id, {
+        name: form.name,
+        orgCode: form.orgCode || null,
+        industry: form.industry || null,
+      });
+      onUpdated(org);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -68,7 +80,7 @@ export default function OrganizationEdit({ organization, onUpdated, onCancel }: 
           </select>
         </label>
         <div>
-          <button type="submit">Save</button>
+          <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Person } from './PersonApp';
 import { api } from '../../api/person';
+import { api as departmentApi } from '../../api/department';
 
 interface Props {
   tenantId: string;
@@ -28,33 +29,40 @@ export default function PersonCreate({ tenantId, orgId, onCreated, onCancel }: P
     designation: '',
     location: '',
     reportingManagerId: '',
-    createdBy: 'current-user',
   });
+  const [departments, setDepartments] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Department is an ERP id, so the options come from the departments endpoint
+  // for this organization rather than from a number typed by hand.
+  useEffect(() => {
+    departmentApi.listDepartments(tenantId, orgId).then(setDepartments).catch(() => setDepartments([]));
+  }, [tenantId, orgId]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
-      const person = await api.createPerson({
-        ...form,
-        tenantId,
-        orgId,
-        displayName: form.displayName || null,
+      // PersonController::store() validates exactly these seven fields and
+      // writes tbluser. The rest of this form — displayName, employmentType,
+      // joiningDate, designation, location, manager — has no column in tbluser
+      // and is not sent; created_by comes from the bearer token.
+      const person = await api.createPerson(tenantId, {
+        employeeId: form.employeeId,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        orgId: Number(orgId),
         phone: form.phone || null,
-        profilePhoto: form.profilePhoto || null,
         gender: form.gender || null,
-        dateOfBirth: form.dateOfBirth || null,
-        joiningDate: form.joiningDate || null,
-        departmentId: form.departmentId || null,
-        managerId: form.managerId || null,
-        designation: form.designation || null,
-        location: form.location || null,
-        reportingManagerId: form.reportingManagerId || null,
       });
       onCreated(person);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -100,10 +108,13 @@ export default function PersonCreate({ tenantId, orgId, onCreated, onCancel }: P
           Joining Date <input type="date" value={form.joiningDate} onChange={(e) => setForm({ ...form, joiningDate: e.target.value })} />
         </label>
         <label>
-          Department ID <input value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} />
-        </label>
-        <label>
-          Manager ID <input value={form.managerId} onChange={(e) => setForm({ ...form, managerId: e.target.value })} />
+          Department
+          <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
+            <option value="">Unassigned</option>
+            {departments.map((d: any) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
         </label>
         <label>
           Designation <input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
@@ -112,7 +123,7 @@ export default function PersonCreate({ tenantId, orgId, onCreated, onCancel }: P
           Location <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
         </label>
         <div>
-          <button type="submit">Create</button>
+          <button type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create'}</button>
           <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>

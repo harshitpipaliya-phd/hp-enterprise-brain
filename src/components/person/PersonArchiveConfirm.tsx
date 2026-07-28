@@ -11,14 +11,20 @@ interface Props {
 export default function PersonArchiveConfirm({ person, onArchived, onCancel }: Props) {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
 
   const submit = async () => {
     setError(null);
+    setArchiving(true);
     try {
-      const p = await api.archivePerson(person.tenantId, person.id);
-      if (p) onArchived(p);
+      // Acknowledges with {ok:true} and soft-deletes; the archived person is
+      // then excluded from every read, so the caller reloads the list.
+      await api.archivePerson(person.tenantId, person.id);
+      onArchived({ ...person, status: 'archived' });
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -29,7 +35,7 @@ export default function PersonArchiveConfirm({ person, onArchived, onCancel }: P
       <p>Type the person name to confirm: <strong>{person.displayName || `${person.firstName} ${person.lastName}`}</strong></p>
       <input value={confirm} onChange={(e) => setConfirm(e.target.value)} />
       <div>
-        <button disabled={confirm !== (person.displayName || `${person.firstName} ${person.lastName}`)} onClick={submit}>Archive</button>
+        <button disabled={confirm !== (person.displayName || `${person.firstName} ${person.lastName}`) || archiving} onClick={submit}>{archiving ? 'Archiving…' : 'Archive'}</button>
         <button onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
       </div>
       {error && <div style={{ color: 'red' }}>{error}</div>}
