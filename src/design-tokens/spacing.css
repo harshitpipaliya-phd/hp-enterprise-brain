@@ -1,0 +1,132 @@
+/* =============================================================================
+   EB-DLS v1.0 — SPACING · RADIUS · ELEVATION · DENSITY
+   4px base rhythm. Primitive scale → semantic intents → density modes.
+   Radius 6 / 9 / 14. Elevation = hairlines + long soft shadows; the instrument
+   stays flat and calm.
+
+   DENSITY: three modes via [data-density] on <html> or any ancestor —
+     comfortable · cozy (default) · compact
+   Components read the ACTIVE tokens (--ctl-pad-*, --row-h, --row-pad-x), which
+   each mode re-points. Default (unset) = cozy. Fallbacks in components keep the
+   original look if density is never set.
+   ============================================================================= */
+:root {
+  /* ---- Primitive scale (px) ---- */
+  --space-0:   0;
+  --space-px:  1px;
+  --space-0-5: 2px;
+  --space-1:   4px;
+  --space-1-5: 6px;
+  --space-2:   8px;
+  --space-2-5: 10px;
+  --space-3:   12px;
+  --space-3-5: 14px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+  --space-24:  96px;
+
+  /* ---- Legacy aliases (kept — existing components consume these) ---- */
+  --sp-1: var(--space-1);
+  --sp-2: var(--space-2);
+  --sp-3: var(--space-3);
+  --sp-4: var(--space-4);
+  --sp-5: var(--space-6);
+  --sp-6: var(--space-8);
+  --sp-7: var(--space-12);
+
+  /* ---- Semantic: inset (inner padding) ---- */
+  --inset-xs: var(--space-2);
+  --inset-sm: var(--space-3);
+  --inset-md: var(--space-4);
+  --inset-lg: var(--space-6);
+  --inset-xl: var(--space-8);
+
+  /* ---- Semantic: stack (vertical gap) ---- */
+  --stack-xs: var(--space-1);
+  --stack-sm: var(--space-2);
+  --stack-md: var(--space-4);
+  --stack-lg: var(--space-6);
+  --stack-xl: var(--space-8);
+
+  /* ---- Semantic: inline (horizontal gap) ---- */
+  --inline-xs: var(--space-1);
+  --inline-sm: var(--space-2);
+  --inline-md: var(--space-3);
+  --inline-lg: var(--space-4);
+
+  /* ---- Semantic: gutter + section (layout) ---- */
+  --gutter-sm: var(--space-4);
+  --gutter-md: var(--space-6);
+  --gutter-lg: var(--space-8);
+  --section-sm: var(--space-8);
+  --section-md: var(--space-12);
+  --section-lg: var(--space-16);
+
+  /* ---- Radius ---- */
+  --radius-xs: 6px;
+  --radius-sm: 9px;
+  --radius: 14px;
+
+  /* ---- Elevation ---- soft, neutral; premium on white, subtle on dark ---- */
+  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 10px 28px -14px rgba(16,24,40,.16);
+  --shadow-raise: 0 2px 5px rgba(16,24,40,.08), 0 20px 44px -18px rgba(16,24,40,.22);
+
+  /* =========================================================================
+     DENSITY — per-mode source values
+     ========================================================================= */
+  /* comfortable — touch / parent-facing / spacious */
+  --density-comfortable-ctl-pad-y: 12px;
+  --density-comfortable-ctl-pad-x: 18px;
+  --density-comfortable-row-h:     48px;
+  --density-comfortable-row-pad-x: var(--space-4);
+  --density-comfortable-field-gap: var(--space-4);
+
+  /* cozy — DEFAULT · analyst / staff instrument */
+  --density-cozy-ctl-pad-y: 9px;
+  --density-cozy-ctl-pad-x: 15px;
+  --density-cozy-row-h:     40px;
+  --density-cozy-row-pad-x: var(--space-3-5);
+  --density-cozy-field-gap: var(--space-3);
+
+  /* compact — power-user dense grids / high signal count */
+  --density-compact-ctl-pad-y: 5px;
+  --density-compact-ctl-pad-x: 11px;
+  --density-compact-row-h:     32px;
+  --density-compact-row-pad-x: var(--space-2-5);
+  --density-compact-field-gap: var(--space-2);
+
+  /* ---- ACTIVE density tokens (default = cozy). Components consume THESE. ---- */
+  --ctl-pad-y:  var(--density-cozy-ctl-pad-y);
+  --ctl-pad-x:  var(--density-cozy-ctl-pad-x);
+  --row-h:      var(--density-cozy-row-h);
+  --row-pad-x:  var(--density-cozy-row-pad-x);
+  --field-gap:  var(--density-cozy-field-gap);
+}
+
+[data-density="comfortable"] {
+  --ctl-pad-y:  var(--density-comfortable-ctl-pad-y);
+  --ctl-pad-x:  var(--density-comfortable-ctl-pad-x);
+  --row-h:      var(--density-comfortable-row-h);
+  --row-pad-x:  var(--density-comfortable-row-pad-x);
+  --field-gap:  var(--density-comfortable-field-gap);
+}
+[data-density="cozy"] {
+  --ctl-pad-y:  var(--density-cozy-ctl-pad-y);
+  --ctl-pad-x:  var(--density-cozy-ctl-pad-x);
+  --row-h:      var(--density-cozy-row-h);
+  --row-pad-x:  var(--density-cozy-row-pad-x);
+  --field-gap:  var(--density-cozy-field-gap);
+}
+[data-density="compact"] {
+  --ctl-pad-y:  var(--density-compact-ctl-pad-y);
+  --ctl-pad-x:  var(--density-compact-ctl-pad-x);
+  --row-h:      var(--density-compact-row-h);
+  --row-pad-x:  var(--density-compact-row-pad-x);
+  --field-gap:  var(--density-compact-field-gap);
+}

@@ -1,0 +1,14 @@
+/* EB-DLS v1.0 — Motion tokens
+   Motion explains; it never entertains. If a motion does not teach, remove it.
+   No infinite decorative loops. Every animation respects prefers-reduced-motion. */
+:root {
+  --dur-tap: 120ms; /* @kind other */
+  --dur-enter: 180ms; /* @kind other */
+  --dur-expand: 220ms; /* @kind other */
+  --dur-fill: 320ms; /* @kind other */
+  --stagger-feed: 40ms; /* @kind other */
+  --cadence-stream: 90ms; /* @kind other */
+
+  --ease-out: cubic-bezier(.22,.61,.36,1); /* @kind other */
+  --ease-teach: cubic-bezier(.4,0,.2,1); /* @kind other */
+}

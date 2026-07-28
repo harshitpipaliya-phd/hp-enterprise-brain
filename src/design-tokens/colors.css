@@ -1,0 +1,610 @@
+/* =============================================================================
+   EB-DLS v1.0 — COLOR TOKENS
+   3-tier architecture: PRIMITIVES → SEMANTIC ROLES → THEMES ([data-theme]).
+
+   Dark is the canonical HP Enterprise Brain instrument and the default (:root).
+   Additional themes are OPTIONS that re-point the semantic roles; they never
+   replace the dark default. All four stay within HP Brain identity: teal =
+   intelligence, gold = evidence, and the PROTECTED confidence scale keeps its
+   meaning in every theme (shifted only for contrast, never repurposed).
+
+   Themes:
+     dark                  · default instrument
+     light                 · light instrument (same identity, inverted surfaces)
+     high-contrast-dark    · AAA-leaning accessibility, near-black surfaces
+     high-contrast-light   · AAA-leaning accessibility, white surfaces
+
+   Apply on <html> or any ancestor: <html data-theme="light">.
+   Source of truth: EB-DLS v0.2 reference (uploads/EB-DLS-v0.2-reference.html).
+   ============================================================================= */
+
+/* =============================================================================
+   TIER 1 · PRIMITIVES — context-free ramps. Never consume directly.
+   ============================================================================= */
+:root {
+  /* ink (navy neutral) · lightest → darkest */
+  --color-ink-0:    #FFFFFF;
+  --color-ink-50:   #EDF2FB;
+  --color-ink-100:  #D8E0EE;
+  --color-ink-200:  #C0CCE0;
+  --color-ink-300:  #A9B6CE;
+  --color-ink-400:  #7D8CA8;
+  --color-ink-500:  #5A6882;
+  --color-ink-600:  #3B4763;
+  --color-ink-700:  #22334F;
+  --color-ink-750:  #1A2942;
+  --color-ink-800:  #152238;
+  --color-ink-850:  #101A2B;
+  --color-ink-900:  #0B1220;
+  --color-ink-950:  #080D16;
+  --color-ink-1000: #05080F;
+
+  /* teal (intelligence / signal) */
+  --color-teal-50:  #E6FBF8;
+  --color-teal-100: #C2F5EE;
+  --color-teal-200: #8FEBDF;
+  --color-teal-300: #5FE0D0;
+  --color-teal-400: #33D6C6;
+  --color-teal-500: #22B9AB;
+  --color-teal-600: #159B8E;
+  --color-teal-700: #107D73;
+  --color-teal-800: #0B5F58;
+  --color-teal-900: #08423D;
+  --color-teal-950: #04231F;
+
+  /* gold (evidence / provenance) */
+  --color-gold-50:  #FCF4DD;
+  --color-gold-100: #F8E7B4;
+  --color-gold-200: #F4D98A;
+  --color-gold-300: #F0C560;
+  --color-gold-400: #E0AE47;
+  --color-gold-500: #B98B24;
+  --color-gold-600: #9A7220;
+  --color-gold-700: #7A591A;
+  --color-gold-800: #5A4114;
+  --color-gold-900: #3B2A0D;
+  --color-gold-950: #241905;
+
+  /* green (success / verified) */
+  --color-green-50:  #E8F9EF;
+  --color-green-100: #C8F0D8;
+  --color-green-300: #8FE0AC;
+  --color-green-400: #5FD08A;
+  --color-green-500: #3DB870;
+  --color-green-600: #2E9459;
+  --color-green-700: #227044;
+  --color-green-800: #164D2E;
+  --color-green-900: #0E3D24;
+  --color-green-950: #082517;
+
+  /* amber (warning / medium confidence) */
+  --color-amber-50:  #FEF6E4;
+  --color-amber-100: #FCEBC1;
+  --color-amber-300: #F2CC82;
+  --color-amber-400: #EBB454;
+  --color-amber-500: #D69A2E;
+  --color-amber-600: #B47E20;
+  --color-amber-700: #8A5F17;
+  --color-amber-800: #5C4212;
+  --color-amber-900: #3F2D0C;
+  --color-amber-950: #241905;
+
+  /* red (critical / low confidence) */
+  --color-red-50:  #FDECE8;
+  --color-red-100: #FAD3CA;
+  --color-red-300: #F5A08F;
+  --color-red-350: #E8705A;
+  --color-red-400: #F1674E;
+  --color-red-500: #D94A30;
+  --color-red-600: #B23A24;
+  --color-red-700: #8A2C1B;
+  --color-red-800: #5E1D12;
+  --color-red-900: #40140C;
+  --color-red-950: #240A06;
+
+  /* violet (Scholar primary — intelligence/action accent in the light flagship) */
+  --color-violet-50:  #F3EEFE;
+  --color-violet-100: #E6DCFD;
+  --color-violet-200: #CDB8FB;
+  --color-violet-300: #B294F8;
+  --color-violet-400: #9A72F4;
+  --color-violet-500: #7C4DEE;
+  --color-violet-600: #6B34E0;
+  --color-violet-700: #5A28C0;
+  --color-violet-800: #46208F;
+  --color-violet-900: #2E1065;
+  --color-violet-950: #1C0940;
+
+  /* navy (Scholar ink — deep indigo-navy for text & dark tiles) */
+  --color-navy-50:  #EEF0F7;
+  --color-navy-100: #D6DAEA;
+  --color-navy-300: #9AA0C4;
+  --color-navy-500: #4A4B72;
+  --color-navy-700: #2A2A50;
+  --color-navy-800: #201F42;
+  --color-navy-900: #17152F;
+  --color-navy-950: #100E22;
+}
+
+/* =============================================================================
+   COMPATIBILITY ALIASES — HP Brain's established identity vocabulary.
+   Declared once; each references a SEMANTIC ROLE, so they re-theme automatically
+   (var() resolves at point of use). Every existing component keeps working.
+   ============================================================================= */
+:root {
+  --ink-900: var(--surface-deep);
+  --ink-800: var(--surface-ground);
+  --ink-700: var(--surface-card);
+  --ink-650: var(--surface-inset);
+  --ink-600: var(--surface-raised);
+  --ink-550: var(--surface-hover);
+
+  --line:   var(--border-subtle);
+  --line-2: var(--border-default);
+
+  --text-hi: var(--content-primary);
+  --text:    var(--content-secondary);
+  --text-lo: var(--content-tertiary);
+
+  --signal:      var(--accent-intelligence);
+  --signal-deep: var(--accent-intelligence-deep);
+  --signal-glow: var(--accent-intelligence-glow);
+  --evidence:      var(--accent-evidence);
+  --evidence-deep: var(--accent-evidence-deep);
+
+  --good: var(--status-good);
+  --warn: var(--status-warn);
+  --crit: var(--status-crit);
+
+  --text-body:    var(--content-secondary);
+  --text-heading: var(--content-primary);
+  --text-muted:   var(--content-tertiary);
+}
+
+/* =============================================================================
+   TIER 2 · SEMANTIC ROLES — DARK (dark instrument — opt-in via [data-theme="dark"])
+   ============================================================================= */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-deep:    var(--color-ink-950);
+  --surface-ground:  var(--color-ink-900);
+  --surface-card:    var(--color-ink-850);
+  --surface-inset:   var(--color-ink-800);
+  --surface-raised:  var(--color-ink-750);
+  --surface-hover:   var(--color-ink-700);
+  --surface-overlay: rgba(5, 8, 15, .66);
+
+  --content-primary:     var(--color-ink-50);
+  --content-secondary:   var(--color-ink-200);
+  --content-tertiary:    var(--color-ink-400);
+  --content-placeholder: var(--color-ink-500);
+  --content-inverse:     var(--color-ink-950);
+  --content-link:        var(--color-teal-400);
+  --content-link-hover:  var(--color-ink-50);
+  --content-on-accent:   var(--color-teal-950);
+
+  --border-subtle:  rgba(148, 170, 214, .12);
+  --border-default: rgba(148, 170, 214, .22);
+  --border-strong:  var(--color-ink-700);
+  --border-focus:   var(--color-teal-400);
+
+  --action-primary:        var(--color-teal-400);
+  --action-primary-hover:  var(--color-teal-300);
+  --action-primary-active: var(--color-teal-500);
+  --action-content:        var(--color-teal-950);
+  --action-subtle:         var(--color-teal-900);
+  --action-subtle-hover:   var(--color-teal-800);
+
+  --accent-intelligence:      var(--color-teal-400);
+  --accent-intelligence-deep: var(--color-teal-600);
+  --accent-intelligence-glow: rgba(51, 214, 198, .14);
+  --accent-evidence:          var(--color-gold-300);
+  --accent-evidence-deep:     var(--color-gold-500);
+
+  --status-good: var(--color-green-400);
+  --status-warn: var(--color-amber-400);
+  --status-crit: var(--color-red-400);
+
+  /* Confidence · PROTECTED */
+  --conf-none:     var(--color-ink-500);
+  --conf-low:      var(--color-red-350);
+  --conf-med:      var(--color-amber-400);
+  --conf-high:     var(--color-teal-400);
+  --conf-verified: var(--color-green-400);
+
+  --feedback-success-surface: var(--color-green-950);
+  --feedback-success-border:  var(--color-green-800);
+  --feedback-success-content: var(--color-green-300);
+  --feedback-success-solid:   var(--color-green-400);
+  --feedback-warning-surface: var(--color-amber-950);
+  --feedback-warning-border:  var(--color-amber-800);
+  --feedback-warning-content: var(--color-amber-300);
+  --feedback-warning-solid:   var(--color-amber-400);
+  --feedback-error-surface:   var(--color-red-950);
+  --feedback-error-border:    var(--color-red-800);
+  --feedback-error-content:   var(--color-red-300);
+  --feedback-error-solid:     var(--color-red-400);
+  --feedback-info-surface:    var(--color-teal-950);
+  --feedback-info-border:     var(--color-teal-800);
+  --feedback-info-content:    var(--color-teal-300);
+  --feedback-info-solid:      var(--color-teal-400);
+
+  --focus-ring:        var(--color-teal-400);
+  --focus-ring-offset: var(--color-ink-900);
+
+  /* ---- Confidence band SURFACE tints ---- */
+  --conf-none-surface:     rgba(148,170,214,.14);
+  --conf-low-surface:      var(--color-red-950);
+  --conf-med-surface:      var(--color-amber-950);
+  --conf-high-surface:     var(--color-gold-950);
+  --conf-verified-surface: var(--color-gold-900);
+
+  /* ---- Priority ramp P1–P4 (warm, brightened for dark) ---- */
+  --priority-p1:         var(--color-red-400);
+  --priority-p2:         var(--color-amber-400);
+  --priority-p3:         var(--color-gold-300);
+  --priority-p4:         var(--content-tertiary);
+  --priority-p1-surface: var(--color-red-950);
+  --priority-p2-surface: var(--color-amber-950);
+  --priority-p3-surface: var(--color-gold-950);
+  --priority-p4-surface: var(--surface-inset);
+
+  /* ---- Outcome (warm) ---- */
+  --outcome-success:         var(--color-gold-300);
+  --outcome-partial:         var(--color-amber-400);
+  --outcome-failure:         var(--color-red-400);
+  --outcome-success-surface: var(--color-gold-950);
+  --outcome-partial-surface: var(--color-amber-950);
+  --outcome-failure-surface: var(--color-red-950);
+
+  /* ---- Lifecycle badges ---- */
+  --lifecycle-draft:            var(--content-tertiary);
+  --lifecycle-active:           var(--color-gold-300);
+  --lifecycle-paused:           var(--color-amber-400);
+  --lifecycle-archived:         var(--color-ink-500);
+  --lifecycle-error:            var(--color-red-400);
+  --lifecycle-draft-surface:    var(--surface-inset);
+  --lifecycle-active-surface:   var(--color-gold-950);
+  --lifecycle-paused-surface:   var(--color-amber-950);
+  --lifecycle-archived-surface: var(--surface-inset);
+  --lifecycle-error-surface:    var(--color-red-950);
+}
+
+/* =============================================================================
+   SEMANTIC ROLES — LIGHT · GOLDEN INSTRUMENT (DEFAULT)
+   White + light-yellow + gold. NO green, NO teal anywhere. Intelligence and
+   all positive/success accents are warm gold; evidence is deep gold. The
+   protected confidence scale keeps its MEANING (doubt→certainty) — only its
+   hues shift into a warm ramp (gray → red → amber → gold → deep gold).
+   ============================================================================= */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --surface-deep:    #EFEBDD;
+  --surface-ground:  #FAF8F1;
+  --surface-card:    #FFFFFF;
+  --surface-inset:   #F6F2E6;
+  --surface-raised:  #FFFFFF;
+  --surface-hover:   #F5EFDD;
+  --surface-overlay: rgba(40, 30, 8, .34);
+
+  --content-primary:     #1F1B12;
+  --content-secondary:   #6A6353;
+  --content-tertiary:    #A59B84;
+  --content-placeholder: #BCB29A;
+  --content-inverse:     #FFFFFF;
+  --content-link:        var(--color-gold-600);
+  --content-link-hover:  var(--color-gold-700);
+  --content-on-accent:   #FFFFFF;
+
+  --border-subtle:  rgba(40, 30, 8, .07);
+  --border-default: rgba(40, 30, 8, .13);
+  --border-strong:  #D9CDA8;
+  --border-focus:   var(--color-gold-600);
+
+  --action-primary:        var(--color-gold-600);
+  --action-primary-hover:  var(--color-gold-700);
+  --action-primary-active: var(--color-gold-800);
+  --action-content:        var(--color-ink-0);
+  --action-subtle:         var(--color-gold-50);
+  --action-subtle-hover:   var(--color-gold-100);
+
+  --accent-intelligence:      var(--color-gold-600);
+  --accent-intelligence-deep: var(--color-gold-700);
+  --accent-intelligence-glow: rgba(185, 139, 36, .18);
+  --accent-evidence:          var(--color-gold-500);
+  --accent-evidence-deep:     var(--color-gold-700);
+
+  --status-good: var(--color-gold-600);
+  --status-warn: var(--color-amber-600);
+  --status-crit: var(--color-red-600);
+
+  /* Confidence · PROTECTED — meaning unchanged; warm-only hues (no green/teal) */
+  --conf-none:     #A59B84;
+  --conf-low:      var(--color-red-600);
+  --conf-med:      var(--color-amber-500);
+  --conf-high:     var(--color-gold-400);
+  --conf-verified: var(--color-gold-700);
+
+  --feedback-success-surface: var(--color-gold-50);
+  --feedback-success-border:  var(--color-gold-200);
+  --feedback-success-content: var(--color-gold-700);
+  --feedback-success-solid:   var(--color-gold-600);
+  --feedback-warning-surface: var(--color-amber-50);
+  --feedback-warning-border:  var(--color-amber-300);
+  --feedback-warning-content: var(--color-amber-700);
+  --feedback-warning-solid:   var(--color-amber-600);
+  --feedback-error-surface:   var(--color-red-50);
+  --feedback-error-border:    var(--color-red-300);
+  --feedback-error-content:   var(--color-red-700);
+  --feedback-error-solid:     var(--color-red-600);
+  --feedback-info-surface:    var(--color-gold-50);
+  --feedback-info-border:     var(--color-gold-200);
+  --feedback-info-content:    var(--color-gold-700);
+  --feedback-info-solid:      var(--color-gold-600);
+
+  --focus-ring:        var(--color-gold-600);
+  --focus-ring-offset: var(--color-ink-0);
+
+  /* ---- Confidence band SURFACE tints (companions to the protected --conf-*) ---- */
+  --conf-none-surface:     rgba(165,155,132,.16);
+  --conf-low-surface:      var(--color-red-50);
+  --conf-med-surface:      var(--color-amber-50);
+  --conf-high-surface:     var(--color-gold-50);
+  --conf-verified-surface: var(--color-gold-100);
+
+  /* ---- Priority ramp P1–P4 (warm: red → amber → gold → gray) ---- */
+  --priority-p1:         var(--color-red-600);   /* critical / urgent */
+  --priority-p2:         var(--color-amber-600); /* high */
+  --priority-p3:         var(--color-gold-600);  /* medium */
+  --priority-p4:         var(--content-tertiary);/* low */
+  --priority-p1-surface: var(--color-red-50);
+  --priority-p2-surface: var(--color-amber-50);
+  --priority-p3-surface: var(--color-gold-50);
+  --priority-p4-surface: var(--surface-inset);
+
+  /* ---- Outcome (warm: gold success, amber partial, red failure) ---- */
+  --outcome-success:         var(--color-gold-600);
+  --outcome-partial:         var(--color-amber-600);
+  --outcome-failure:         var(--color-red-600);
+  --outcome-success-surface: var(--color-gold-50);
+  --outcome-partial-surface: var(--color-amber-50);
+  --outcome-failure-surface: var(--color-red-50);
+
+  /* ---- Lifecycle badges ---- */
+  --lifecycle-draft:            var(--content-tertiary);
+  --lifecycle-active:           var(--color-gold-600);
+  --lifecycle-paused:           var(--color-amber-600);
+  --lifecycle-archived:         var(--color-ink-300);
+  --lifecycle-error:            var(--color-red-600);
+  --lifecycle-draft-surface:    var(--surface-inset);
+  --lifecycle-active-surface:   var(--color-gold-50);
+  --lifecycle-paused-surface:   var(--color-amber-50);
+  --lifecycle-archived-surface: var(--surface-inset);
+  --lifecycle-error-surface:    var(--color-red-50);
+}
+
+/* =============================================================================
+   SEMANTIC ROLES — HIGH CONTRAST DARK (AAA-leaning)
+   ============================================================================= */
+[data-theme="high-contrast-dark"] {
+  color-scheme: dark;
+
+  --surface-deep:    #000000;
+  --surface-ground:  var(--color-ink-1000);
+  --surface-card:    var(--color-ink-950);
+  --surface-inset:   var(--color-ink-900);
+  --surface-raised:  var(--color-ink-850);
+  --surface-hover:   var(--color-ink-800);
+  --surface-overlay: rgba(0, 0, 0, .82);
+
+  --content-primary:     var(--color-ink-0);
+  --content-secondary:   var(--color-ink-100);
+  --content-tertiary:    var(--color-ink-200);
+  --content-placeholder: var(--color-ink-300);
+  --content-inverse:     #000000;
+  --content-link:        var(--color-teal-300);
+  --content-link-hover:  var(--color-ink-0);
+  --content-on-accent:   var(--color-teal-950);
+
+  --border-subtle:  rgba(148, 170, 214, .30);
+  --border-default: rgba(148, 170, 214, .48);
+  --border-strong:  var(--color-ink-400);
+  --border-focus:   var(--color-teal-300);
+
+  --action-primary:        var(--color-teal-300);
+  --action-primary-hover:  var(--color-teal-200);
+  --action-primary-active: var(--color-teal-400);
+  --action-content:        var(--color-teal-950);
+  --action-subtle:         var(--color-teal-900);
+  --action-subtle-hover:   var(--color-teal-800);
+
+  --accent-intelligence:      var(--color-teal-300);
+  --accent-intelligence-deep: var(--color-teal-500);
+  --accent-intelligence-glow: rgba(95, 224, 208, .22);
+  --accent-evidence:          var(--color-gold-200);
+  --accent-evidence-deep:     var(--color-gold-400);
+
+  --status-good: var(--color-green-300);
+  --status-warn: var(--color-amber-300);
+  --status-crit: var(--color-red-300);
+
+  /* Confidence · PROTECTED — brightened for HC, meaning unchanged */
+  --conf-none:     var(--color-ink-300);
+  --conf-low:      var(--color-red-300);
+  --conf-med:      var(--color-amber-300);
+  --conf-high:     var(--color-teal-300);
+  --conf-verified: var(--color-green-300);
+
+  --feedback-success-surface: var(--color-green-950);
+  --feedback-success-border:  var(--color-green-400);
+  --feedback-success-content: var(--color-green-200, #C8F0D8);
+  --feedback-success-solid:   var(--color-green-300);
+  --feedback-warning-surface: var(--color-amber-950);
+  --feedback-warning-border:  var(--color-amber-400);
+  --feedback-warning-content: var(--color-amber-100);
+  --feedback-warning-solid:   var(--color-amber-300);
+  --feedback-error-surface:   var(--color-red-950);
+  --feedback-error-border:    var(--color-red-400);
+  --feedback-error-content:   var(--color-red-100);
+  --feedback-error-solid:     var(--color-red-300);
+  --feedback-info-surface:    var(--color-teal-950);
+  --feedback-info-border:     var(--color-teal-400);
+  --feedback-info-content:    var(--color-teal-100);
+  --feedback-info-solid:      var(--color-teal-300);
+
+  --focus-ring:        var(--color-teal-300);
+  --focus-ring-offset: #000000;
+}
+
+/* =============================================================================
+   SEMANTIC ROLES — HIGH CONTRAST LIGHT (AAA-leaning)
+   ============================================================================= */
+[data-theme="high-contrast-light"] {
+  color-scheme: light;
+
+  --surface-deep:    var(--color-ink-100);
+  --surface-ground:  var(--color-ink-0);
+  --surface-card:    var(--color-ink-0);
+  --surface-inset:   var(--color-ink-50);
+  --surface-raised:  var(--color-ink-0);
+  --surface-hover:   var(--color-ink-100);
+  --surface-overlay: rgba(0, 0, 0, .70);
+
+  --content-primary:     #000000;
+  --content-secondary:   var(--color-ink-900);
+  --content-tertiary:    var(--color-ink-700);
+  --content-placeholder: var(--color-ink-600);
+  --content-inverse:     var(--color-ink-0);
+  --content-link:        var(--color-teal-800);
+  --content-link-hover:  var(--color-teal-950);
+  --content-on-accent:   var(--color-ink-0);
+
+  --border-subtle:  rgba(11, 18, 32, .28);
+  --border-default: var(--color-ink-700);
+  --border-strong:  #000000;
+  --border-focus:   var(--color-teal-700);
+
+  --action-primary:        var(--color-teal-700);
+  --action-primary-hover:  var(--color-teal-800);
+  --action-primary-active: var(--color-teal-950);
+  --action-content:        var(--color-ink-0);
+  --action-subtle:         var(--color-teal-100);
+  --action-subtle-hover:   var(--color-teal-200);
+
+  --accent-intelligence:      var(--color-teal-700);
+  --accent-intelligence-deep: var(--color-teal-800);
+  --accent-intelligence-glow: rgba(16, 125, 115, .20);
+  --accent-evidence:          var(--color-gold-700);
+  --accent-evidence-deep:     var(--color-gold-800);
+
+  --status-good: var(--color-green-700);
+  --status-warn: var(--color-amber-700);
+  --status-crit: var(--color-red-700);
+
+  /* Confidence · PROTECTED */
+  --conf-none:     var(--color-ink-600);
+  --conf-low:      var(--color-red-700);
+  --conf-med:      var(--color-amber-700);
+  --conf-high:     var(--color-teal-700);
+  --conf-verified: var(--color-green-700);
+
+  --feedback-success-surface: var(--color-green-50);
+  --feedback-success-border:  var(--color-green-700);
+  --feedback-success-content: var(--color-green-900);
+  --feedback-success-solid:   var(--color-green-700);
+  --feedback-warning-surface: var(--color-amber-50);
+  --feedback-warning-border:  var(--color-amber-700);
+  --feedback-warning-content: var(--color-amber-900);
+  --feedback-warning-solid:   var(--color-amber-700);
+  --feedback-error-surface:   var(--color-red-50);
+  --feedback-error-border:    var(--color-red-700);
+  --feedback-error-content:   var(--color-red-900);
+  --feedback-error-solid:     var(--color-red-700);
+  --feedback-info-surface:    var(--color-teal-50);
+  --feedback-info-border:     var(--color-teal-700);
+  --feedback-info-content:    var(--color-teal-950);
+  --feedback-info-solid:      var(--color-teal-700);
+
+  --focus-ring:        var(--color-teal-700);
+  --focus-ring-offset: var(--color-ink-0);
+}
+
+/* =============================================================================
+   SEMANTIC ROLES — SCHOLAR (white & navy flagship; violet primary)
+   The catchy education/marketing light look. White surfaces, deep navy ink,
+   violet as the intelligence/action accent, warm data accents. The PROTECTED
+   confidence scale keeps its MEANING (none/low/med/high/verified) — violet is
+   the brand accent, never a confidence band.
+   ============================================================================= */
+[data-theme="scholar"] {
+  color-scheme: light;
+
+  --surface-deep:    #ECEDF4;
+  --surface-ground:  #F7F8FC;
+  --surface-card:    #FFFFFF;
+  --surface-inset:   #F1F2F9;
+  --surface-raised:  #FFFFFF;
+  --surface-hover:   var(--color-violet-50);
+  --surface-overlay: rgba(23, 21, 47, .42);
+
+  --content-primary:     var(--color-navy-900);
+  --content-secondary:   var(--color-navy-500);
+  --content-tertiary:    var(--color-navy-300);
+  --content-placeholder: #9EA2BE;
+  --content-inverse:     #FFFFFF;
+  --content-link:        var(--color-violet-600);
+  --content-link-hover:  var(--color-violet-800);
+  --content-on-accent:   #FFFFFF;
+
+  --border-subtle:  rgba(23, 21, 47, .08);
+  --border-default: rgba(23, 21, 47, .14);
+  --border-strong:  var(--color-navy-300);
+  --border-focus:   var(--color-violet-500);
+
+  --action-primary:        var(--color-violet-500);
+  --action-primary-hover:  var(--color-violet-600);
+  --action-primary-active: var(--color-violet-700);
+  --action-content:        #FFFFFF;
+  --action-subtle:         var(--color-violet-50);
+  --action-subtle-hover:   var(--color-violet-100);
+
+  --accent-intelligence:      var(--color-violet-500);
+  --accent-intelligence-deep: var(--color-violet-700);
+  --accent-intelligence-glow: rgba(124, 77, 238, .16);
+  --accent-evidence:          var(--color-gold-500);
+  --accent-evidence-deep:     var(--color-gold-600);
+
+  --status-good: var(--color-green-600);
+  --status-warn: var(--color-amber-600);
+  --status-crit: var(--color-red-600);
+
+  /* Confidence · PROTECTED — meaning unchanged, tuned for white contrast */
+  --conf-none:     var(--color-navy-300);
+  --conf-low:      var(--color-red-600);
+  --conf-med:      var(--color-gold-600);
+  --conf-high:     var(--color-teal-700);
+  --conf-verified: var(--color-green-600);
+
+  --feedback-success-surface: var(--color-green-50);
+  --feedback-success-border:  var(--color-green-300);
+  --feedback-success-content: var(--color-green-700);
+  --feedback-success-solid:   var(--color-green-600);
+  --feedback-warning-surface: var(--color-amber-50);
+  --feedback-warning-border:  var(--color-amber-300);
+  --feedback-warning-content: var(--color-amber-700);
+  --feedback-warning-solid:   var(--color-amber-600);
+  --feedback-error-surface:   var(--color-red-50);
+  --feedback-error-border:    var(--color-red-300);
+  --feedback-error-content:   var(--color-red-700);
+  --feedback-error-solid:     var(--color-red-600);
+  --feedback-info-surface:    var(--color-violet-50);
+  --feedback-info-border:     var(--color-violet-200);
+  --feedback-info-content:    var(--color-violet-700);
+  --feedback-info-solid:      var(--color-violet-500);
+
+  --focus-ring:        var(--color-violet-500);
+  --focus-ring-offset: #FFFFFF;
+}

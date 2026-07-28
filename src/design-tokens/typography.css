@@ -1,0 +1,29 @@
+/* EB-DLS v1.0 — Type tokens
+   Display: Space Grotesk · Body: Inter · Data: IBM Plex Mono
+   Rule: all evidence values, IDs, timestamps, and confidence numbers are set in mono.
+   Mono = machine-grounded fact. */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --sans: "Inter", system-ui, -apple-system, sans-serif; /* @kind font */
+  --display: "Space Grotesk", "Inter", sans-serif; /* @kind font */
+  --mono: "IBM Plex Mono", ui-monospace, monospace; /* @kind font */
+
+  /* Semantic aliases */
+  --font-body: var(--sans);
+  --font-display: var(--display);
+  --font-data: var(--mono);
+
+  /* Scale */
+  --fs-caption: 11px;     /* mono labels, eyebrows, provenance */
+  --fs-small: 12.5px;     /* secondary copy, chips */
+  --fs-body: 15px;        /* body default */
+  --fs-emphasis: 17px;    /* card titles, law text */
+  --fs-h3: 20px;
+  --fs-h2: 28px;
+  --fs-h1: 38px;
+
+  --lh-body: 1.6; /* @kind other */
+  --lh-tight: 1.25; /* @kind other */
+  --ls-eyebrow: .16em; /* @kind other */
+}
