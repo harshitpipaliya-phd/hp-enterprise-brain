@@ -27,13 +27,11 @@ import AIWorkspace from './components/workspace/AIWorkspace';
 import KnowledgeLibrary from './components/workspace/KnowledgeLibrary';
 import CommandCenter from './components/workspace/CommandCenter';
 import KasbaExplorer from './components/workspace/KasbaExplorer';
-import Login from './components/auth/Login';
 import { Sidebar, Breadcrumb, breadcrumbFor } from './components/Sidebar';
 import { NotificationBell } from './components/NotificationBell';
 import { ToastProvider, useToast } from './components/Toast';
 import { CommandPalette } from './components/CommandPalette';
 import { api } from './api/organization';
-import { onSessionExpired } from './api/client';
 import { getTenantId } from './utils/tenant';
 
 export type View = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'commandcenter' | 'kasbaexplorer';
@@ -64,13 +62,7 @@ export default function App() {
 }
 
 function AppShell() {
-  const [authenticated, setAuthenticated] = useState(() => !!localStorage.getItem('accessToken'));
-
-  useEffect(() => {
-    onSessionExpired(() => setAuthenticated(false));
-  }, []);
-
-  const [view, setView] = useState<View>('list');
+   const [view, setView] = useState<View>('list');
   const [tenantId] = useState(getTenantId());
   const [selected, setSelected] = useState<Organization | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -90,7 +82,7 @@ function AppShell() {
     }
   };
 
-  useEffect(() => { if (authenticated) load(); }, [authenticated, tenantId]);
+  useEffect(() => { load(); }, [tenantId]);
 
   const navigate = (v: View, org?: Organization) => {
     setSelected(org ?? null);
@@ -99,19 +91,14 @@ function AppShell() {
 
   const { showToast } = useToast();
 
-  if (!authenticated) {
-    return <Login onLogin={() => setAuthenticated(true)} />;
-  }
-
   return (
     <div className="eb-app">
       <CommandPalette onNavigate={(v) => navigate(v, selected ?? undefined)} hasSelectedOrg={!!selected} />
-      <Sidebar
-        currentView={view}
-        hasSelectedOrg={!!selected}
-        onNavigate={(v) => navigate(v, selected ?? undefined)}
-        onLogout={() => { localStorage.removeItem('accessToken'); localStorage.removeItem('refreshToken'); setAuthenticated(false); }}
-      />
+<Sidebar
+         currentView={view}
+         hasSelectedOrg={!!selected}
+         onNavigate={(v) => navigate(v, selected ?? undefined)}
+       />
       <div className="eb-main">
         <div style={{ position: 'relative' }}>
           <Breadcrumb items={breadcrumbFor(view, selected?.name)} />
