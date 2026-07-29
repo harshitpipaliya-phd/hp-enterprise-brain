@@ -201,7 +201,9 @@ export default function DepartmentIntelligence({ tenantId, departmentId, onBack,
                         role={onSelectPerson ? 'button' : undefined}
                         onClick={() => onSelectPerson && onSelectPerson(p.id)}
                       >
-                        <span className="eb-avatar">{p.firstName[0]}{p.lastName[0]}</span>
+                        {/* Optional-chained: a person row with no name on file
+                            is a data state, not a reason to blank the screen. */}
+                        <span className="eb-avatar">{p.firstName?.[0]}{p.lastName?.[0]}</span>
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <div className="eb-list-row-name">{p.firstName} {p.lastName}</div>
                           <div className="eb-list-row-sub">{p.designation ?? p.jobTitle ?? '\u2014'}</div>

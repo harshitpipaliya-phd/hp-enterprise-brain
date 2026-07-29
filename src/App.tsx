@@ -28,6 +28,7 @@ import KnowledgeLibrary from './components/workspace/KnowledgeLibrary';
 import CommandCenter from './components/workspace/CommandCenter';
 import KasbaExplorer from './components/workspace/KasbaExplorer';
 import Login from './components/auth/Login';
+import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { Sidebar, Breadcrumb, breadcrumbFor } from './components/Sidebar';
 import { NotificationBell } from './components/NotificationBell';
 import { ToastProvider, useToast } from './components/Toast';
@@ -166,6 +167,12 @@ function AppShell() {
           )}
         </div>
         <div className="eb-content">
+          {/*
+            Keyed on `view` so navigating to another screen clears a caught
+            error — without the key the boundary would stay in its failed state
+            and every subsequent screen would show the same stale message.
+          */}
+          <ErrorBoundary key={view} label={view}>
           {view === 'list' && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
               <button onClick={() => navigate('create')}>+ New Organization</button>
@@ -293,6 +300,7 @@ function AppShell() {
           onCancel={() => navigate('details', selected)}
         />
       )}
+          </ErrorBoundary>
         </div>
       </div>
     </div>

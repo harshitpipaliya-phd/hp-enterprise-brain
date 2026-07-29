@@ -45,7 +45,11 @@ export default function KasbaExplorer({ tenantId }: { tenantId: string }) {
   useEffect(() => {
     setLoading(true);
     Promise.all([kasbaApi.heatmap(tenantId), capabilityApi.listCapabilities(tenantId)])
-      .then(([hm, caps]) => { setHeatmap(hm); setCapabilities(caps); })
+      // The heatmap endpoint answers with an envelope: `cells` is the
+      // per-(capability, department) grid this screen draws, alongside the
+      // five-dimension roll-up it also publishes. Assigning the envelope
+      // itself here is what made heatmap.map throw.
+      .then(([hm, caps]) => { setHeatmap(Array.isArray(hm?.cells) ? hm.cells : []); setCapabilities(caps); })
       .catch((e: any) => showToast('error', e.message))
       .finally(() => setLoading(false));
   }, [tenantId]);

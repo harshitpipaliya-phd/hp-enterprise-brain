@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { decisionIntelligenceApi } from '../../api/intelligence';
-import { API_BASE } from '../../api/client.js';
+import { API_BASE, authToken } from '../../api/client.js';
 import { useTheme } from '../../hooks/useTheme';
 
 interface DecisionIntelligenceData {
@@ -33,18 +33,32 @@ export default function DecisionIntelligence({ tenantId }: { tenantId: string })
       .finally(() => setLoading(false));
   }, [tenantId]);
 
+  /**
+   * Reads the token through authToken() rather than localStorage directly, so
+   * the export works in a dev-bypass session like every other call. Sending no
+   * Authorization header at all produced a 401 whose JSON body was then saved
+   * as decisions-<tenant>.csv — a downloaded file that looked like a success.
+   */
   const exportCsv = async () => {
-    const token = localStorage.getItem('accessToken');
-    const res = await fetch(`${API_BASE}/analytics/${tenantId}/decisions/export.csv`, {
-      headers: token ? { authorization: `Bearer ${token}` } : {},
-    });
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `decisions-${tenantId}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/analytics/${tenantId}/decisions/export.csv`, {
+        headers: { Authorization: `Bearer ${authToken()}` },
+      });
+      if (!res.ok) {
+        setError(`Export failed (HTTP ${res.status}).`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `decisions-${tenantId}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e.message);
+    }
   };
 
   if (loading) return <div style={{ padding: 24 }}>Loading decision intelligence...</div>;
