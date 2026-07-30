@@ -26,6 +26,7 @@ import ExecutionCenter from './components/workspace/ExecutionCenter';
 import AIWorkspace from './components/workspace/AIWorkspace';
 import KnowledgeLibrary from './components/workspace/KnowledgeLibrary';
 import MemoryScreen from './components/workspace/MemoryScreen';
+import EsoLibraryScreen from './components/workspace/EsoLibraryScreen';
 import CommandCenter from './components/workspace/CommandCenter';
 import KasbaExplorer from './components/workspace/KasbaExplorer';
 import Login from './components/auth/Login';
@@ -39,7 +40,7 @@ import type { OrganizationRow } from './api/organization';
 import { onSessionExpired } from './api/client';
 import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
 
-export type View = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'commandcenter' | 'kasbaexplorer';
+export type View = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer';
 
 /**
  * The organization shape is now owned by api/organization.ts, which is where
@@ -290,6 +291,9 @@ function AppShell() {
       )}
       {view === 'memory' && selected && (
         <MemoryScreen tenantId={selected.tenantId} />
+      )}
+      {view === 'esolibrary' && selected && (
+        <EsoLibraryScreen />
       )}
       {view === 'commandcenter' && selected && (
         <CommandCenter tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />

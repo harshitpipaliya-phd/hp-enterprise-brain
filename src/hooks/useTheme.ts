@@ -9,6 +9,11 @@ import { useState, useEffect } from 'react';
  * exposes a small color object each screen reads from instead of hardcoding
  * hex values. Scoped to the two actual dashboard screens named in the audit
  * (Intelligence Workspace, Decision Analytics) — not a site-wide redesign.
+ *
+ * @deprecated Use CSS custom properties (var(--token)) via the rcl/ primitive
+ * components or inline var(--token) references. This hook returns a hardcoded
+ * hex palette that bypasses the design-token system. It remains available
+ * because ~18 screens still import it. Migrate screen-by-screen to rcl/.
  */
 export interface Theme {
   isDark: boolean;

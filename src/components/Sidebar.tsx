@@ -35,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: 'aiworkspace', label: 'AI Workspace', section: 'Knowledge', requiresOrg: true, icon: '⚙' },
   { view: 'knowledgelibrary', label: 'Knowledge Library', section: 'Knowledge', requiresOrg: true, icon: '☷' },
   { view: 'memory', label: 'Memory', section: 'Knowledge', requiresOrg: true, icon: '◈' },
+  { view: 'esolibrary', label: 'ESO Library', section: 'Knowledge', requiresOrg: true, icon: '⚙' },
 
   { view: 'agents', label: 'Agent Monitor', section: 'Automation', requiresOrg: true, icon: '◉' },
   { view: 'tasks', label: 'Task Orchestrator', section: 'Automation', requiresOrg: true, icon: '☑' },
