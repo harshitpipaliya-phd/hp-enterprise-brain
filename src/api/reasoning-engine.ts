@@ -4,4 +4,5 @@ export const reasoningEngineApi = {
   missingEvidence: (tenantId: string) => request(`/reasoning-engine/${tenantId}/missing-evidence`),
   duplicateSignals: (tenantId: string) => request(`/reasoning-engine/${tenantId}/duplicate-signals`),
   earlyWarnings: (tenantId: string) => request(`/reasoning-engine/${tenantId}/early-warnings`),
+  memoryStats: (tenantId: string) => request(`/reasoning-engine/${tenantId}/memory-stats`),
 };
