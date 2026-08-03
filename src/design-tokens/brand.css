@@ -1,0 +1,277 @@
+/* =============================================================================
+   ENTERPRISE BRAIN — BRAND OVERLAY
+   Navy · Gold · Cream · White
+
+   WHY THIS FILE EXISTS RATHER THAN AN EDIT TO colors.css.
+   design-tokens/colors.css declares itself copied verbatim from the EB-DLS
+   source of truth, "not re-derived, to guarantee fidelity". Editing it would
+   break that guarantee and be silently reverted the next time it is synced.
+   This layer loads AFTER it and re-points the semantic roles, so the vendored
+   primitives stay intact and the brand palette still wins.
+
+   LOAD ORDER MATTERS: colors.css → brand.css → theme.css → dashboard.css.
+   Later files consume these roles, so this must be resolved before them.
+
+   Only SEMANTIC roles and new system tokens are declared here. Nothing below
+   consumes a primitive directly — that is what the roles are for.
+   ============================================================================= */
+
+:root {
+  /* ---- Tier 1 · brand primitives -------------------------------------- */
+
+  /* navy — the product's ground colour */
+  --eb-navy-900: #071426;
+  --eb-navy-800: #0A192D;
+  --eb-navy-700: #10243D;
+  --eb-navy-600: #16304F;
+  --eb-navy-500: #1E3D63;
+
+  /* gold — brand accent and primary action */
+  --eb-gold-600: #B8891F;
+  --eb-gold-500: #D5A32C;
+  --eb-gold-400: #E4B442;
+  --eb-gold-300: #F0C75E;
+  --eb-gold-100: #FBEDC9;
+  --eb-gold-50:  #FDF7E8;
+
+  /* warm neutrals — page ground and card surfaces */
+  --eb-cream-200: #F7F6F1;
+  --eb-cream-100: #FAF9F5;
+  --eb-white:     #FFFFFF;
+
+  /* text ramp */
+  --eb-text-900: #0F172A;
+  --eb-text-700: #334155;
+  --eb-text-500: #64748B;
+  --eb-text-400: #94A3B8;
+
+  /* status — reserved, never reused as a categorical hue */
+  --eb-success: #16A34A;
+  --eb-warning: #D97706;
+  --eb-danger:  #DC2626;
+  --eb-info:    #2563EB;
+
+  --eb-success-surface: #ECFDF3;
+  --eb-warning-surface: #FEF6E7;
+  --eb-danger-surface:  #FEF0F0;
+  --eb-info-surface:    #EFF4FE;
+
+  --eb-success-border: #A7E9C0;
+  --eb-warning-border: #F5CE95;
+  --eb-danger-border:  #F5AFAF;
+  --eb-info-border:    #B4CBF8;
+
+  /* ---- Tier 2 · semantic roles (override EB-DLS defaults) -------------- */
+
+  --surface-deep:    var(--eb-cream-200);
+  --surface-ground:  var(--eb-cream-200);
+  --surface-card:    var(--eb-white);
+  --surface-inset:   var(--eb-cream-100);
+  --surface-raised:  var(--eb-white);
+  --surface-hover:   var(--eb-cream-200);
+  --surface-overlay: rgba(7, 20, 38, 0.55);
+
+  --content-primary:     var(--eb-text-900);
+  --content-secondary:   var(--eb-text-700);
+  --content-tertiary:    var(--eb-text-500);
+  --content-placeholder: var(--eb-text-400);
+  --content-inverse:     var(--eb-white);
+  --content-link:        var(--eb-gold-600);
+  --content-link-hover:  var(--eb-navy-800);
+  --content-on-accent:   var(--eb-navy-900);
+
+  --border-subtle:  rgba(15, 23, 42, 0.08);
+  --border-default: rgba(15, 23, 42, 0.14);
+  --border-strong:  rgba(15, 23, 42, 0.22);
+  --border-focus:   var(--eb-gold-500);
+
+  --action-primary:        var(--eb-gold-500);
+  --action-primary-hover:  var(--eb-gold-400);
+  --action-primary-active: var(--eb-gold-600);
+  --action-content:        var(--eb-navy-900);
+  --action-subtle:         var(--eb-gold-50);
+  --action-subtle-hover:   var(--eb-gold-100);
+
+  --accent-intelligence:      var(--eb-gold-500);
+  --accent-intelligence-deep: var(--eb-gold-600);
+  --accent-intelligence-glow: rgba(213, 163, 44, 0.18);
+  --accent-evidence:          var(--eb-navy-700);
+  --accent-evidence-deep:     var(--eb-navy-800);
+
+  /*
+    STATUS ROLES ARE GENUINELY DISTINCT HERE.
+    EB-DLS's light theme maps --status-good to gold-600 (#9A7220) and
+    --status-warn to amber-600 (#B47E20) — the same brown to any reader, which
+    makes "healthy" and "needs attention" indistinguishable. Green/amber/red are
+    four distinct hues and each still ships with a word or icon beside it.
+  */
+  --status-good: var(--eb-success);
+  --status-warn: var(--eb-warning);
+  --status-crit: var(--eb-danger);
+  --status-info: var(--eb-info);
+
+  --feedback-success-surface: var(--eb-success-surface);
+  --feedback-success-border:  var(--eb-success-border);
+  --feedback-success-content: #0F7A38;
+  --feedback-success-solid:   var(--eb-success);
+
+  --feedback-warning-surface: var(--eb-warning-surface);
+  --feedback-warning-border:  var(--eb-warning-border);
+  --feedback-warning-content: #9A5406;
+  --feedback-warning-solid:   var(--eb-warning);
+
+  --feedback-error-surface:   var(--eb-danger-surface);
+  --feedback-error-border:    var(--eb-danger-border);
+  --feedback-error-content:   #A91B1B;
+  --feedback-error-solid:     var(--eb-danger);
+
+  --feedback-info-surface:    var(--eb-info-surface);
+  --feedback-info-border:     var(--eb-info-border);
+  --feedback-info-content:    #1B4FBF;
+  --feedback-info-solid:      var(--eb-info);
+
+  --focus-ring:        var(--eb-gold-500);
+  --focus-ring-offset: var(--eb-white);
+
+  /* ---- Tier 3 · system tokens ----------------------------------------- */
+
+  /* Shell dimensions. Read by both CSS and layout maths, so they live here
+     rather than being repeated as magic numbers in each component. */
+  --sidebar-width:           260px;
+  --sidebar-collapsed-width: 76px;
+  --topbar-height:           64px;
+  --content-max-width:       1440px;
+
+  /* Radius — four steps only. A fifth invites "roughly 14px" decisions. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  /* Shadows. Tinted with the text navy rather than pure black: a black shadow
+     over a warm cream ground reads grey and slightly dirty. */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 18px 50px rgba(15, 23, 42, 0.10);
+
+  /* 8-point spacing. eb- prefixed so it cannot collide with EB-DLS's --space-*. */
+  --eb-space-1: 4px;
+  --eb-space-2: 8px;
+  --eb-space-3: 12px;
+  --eb-space-4: 16px;
+  --eb-space-5: 24px;
+  --eb-space-6: 32px;
+  --eb-space-7: 48px;
+  --eb-space-8: 64px;
+
+  /* Page padding, desktop → mobile, per the brief. */
+  --page-padding:        32px;
+  --page-padding-tablet: 24px;
+  --page-padding-mobile: 16px;
+
+  /* Z-index. A named scale prevents the 9999 arms race. */
+  --z-base:      0;
+  --z-sticky:    100;
+  --z-sidebar:   200;
+  --z-topbar:    300;
+  --z-dropdown:  400;
+  --z-overlay:   500;
+  --z-modal:     600;
+  --z-toast:     700;
+  --z-tooltip:   800;
+
+  /* Motion. 150–250ms per the brief; nothing here exceeds it. */
+  --dur-fast:   150ms;
+  --dur-normal: 200ms;
+  --dur-slow:   250ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --ease-in-out:   cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Control sizes. One height per size, shared by every input and button, so a
+     button beside a select never sits a pixel proud of it. */
+  --control-height-sm: 32px;
+  --control-height-md: 40px;
+  --control-height-lg: 48px;
+
+  /* Table density */
+  --table-row-height:         52px;
+  --table-row-height-compact: 40px;
+  --table-cell-padding:       12px 16px;
+
+  /* Minimum touch target (WCAG 2.2 target size) */
+  --touch-target: 44px;
+
+  /* Typography scale */
+  --fs-display: 32px;
+  --fs-h1:      24px;
+  --fs-h2:      20px;
+  --fs-h3:      16px;
+  --fs-body:    14px;
+  --fs-small:   13px;
+  --fs-tiny:    12px;
+
+  --lh-tight:  1.2;
+  --lh-normal: 1.5;
+  --lh-loose:  1.65;
+}
+
+/*
+  DARK THEME.
+  Only the roles that must invert are restated — anything absent deliberately
+  inherits from :root above, so a token added there is not silently missing in
+  dark. Navy becomes the surface rather than the accent; gold stays the action
+  colour in both, because it is the brand.
+*/
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --surface-deep:    var(--eb-navy-900);
+  --surface-ground:  var(--eb-navy-900);
+  --surface-card:    var(--eb-navy-800);
+  --surface-inset:   var(--eb-navy-700);
+  --surface-raised:  var(--eb-navy-700);
+  --surface-hover:   var(--eb-navy-600);
+  --surface-overlay: rgba(7, 20, 38, 0.72);
+
+  --content-primary:     #F1F5F9;
+  --content-secondary:   #CBD5E1;
+  --content-tertiary:    var(--eb-text-400);
+  --content-placeholder: var(--eb-text-500);
+  --content-inverse:     var(--eb-navy-900);
+  --content-link:        var(--eb-gold-300);
+  --content-link-hover:  var(--eb-white);
+
+  --border-subtle:  rgba(148, 163, 184, 0.14);
+  --border-default: rgba(148, 163, 184, 0.24);
+  --border-strong:  rgba(148, 163, 184, 0.36);
+
+  --focus-ring-offset: var(--eb-navy-900);
+
+  /* Status hues lightened for contrast against navy — same four meanings, the
+     dark instrument's own steps rather than an automatic flip of the light set. */
+  --status-good: #4ADE80;
+  --status-warn: #FBBF24;
+  --status-crit: #F87171;
+  --status-info: #60A5FA;
+
+  --feedback-success-surface: rgba(22, 163, 74, 0.14);
+  --feedback-success-border:  rgba(74, 222, 128, 0.34);
+  --feedback-success-content: #86EFAC;
+
+  --feedback-warning-surface: rgba(217, 119, 6, 0.14);
+  --feedback-warning-border:  rgba(251, 191, 36, 0.34);
+  --feedback-warning-content: #FCD34D;
+
+  --feedback-error-surface:   rgba(220, 38, 38, 0.14);
+  --feedback-error-border:    rgba(248, 113, 113, 0.34);
+  --feedback-error-content:   #FCA5A5;
+
+  --feedback-info-surface:    rgba(37, 99, 235, 0.14);
+  --feedback-info-border:     rgba(96, 165, 250, 0.34);
+  --feedback-info-content:    #93C5FD;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.38);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.48);
+}

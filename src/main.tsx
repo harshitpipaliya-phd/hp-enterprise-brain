@@ -5,6 +5,13 @@ import './theme.css';
 // After theme.css on purpose: dashboard.css builds on the .eb-* vocabulary and
 // token set defined there, and relies on source order for a few overrides.
 import './dashboard.css';
+// The .u-* primitive layer. Last, so a primitive can override an inherited
+// .eb-* rule on a screen that has been migrated but still sits inside the old
+// shell markup.
+import './ui/ui.css';
+// Shell last: it composes the primitives and needs to win on the few rules
+// where the old .eb-* chrome and the new .s-* chrome describe the same box.
+import './shell/shell.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <StrictMode>

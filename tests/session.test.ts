@@ -36,7 +36,7 @@ describe('session persistence', () => {
   };
 
   it('returns an empty session when nothing has been stored', () => {
-    expect(loadSession()).toEqual({ role: null, organization: null, view: null });
+    expect(loadSession()).toEqual({ role: null, userName: null, organization: null, view: null });
   });
 
   it('round-trips the role, so a refresh cannot silently demote the user', () => {
@@ -73,7 +73,7 @@ describe('session persistence', () => {
     saveSession({ role: 'admin', organization: org, view: 'people' });
     clearSession();
 
-    expect(loadSession()).toEqual({ role: null, organization: null, view: null });
+    expect(loadSession()).toEqual({ role: null, userName: null, organization: null, view: null });
   });
 
   /**
@@ -86,7 +86,7 @@ describe('session persistence', () => {
     localStorage.setItem('hpbrain-session', '{not json');
 
     expect(() => loadSession()).not.toThrow();
-    expect(loadSession()).toEqual({ role: null, organization: null, view: null });
+    expect(loadSession()).toEqual({ role: null, userName: null, organization: null, view: null });
   });
 
   it('rejects a malformed organization instead of handing it to a component', () => {

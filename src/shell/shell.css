@@ -1,0 +1,461 @@
+/* =============================================================================
+   APPLICATION SHELL
+   Sidebar · header · content region. Prefix .s-  (shell).
+
+   Token-driven; no literal colours. Widths come from --sidebar-width /
+   --sidebar-collapsed-width / --topbar-height so the grid and the panel can
+   never disagree about how much room the other is taking.
+   ============================================================================= */
+
+.s-shell {
+  --rail: var(--sidebar-width);
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--surface-ground);
+}
+.s-shell-collapsed { --rail: var(--sidebar-collapsed-width); }
+/* Below the drawer breakpoint the sidebar leaves the grid entirely and becomes
+   an overlay, so the content gets the full width instead of a dead column. */
+.s-shell-compact { grid-template-columns: minmax(0, 1fr); }
+
+.s-sidebar-slot {
+  grid-column: 1;
+  /* The rail is sticky and full-height so the menu stays put while the content
+     scrolls — the two scroll independently. */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: var(--rail);
+  transition: width var(--dur-normal) var(--ease-standard);
+}
+
+.s-skip {
+  position: absolute;
+  left: -9999px;
+  z-index: var(--z-toast);
+  padding: 10px 16px;
+  background: var(--eb-navy-800);
+  color: var(--eb-white);
+  border-radius: var(--radius-sm);
+}
+.s-skip:focus { left: 12px; top: 12px; }
+
+/* =============================================================================
+   SIDEBAR
+   ============================================================================= */
+.s-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--eb-navy-900);
+  color: rgba(255, 255, 255, 0.82);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.s-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  min-height: var(--topbar-height);
+}
+.s-brand-mark {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--eb-gold-400), var(--eb-gold-600));
+  color: var(--eb-navy-900);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.s-brand-text { display: flex; flex-direction: column; min-width: 0; }
+.s-brand-name {
+  font-size: 13.5px; font-weight: 700; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.s-brand-sub {
+  font-size: 10.5px; color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.s-brand-btn {
+  margin-left: auto; flex-shrink: 0;
+  display: grid; place-items: center;
+  width: 28px; height: 28px; padding: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
+}
+.s-brand-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.s-brand-btn:focus-visible { outline: 2px solid var(--eb-gold-400); outline-offset: 2px; }
+
+/* Collapsed: the brand centres and the toggle moves below the mark, because a
+   34px logo and a 28px button will not sit side by side in 76px. */
+.s-sidebar-collapsed .s-brand { flex-direction: column; gap: 8px; padding: 14px 8px; }
+.s-sidebar-collapsed .s-brand-btn { margin-left: 0; }
+
+.s-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 0 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.s-scroll::-webkit-scrollbar { width: 6px; }
+.s-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 6px; }
+
+.s-section { margin-bottom: 6px; }
+.s-section-title {
+  margin: 14px 0 6px;
+  padding: 0 16px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(255, 255, 255, 0.38);
+}
+/* Collapsed sections get a rule instead of a heading — the words will not fit
+   and truncating them to three letters communicates nothing. */
+.s-section-rule {
+  display: block;
+  margin: 12px 18px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.s-list { list-style: none; margin: 0; padding: 0 8px; display: flex; flex-direction: column; gap: 1px; }
+
+.s-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.76);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
+}
+.s-item:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.s-item:focus-visible { outline: 2px solid var(--eb-gold-400); outline-offset: -2px; color: #fff; }
+
+.s-item-icon { display: grid; place-items: center; width: 20px; flex-shrink: 0; }
+/* Long labels stay on one line and ellipsise. Wrapping would make rows
+   different heights and turn the menu into a ragged column. */
+.s-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/*
+  ACTIVE STATE. A gold rail plus a tinted ground — and aria-current in the
+  markup, because the rail is invisible to a screen reader and colour alone
+  would be the only cue for everyone else.
+*/
+.s-item-active {
+  background: rgba(213, 163, 44, 0.15);
+  color: #fff;
+  font-weight: 650;
+}
+.s-item-active::before {
+  content: '';
+  position: absolute;
+  left: -8px; top: 7px; bottom: 7px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--eb-gold-400);
+}
+.s-item-active .s-item-icon { color: var(--eb-gold-300); }
+
+/* Disabled means no organization is selected. No hover response: it would
+   promise a click that does nothing. */
+.s-item:disabled { color: rgba(255, 255, 255, 0.28); cursor: not-allowed; }
+
+.s-sidebar-collapsed .s-item { justify-content: center; padding: 9px 0; }
+.s-sidebar-collapsed .s-item-active::before { left: 0; }
+
+/* Collapsed tooltip. CSS-only and pointer-events:none so it can never sit
+   between the cursor and the button it describes. The label is also in the
+   accessible tree via .u-sr-only, so this is purely visual. */
+.s-tip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--eb-navy-700);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: var(--z-tooltip);
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.s-item:hover > .s-tip,
+.s-item:focus-visible > .s-tip { opacity: 1; visibility: visible; }
+
+.s-profile {
+  flex-shrink: 0;
+  padding: 10px 8px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.s-profile-row { display: flex; align-items: center; gap: 10px; padding: 4px 8px 8px; min-width: 0; }
+.s-profile-text { display: flex; flex-direction: column; min-width: 0; }
+.s-profile-name {
+  font-size: 13px; font-weight: 600; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.s-profile-role { font-size: 11px; color: rgba(255, 255, 255, 0.5); text-transform: capitalize; }
+.s-sidebar-collapsed .s-profile-row { justify-content: center; padding: 4px 0 8px; }
+.s-logout:hover { background: rgba(220, 38, 38, 0.16); color: #fff; }
+
+/* =============================================================================
+   DRAWER
+   ============================================================================= */
+.s-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--surface-overlay);
+  z-index: var(--z-modal);
+  animation: s-fade var(--dur-fast) var(--ease-standard);
+}
+.s-drawer-panel {
+  width: min(300px, 86vw);
+  height: 100%;
+  animation: s-slide var(--dur-normal) var(--ease-standard);
+}
+@keyframes s-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes s-slide { from { transform: translateX(-100%); } to { transform: none; } }
+
+/* =============================================================================
+   HEADER
+   ============================================================================= */
+.s-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eb-space-4);
+  height: var(--topbar-height);
+  padding: 0 var(--page-padding);
+  background: var(--surface-card);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.s-header-left { display: flex; align-items: center; gap: var(--eb-space-3); min-width: 0; flex: 1; }
+.s-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.s-menu-btn {
+  display: grid; place-items: center; flex-shrink: 0;
+  /* 44px is the WCAG 2.2 minimum target — this is the only way into the menu
+     on a phone, so it is not a place to save eight pixels. */
+  width: var(--touch-target); height: var(--touch-target);
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+.s-menu-btn:hover { background: var(--surface-hover); color: var(--content-primary); }
+.s-menu-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.s-crumbs { min-width: 0; }
+.s-crumbs ol {
+  display: flex; align-items: center; flex-wrap: nowrap;
+  list-style: none; margin: 0; padding: 0;
+  min-width: 0; overflow: hidden;
+}
+.s-crumbs li { display: flex; align-items: center; min-width: 0; }
+.s-crumb-sep { width: 14px; height: 14px; margin: 0 2px; color: var(--content-tertiary); opacity: 0.6; flex-shrink: 0; }
+.s-crumb-link,
+.s-crumb-static,
+.s-crumb-current {
+  font-size: var(--fs-small);
+  padding: 3px 5px;
+  border-radius: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.s-crumb-link { background: none; border: none; color: var(--content-tertiary); cursor: pointer; font-family: inherit; }
+.s-crumb-link:hover { color: var(--content-primary); background: var(--surface-hover); }
+.s-crumb-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.s-crumb-static { color: var(--content-tertiary); }
+.s-crumb-current { color: var(--content-primary); font-weight: 650; }
+
+/* On narrow screens only the current screen is kept. A four-level trail
+   ellipsised to nothing tells the user less than one honest label. */
+@media (max-width: 720px) {
+  .s-crumbs li:not(:last-child) { display: none; }
+}
+
+.s-search-btn {
+  display: flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 10px 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  color: var(--content-tertiary);
+  font-family: inherit; font-size: var(--fs-small);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-standard), background var(--dur-fast) var(--ease-standard);
+}
+.s-search-btn:hover { background: var(--surface-card); border-color: var(--border-strong); color: var(--content-secondary); }
+.s-search-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.s-search-label { min-width: 74px; text-align: left; }
+.s-kbd {
+  font-family: var(--mono, monospace); font-size: 10.5px;
+  padding: 2px 6px; border-radius: 4px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  color: var(--content-tertiary);
+}
+/* The hint collapses to its icon before the header would start to crowd. */
+@media (max-width: 900px) {
+  .s-search-label, .s-search-btn .s-kbd { display: none; }
+  .s-search-btn { padding: 0 10px; }
+}
+
+/* =============================================================================
+   USER MENU
+   ============================================================================= */
+.s-usermenu { position: relative; }
+.s-usermenu-trigger {
+  display: grid; place-items: center;
+  width: 38px; height: 38px; padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+.s-usermenu-trigger:hover { background: var(--surface-hover); }
+.s-usermenu-trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.s-usermenu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 210px;
+  padding: 6px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-dropdown);
+  animation: s-menu-in var(--dur-fast) var(--ease-standard);
+}
+@keyframes s-menu-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.s-usermenu-head { padding: 8px 10px 10px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 4px; }
+.s-usermenu-name { display: block; font-size: var(--fs-body); font-weight: 650; color: var(--content-primary); }
+.s-usermenu-role { display: block; font-size: var(--fs-tiny); color: var(--content-tertiary); text-transform: capitalize; }
+.s-usermenu-item {
+  display: block; width: 100%; text-align: left;
+  padding: 9px 10px;
+  border: none; border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--content-secondary);
+  font-family: inherit; font-size: var(--fs-body);
+  cursor: pointer;
+}
+.s-usermenu-item:hover { background: var(--surface-hover); color: var(--content-primary); }
+.s-usermenu-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.s-usermenu-danger { color: var(--status-crit); }
+.s-usermenu-danger:hover { background: var(--feedback-error-surface); color: var(--feedback-error-content); }
+
+/* =============================================================================
+   CONTENT
+   ============================================================================= */
+.s-main { grid-column: 2; min-width: 0; display: flex; flex-direction: column; }
+.s-shell-compact .s-main { grid-column: 1; }
+
+.s-content { flex: 1; padding: var(--page-padding); }
+/* Focused programmatically by the skip link; it must not draw a ring for
+   pointer users who never asked for it. */
+.s-content:focus { outline: none; }
+.s-content-inner { max-width: var(--content-max-width); margin: 0 auto; }
+
+@media (max-width: 1024px) { .s-content, .s-header { padding: var(--page-padding-tablet); } .s-header { padding-block: 0; } }
+@media (max-width: 640px)  { .s-content, .s-header { padding: var(--page-padding-mobile); } .s-header { padding-block: 0; } }
+
+/* =============================================================================
+   COMMAND PALETTE
+   ============================================================================= */
+.s-palette-backdrop {
+  position: fixed; inset: 0;
+  background: var(--surface-overlay);
+  display: grid; place-items: start center;
+  padding: 12vh var(--eb-space-4) var(--eb-space-4);
+  z-index: var(--z-modal);
+}
+.s-palette {
+  width: min(560px, 100%);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.s-palette-input {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--content-tertiary);
+}
+.s-palette-input input {
+  flex: 1; min-width: 0;
+  border: none; background: transparent; outline: none;
+  font-family: inherit; font-size: var(--fs-h3);
+  color: var(--content-primary);
+}
+.s-palette-list { list-style: none; margin: 0; padding: 6px; max-height: 46vh; overflow-y: auto; }
+.s-palette-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+.s-palette-item-active { background: var(--surface-hover); color: var(--content-primary); }
+.s-palette-label { flex: 1; min-width: 0; font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s-palette-section { font-size: var(--fs-tiny); color: var(--content-tertiary); flex-shrink: 0; }
+.s-palette-empty { padding: 20px; text-align: center; color: var(--content-tertiary); font-size: var(--fs-body); }
+
+/* =============================================================================
+   REDUCED MOTION
+   Sidebar width, drawer slide and menu entrance all stop. Nothing that conveys
+   state or blocks a task depends on them.
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .s-sidebar-slot,
+  .s-item,
+  .s-brand-btn,
+  .s-search-btn,
+  .s-tip { transition: none; }
+  .s-drawer-backdrop,
+  .s-drawer-panel,
+  .s-usermenu-panel { animation: none; }
+}

@@ -1,7 +1,21 @@
+# =============================================================================
+# Frontend ignore rules.
+#
+# SCOPE NOTE. This directory is its own git repository, with its own remote
+# (hp-enterprise-brain.git), nested inside the backend repository
+# (hpbrain_backend.git). The backend's .gitignore lists /web deliberately —
+# not because the frontend should be untracked, but because un-ignoring a
+# nested repo there would either swallow this history or create a broken
+# gitlink. The frontend's source is version controlled HERE.
+#
+# Rule of thumb below: ignore what a build produces, track everything a human
+# writes.
+# =============================================================================
+
 # Dependencies
 node_modules
 
-# Environment variables
+# Environment variables — never commit real credentials
 .env
 .env.local
 .env.*.local
@@ -9,6 +23,35 @@ node_modules
 # Build output
 dist
 dist-ssr
+
+# TypeScript incremental build cache.
+#
+# This was TRACKED. It is a generated artifact that TypeScript rewrites on every
+# `tsc -b`, so it appeared as a modification in every diff regardless of what
+# was actually changed, and it conflicts on merge for no reason anyone can act
+# on. Ignoring it is not enough on its own — a file already in the index stays
+# tracked — so it also has to be removed from the index once.
+*.tsbuildinfo
+
+# Test and tooling output
+coverage
+.vite
+.vitest
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Temporary visual-harness pages used to screenshot components during
+# development. They import real source and are safe to delete at any time, so
+# they must never reach a branch.
+preview-*.html
+ui-preview.html
+src/ui-preview.tsx
 
 # Editor directories and files
 .vscode/*
@@ -19,3 +62,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -137,7 +137,24 @@ export default function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="eb-login-page">
+    /*
+      PINNED TO THE LIGHT INSTRUMENT, DELIBERATELY.
+
+      The layout's whole idea is a light form panel against a dark brand panel;
+      that contrast is what makes the split read. The form card is therefore a
+      light surface by design, not by theme.
+
+      Without this pin it breaks on any machine set to dark mode: the card's
+      background is an explicit white, but everything inside it — headings,
+      input backgrounds, labels — resolves from theme tokens, so the text turned
+      near-white ON white and the inputs turned navy inside a white card. The
+      screen was unreadable while looking, at a glance, like it had rendered.
+
+      Scoped to this element, so the rest of the app still follows the user's
+      preference. The dark half opposite uses explicit navy values and is
+      unaffected either way.
+    */
+    <div className="eb-login-page" data-theme="light">
       {/*
         Ambient motion sits BEHIND the card, at page level, so the card reads as
         floating on a living field rather than as a panel with a busy corner.

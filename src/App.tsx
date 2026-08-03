@@ -15,7 +15,19 @@ import GraphExplorer from './components/workspace/GraphExplorer';
 import AgentMonitor from './components/workspace/AgentMonitor';
 import EvidenceWorkspace from './components/workspace/EvidenceWorkspace';
 import ConversationWorkspace from './components/workspace/ConversationWorkspace';
-import DecisionIntelligence from './components/workspace/DecisionIntelligence';
+/*
+  DecisionIntelligence is the ONLY component in the app that imports recharts,
+  and recharts plus its exclusive dependencies (es-toolkit, decimal.js-light,
+  @reduxjs/toolkit, immer, six d3-* packages) measured ~999 kB — about 64% of
+  the entire bundle. Every user paid that download to reach the login screen,
+  whatever they went on to open.
+
+  Loading it on demand is one import changed. Deliberately NOT applied to the
+  other 23 workspace screens in this phase: this one has an order-of-magnitude
+  payoff and no shared-chunk complications, the rest are ~180 kB combined and
+  can be batched later.
+*/
+const DECISION_INTELLIGENCE = () => import('./components/workspace/DecisionIntelligence');
 import TaskMonitor from './components/workspace/TaskMonitor';
 import DeliberationWorkspace from './components/workspace/DeliberationWorkspace';
 import Settings from './components/workspace/Settings';
@@ -35,15 +47,15 @@ import KasbaExplorer from './components/workspace/KasbaExplorer';
 // establishes that it should be thrown away rather than given its own nav entry.
 import Login from './components/auth/Login';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
-import { Sidebar, Breadcrumb, breadcrumbFor } from './components/Sidebar';
+import { AppShell } from './shell/AppShell';
 import { NotificationBell } from './components/NotificationBell';
 import { ToastProvider, useToast } from './components/Toast';
-import { CommandPalette } from './components/CommandPalette';
 import { api } from './api/organization';
 import type { OrganizationRow } from './api/organization';
 import { onSessionExpired } from './api/client';
 import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
 import { loadSession, saveSession, clearSession } from './utils/session';
+import { LazyView } from './ui';
 import { API_BASE } from './api/client';
 
 export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer';
@@ -53,7 +65,7 @@ export type Organization = OrganizationRow;
 export default function App() {
   return (
     <ToastProvider>
-      <AppShell />
+      <AuthenticatedApp />
     </ToastProvider>
   );
 }
@@ -73,7 +85,7 @@ function initialAuthState(): boolean {
  */
 const HOME_VIEW: View = 'home';
 
-function AppShell() {
+function AuthenticatedApp() {
   // Read ONCE, synchronously, before the first render. Everything below that
   // depends on it — the role filter in the sidebar, and the `selected` gate on
   // every view — is wrong for as long as it is unknown, and "wrong" here means
@@ -88,6 +100,7 @@ function AppShell() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(restored.role);
+  const [userName, setUserName] = useState<string | null>(restored.userName);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -97,6 +110,7 @@ function AppShell() {
       setSelected(null);
       setOrganizations([]);
       setUserRole(null);
+      setUserName(null);
       setAuthenticated(false);
     });
   }, []);
@@ -177,6 +191,7 @@ function AppShell() {
           setSelected(org);
           setTenantId(userData.organizationId);
           setUserRole(userData.role || null);
+          setUserName(userData.name || null);
           setView(HOME_VIEW);
           setAuthenticated(true);
 
@@ -186,6 +201,7 @@ function AppShell() {
           // member and shows the member menu to everyone.
           saveSession({
             role: userData.role || null,
+            userName: userData.name || null,
             organization: org,
             view: HOME_VIEW,
           });
@@ -237,6 +253,7 @@ function AppShell() {
     setSelected(null);
     setOrganizations([]);
     setUserRole(null);
+    setUserName(null);
     setView(HOME_VIEW);
     setAuthenticated(false);
   };
@@ -247,26 +264,21 @@ function AppShell() {
   };
 
   return (
-    <div className="eb-app">
-      <CommandPalette onNavigate={(v) => navigate(v, selected ?? undefined)} hasSelectedOrg={!!selected} />
-      <Sidebar
-        currentView={view}
-        hasSelectedOrg={!!selected}
-        userRole={userRole}
-        onNavigate={(v) => navigate(v, selected ?? undefined)}
-        onLogout={logout}
-      />
-      <div className="eb-main">
-        <div style={{ position: 'relative' }}>
-          <Breadcrumb items={breadcrumbFor(view, selected?.name)} />
-          {selected && (
-            <div style={{ position: 'absolute', top: 8, right: 24 }}>
-              <NotificationBell tenantId={selected.tenantId} />
-            </div>
-          )}
-        </div>
-        <div className="eb-content">
-          <ErrorBoundary key={view} label={view}>
+    <AppShell
+      view={view}
+      orgName={selected?.name}
+      hasSelectedOrg={!!selected}
+      userName={userName}
+      userRole={userRole}
+      onNavigate={(v) => navigate(v, selected ?? undefined)}
+      onLogout={logout}
+      // The real NotificationBell, passed in rather than invented by the shell.
+      // When no organization is selected there is no tenant to query, so the
+      // shell falls back to a disabled, honestly-labelled control instead of a
+      // bell that reports zero.
+      notificationSlot={selected ? <NotificationBell tenantId={selected.tenantId} /> : undefined}
+    >
+      <ErrorBoundary key={view} label={view}>
             {error && <div style={{ color: 'red' }}>{error}</div>}
 
             {/*
@@ -387,8 +399,16 @@ function AppShell() {
             {view === 'copilot' && selected && (
               <ConversationWorkspace tenantId={selected.tenantId} />
             )}
+            {/* Suspense sits INSIDE the content region, so the sidebar and
+                header stay mounted and interactive while the chunk downloads —
+                a fallback at shell level would blank the navigation and strand
+                the user on a slow connection. */}
             {view === 'decisionintel' && selected && (
-              <DecisionIntelligence tenantId={selected.tenantId} />
+              <LazyView
+                label="Decision Intelligence"
+                loader={DECISION_INTELLIGENCE}
+                props={{ tenantId: selected.tenantId }}
+              />
             )}
             {view === 'tasks' && selected && (
               <TaskMonitor tenantId={selected.tenantId} />
@@ -433,9 +453,7 @@ function AppShell() {
                 onCancel={() => navigate('details', selected)}
               />
             )}
-          </ErrorBoundary>
-        </div>
-      </div>
-    </div>
+      </ErrorBoundary>
+    </AppShell>
   );
 }

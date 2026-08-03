@@ -1,0 +1,692 @@
+/* =============================================================================
+   ENTERPRISE BRAIN — UI PRIMITIVES
+   Styles for src/ui/*. Token-driven; no literal colours below.
+
+   WHY CLASSES AND NOT INLINE STYLES. 86 of the app's 107 components style
+   themselves with `style={{…}}`, which cannot express :hover, :focus-visible,
+   :disabled or a media query. Those screens are structurally incapable of
+   having interaction and responsive states. Every primitive here is a class so
+   it gets all of them once, and every screen that adopts it inherits them.
+
+   Prefix: .u- (UI primitive). Distinct from .eb-, which is the existing app
+   vocabulary, so the two can coexist while screens migrate one at a time.
+   ============================================================================= */
+
+/* =============================================================================
+   BUTTON
+   ============================================================================= */
+.u-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--eb-space-2);
+  height: var(--control-height-md);
+  padding: 0 var(--eb-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    box-shadow var(--dur-fast) var(--ease-standard),
+    transform var(--dur-fast) var(--ease-standard);
+}
+.u-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.u-btn:disabled,
+.u-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  /* Hover must not respond when the click will not land — a lift on a dead
+     control reads as "try again", which the user then does. */
+  pointer-events: none;
+}
+
+.u-btn-sm { height: var(--control-height-sm); padding: 0 var(--eb-space-3); font-size: var(--fs-small); }
+.u-btn-lg { height: var(--control-height-lg); padding: 0 var(--eb-space-5); font-size: var(--fs-h3); }
+.u-btn-block { width: 100%; }
+
+/* Primary — gold. The single most important action on a view. */
+.u-btn-primary {
+  background: var(--action-primary);
+  color: var(--action-content);
+  border-color: var(--action-primary);
+  box-shadow: var(--shadow-sm);
+}
+.u-btn-primary:hover:not(:disabled) {
+  background: var(--action-primary-hover);
+  border-color: var(--action-primary-hover);
+  box-shadow: var(--shadow-md);
+}
+.u-btn-primary:active:not(:disabled) { background: var(--action-primary-active); box-shadow: var(--shadow-sm); }
+
+/* Navy — an equally strong alternative where gold would collide with content. */
+.u-btn-navy {
+  background: var(--eb-navy-800);
+  color: var(--eb-white);
+  border-color: var(--eb-navy-800);
+  box-shadow: var(--shadow-sm);
+}
+.u-btn-navy:hover:not(:disabled) { background: var(--eb-navy-700); border-color: var(--eb-navy-700); box-shadow: var(--shadow-md); }
+
+/* Secondary — neutral outline. The default for anything not primary. */
+.u-btn-secondary {
+  background: var(--surface-card);
+  color: var(--content-secondary);
+  border-color: var(--border-default);
+}
+.u-btn-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--content-primary);
+}
+
+.u-btn-ghost { background: transparent; color: var(--content-secondary); }
+.u-btn-ghost:hover:not(:disabled) { background: var(--surface-hover); color: var(--content-primary); }
+
+/*
+  Destructive. Red, and deliberately not offered as a filled button by default:
+  a row of filled red buttons down a table makes deletion the most visually
+  dominant action on the screen. Reserve the filled variant for the confirm
+  step inside a dialog, where destruction is the thing being asked about.
+*/
+.u-btn-danger {
+  background: transparent;
+  color: var(--status-crit);
+  border-color: transparent;
+}
+.u-btn-danger:hover:not(:disabled) { background: var(--feedback-error-surface); }
+.u-btn-danger-solid {
+  background: var(--status-crit);
+  color: var(--eb-white);
+  border-color: var(--status-crit);
+}
+.u-btn-danger-solid:hover:not(:disabled) { filter: brightness(0.93); }
+
+/* Loading. The spinner replaces the label rather than sitting beside it, so the
+   button does not change width mid-submit and shift the layout under the
+   pointer. */
+.u-btn-loading { position: relative; color: transparent !important; pointer-events: none; }
+.u-btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: u-spin 0.7s linear infinite;
+  color: var(--action-content);
+}
+.u-btn-navy.u-btn-loading::after,
+.u-btn-danger-solid.u-btn-loading::after { color: var(--eb-white); }
+.u-btn-secondary.u-btn-loading::after,
+.u-btn-ghost.u-btn-loading::after { color: var(--content-secondary); }
+
+@keyframes u-spin { to { transform: rotate(360deg); } }
+
+/* =============================================================================
+   ICON BUTTON
+   ============================================================================= */
+.u-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height-md);
+  height: var(--control-height-md);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--content-secondary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
+}
+.u-icon-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--content-primary); }
+.u-icon-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.u-icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.u-icon-btn-sm { width: var(--control-height-sm); height: var(--control-height-sm); }
+
+/* =============================================================================
+   CARD
+   ============================================================================= */
+.u-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.u-card-pad { padding: var(--eb-space-5); }
+.u-card-interactive {
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  transition: transform var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
+}
+.u-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-default);
+}
+.u-card-interactive:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.u-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eb-space-4);
+  padding: var(--eb-space-4) var(--eb-space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.u-card-title { font-size: var(--fs-h3); font-weight: 650; color: var(--content-primary); margin: 0; }
+.u-card-body { padding: var(--eb-space-5); }
+.u-card-footer {
+  padding: var(--eb-space-4) var(--eb-space-5);
+  border-top: 1px solid var(--border-subtle);
+  display: flex; justify-content: flex-end; gap: var(--eb-space-3);
+}
+
+/* =============================================================================
+   METRIC CARD
+   ============================================================================= */
+.u-metric {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--eb-space-2);
+  padding: var(--eb-space-5);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  transition: transform var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
+}
+.u-metric-action { cursor: pointer; width: 100%; font: inherit; color: inherit; }
+.u-metric-action:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--action-primary);
+}
+.u-metric-action:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* Status rail. Neutral unless a status is actually known, so an unflagged
+   metric never implies an assessment nobody made. */
+.u-metric::before {
+  content: '';
+  position: absolute; inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--border-default);
+}
+.u-metric[data-status='good']::before { background: var(--status-good); }
+.u-metric[data-status='warn']::before { background: var(--status-warn); }
+.u-metric[data-status='crit']::before { background: var(--status-crit); }
+.u-metric[data-status='info']::before { background: var(--status-info); }
+
+.u-metric-top { display: flex; align-items: center; gap: var(--eb-space-2); color: var(--content-tertiary); }
+.u-metric-label {
+  font-size: var(--fs-tiny);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--content-secondary);
+}
+/* The value wears a TEXT token, never the status colour. The rail and the badge
+   carry state; a number painted red is harder to read and fails contrast on
+   several surfaces this sits on. */
+.u-metric-value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  color: var(--content-primary);
+  font-variant-numeric: tabular-nums;
+}
+.u-metric-hint { font-size: var(--fs-tiny); color: var(--content-tertiary); }
+.u-metric-trend { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-tiny); font-weight: 600; }
+.u-metric-trend[data-dir='up']   { color: var(--status-good); }
+.u-metric-trend[data-dir='down'] { color: var(--status-crit); }
+.u-metric-trend[data-dir='flat'] { color: var(--content-tertiary); }
+
+/* =============================================================================
+   BADGE
+   ============================================================================= */
+.u-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: var(--fs-tiny);
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.u-badge-neutral { background: var(--surface-inset); color: var(--content-secondary); border-color: var(--border-default); }
+.u-badge-success { background: var(--feedback-success-surface); color: var(--feedback-success-content); border-color: var(--feedback-success-border); }
+.u-badge-warning { background: var(--feedback-warning-surface); color: var(--feedback-warning-content); border-color: var(--feedback-warning-border); }
+.u-badge-danger  { background: var(--feedback-error-surface);   color: var(--feedback-error-content);   border-color: var(--feedback-error-border); }
+.u-badge-info    { background: var(--feedback-info-surface);    color: var(--feedback-info-content);    border-color: var(--feedback-info-border); }
+.u-badge-gold    { background: var(--eb-gold-50);               color: var(--eb-gold-600);              border-color: var(--eb-gold-100); }
+/* The icon slot is why status is never colour-alone. */
+.u-badge svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+/* =============================================================================
+   FORM CONTROLS
+   ============================================================================= */
+.u-field { display: flex; flex-direction: column; gap: 6px; }
+.u-label { font-size: var(--fs-small); font-weight: 600; color: var(--content-primary); }
+.u-label-required::after { content: ' *'; color: var(--status-crit); }
+.u-help { font-size: var(--fs-tiny); color: var(--content-tertiary); }
+/* role="alert" in the markup; the icon means the message is not colour-alone. */
+.u-error { display: flex; align-items: center; gap: 5px; font-size: var(--fs-tiny); color: var(--feedback-error-content); font-weight: 500; }
+.u-error svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+.u-input,
+.u-select,
+.u-textarea {
+  width: 100%;
+  min-height: var(--control-height-md);
+  padding: 0 var(--eb-space-3);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--content-primary);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  transition: border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
+}
+.u-textarea { padding: var(--eb-space-3); min-height: 96px; resize: vertical; line-height: var(--lh-normal); }
+.u-input::placeholder, .u-textarea::placeholder { color: var(--content-placeholder); }
+
+.u-input:hover:not(:disabled), .u-select:hover:not(:disabled), .u-textarea:hover:not(:disabled) { border-color: var(--border-strong); }
+.u-input:focus, .u-select:focus, .u-textarea:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-intelligence-glow);
+}
+.u-input:disabled, .u-select:disabled, .u-textarea:disabled {
+  background: var(--surface-inset);
+  color: var(--content-tertiary);
+  cursor: not-allowed;
+}
+.u-input[aria-invalid='true'], .u-textarea[aria-invalid='true'], .u-select[aria-invalid='true'] {
+  border-color: var(--status-crit);
+}
+.u-input[aria-invalid='true']:focus { box-shadow: 0 0 0 3px var(--feedback-error-surface); }
+
+.u-select { appearance: none; padding-right: var(--eb-space-6); cursor: pointer; }
+.u-select-wrap { position: relative; }
+.u-select-wrap > svg {
+  position: absolute; right: var(--eb-space-3); top: 50%;
+  transform: translateY(-50%); pointer-events: none; color: var(--content-tertiary);
+}
+
+/* Search input */
+.u-search { position: relative; display: flex; align-items: center; }
+.u-search > svg:first-child {
+  position: absolute; left: var(--eb-space-3);
+  color: var(--content-tertiary); pointer-events: none;
+}
+.u-search .u-input { padding-left: 38px; }
+.u-search-clear { position: absolute; right: 6px; }
+
+/* Checkbox & radio. Native inputs kept — they bring keyboard behaviour,
+   indeterminate state and form participation that a styled div has to
+   reimplement, usually incompletely. */
+.u-check { display: inline-flex; align-items: flex-start; gap: var(--eb-space-2); cursor: pointer; font-size: var(--fs-body); color: var(--content-secondary); }
+.u-check input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--action-primary); cursor: pointer; flex-shrink: 0; }
+.u-check input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.u-check-disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Switch */
+.u-switch { display: inline-flex; align-items: center; gap: var(--eb-space-3); cursor: pointer; }
+.u-switch-track {
+  position: relative; width: 40px; height: 22px; flex-shrink: 0;
+  background: var(--border-strong); border-radius: var(--radius-pill);
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.u-switch-thumb {
+  position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+  background: var(--eb-white); border-radius: 50%; box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.u-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.u-switch input:checked + .u-switch-track { background: var(--action-primary); }
+.u-switch input:checked + .u-switch-track .u-switch-thumb { transform: translateX(18px); }
+.u-switch input:focus-visible + .u-switch-track { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* =============================================================================
+   TABLE
+   ============================================================================= */
+.u-table-wrap {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+/* The scroll container, so a wide table scrolls inside its card instead of
+   pushing the whole page sideways. */
+.u-table-scroll { overflow-x: auto; }
+.u-table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
+.u-table thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface-inset);
+  padding: var(--table-cell-padding);
+  text-align: left;
+  font-size: var(--fs-tiny);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--content-secondary);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-default);
+}
+.u-table tbody td {
+  padding: var(--table-cell-padding);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--content-secondary);
+  vertical-align: middle;
+}
+.u-table tbody tr:last-child td { border-bottom: none; }
+.u-table tbody tr { transition: background var(--dur-fast) var(--ease-standard); }
+.u-table tbody tr:hover { background: var(--surface-hover); }
+.u-table-compact tbody td { padding: 8px 16px; }
+
+.u-th-sort {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit;
+}
+.u-th-sort:hover { color: var(--content-primary); }
+.u-th-sort:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.u-th-sort svg { width: 13px; height: 13px; opacity: 0.5; }
+.u-th-sort[aria-sort]:not([aria-sort='none']) svg { opacity: 1; color: var(--accent-intelligence-deep); }
+
+.u-cell-primary { color: var(--content-primary); font-weight: 550; }
+/* Long values truncate with the full text in a title attribute, rather than
+   wrapping and making every row a different height. */
+.u-cell-truncate { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.u-cell-actions { text-align: right; white-space: nowrap; }
+
+.u-pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--eb-space-4); flex-wrap: wrap;
+  padding: var(--eb-space-3) var(--eb-space-4);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+  font-size: var(--fs-small); color: var(--content-tertiary);
+}
+.u-pagination-controls { display: flex; align-items: center; gap: var(--eb-space-2); }
+
+/*
+  MOBILE: rows become stacked record cards.
+  A six-column table on a 360px screen is unusable however it is scrolled, so
+  below 720px each row is relabelled from its data-label attribute and stacks.
+*/
+@media (max-width: 720px) {
+  .u-table-responsive thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .u-table-responsive tbody tr {
+    display: block;
+    margin: var(--eb-space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+  }
+  .u-table-responsive tbody td {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--eb-space-4);
+    padding: 10px var(--eb-space-4);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .u-table-responsive tbody td::before {
+    content: attr(data-label);
+    font-size: var(--fs-tiny); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--content-tertiary); flex-shrink: 0;
+  }
+  .u-table-responsive .u-cell-truncate { max-width: none; }
+}
+
+/* =============================================================================
+   STATES
+   ============================================================================= */
+.u-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--eb-space-3);
+  /* Bounded, not min-height:60vh. An oversized blank container under three rows
+     of content is the "enormous empty area" this redesign is removing. */
+  padding: var(--eb-space-7) var(--eb-space-5);
+  text-align: center;
+}
+.u-state-icon {
+  display: grid; place-items: center;
+  width: 48px; height: 48px; border-radius: var(--radius-md);
+  background: var(--surface-inset); color: var(--content-tertiary);
+}
+.u-state-title { font-size: var(--fs-h3); font-weight: 650; color: var(--content-primary); margin: 0; }
+.u-state-desc { font-size: var(--fs-body); color: var(--content-tertiary); margin: 0; max-width: 46ch; }
+.u-state-danger .u-state-icon { background: var(--feedback-error-surface); color: var(--feedback-error-content); }
+.u-state-warning .u-state-icon { background: var(--feedback-warning-surface); color: var(--feedback-warning-content); }
+
+/* Skeleton. Fixed dimensions supplied by the caller so the real content lands
+   in the same box and nothing shifts when it arrives. */
+.u-skeleton {
+  background: linear-gradient(90deg, var(--surface-inset) 25%, var(--border-subtle) 37%, var(--surface-inset) 63%);
+  background-size: 400% 100%;
+  animation: u-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes u-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+.u-spinner {
+  display: inline-block; border-radius: 50%;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--action-primary);
+  animation: u-spin 0.7s linear infinite;
+}
+
+/* =============================================================================
+   ALERT
+   ============================================================================= */
+.u-alert {
+  display: flex; align-items: flex-start; gap: var(--eb-space-3);
+  padding: var(--eb-space-4);
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-body);
+}
+.u-alert svg { flex-shrink: 0; margin-top: 1px; }
+.u-alert-title { font-weight: 650; margin: 0 0 2px; }
+.u-alert-body { margin: 0; opacity: 0.92; }
+.u-alert-success { background: var(--feedback-success-surface); border-color: var(--feedback-success-border); color: var(--feedback-success-content); }
+.u-alert-warning { background: var(--feedback-warning-surface); border-color: var(--feedback-warning-border); color: var(--feedback-warning-content); }
+.u-alert-danger  { background: var(--feedback-error-surface);   border-color: var(--feedback-error-border);   color: var(--feedback-error-content); }
+.u-alert-info    { background: var(--feedback-info-surface);    border-color: var(--feedback-info-border);    color: var(--feedback-info-content); }
+
+/* =============================================================================
+   MODAL / DRAWER
+   ============================================================================= */
+.u-overlay {
+  position: fixed; inset: 0;
+  background: var(--surface-overlay);
+  display: grid; place-items: center;
+  padding: var(--eb-space-4);
+  z-index: var(--z-modal);
+  animation: u-fade var(--dur-fast) var(--ease-standard);
+}
+@keyframes u-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.u-modal {
+  width: 100%; max-width: 520px;
+  max-height: calc(100vh - 2 * var(--eb-space-6));
+  display: flex; flex-direction: column;
+  background: var(--surface-card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  animation: u-modal-in var(--dur-normal) var(--ease-standard);
+}
+@keyframes u-modal-in { from { opacity: 0; transform: translateY(8px) scale(0.99); } to { opacity: 1; transform: none; } }
+.u-modal-sm { max-width: 420px; }
+.u-modal-lg { max-width: 760px; }
+.u-modal-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--eb-space-4);
+  padding: var(--eb-space-5) var(--eb-space-5) var(--eb-space-4);
+}
+.u-modal-title { font-size: var(--fs-h2); font-weight: 700; color: var(--content-primary); margin: 0; }
+.u-modal-desc { font-size: var(--fs-body); color: var(--content-tertiary); margin: 4px 0 0; }
+.u-modal-body { padding: 0 var(--eb-space-5); overflow-y: auto; flex: 1; }
+.u-modal-footer {
+  display: flex; justify-content: flex-end; gap: var(--eb-space-3);
+  padding: var(--eb-space-5);
+}
+
+.u-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(520px, 100%);
+  display: flex; flex-direction: column;
+  background: var(--surface-card);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-modal);
+  animation: u-drawer-in var(--dur-normal) var(--ease-standard);
+}
+@keyframes u-drawer-in { from { transform: translateX(100%); } to { transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .u-overlay, .u-modal, .u-drawer { animation: none; }
+}
+
+/* =============================================================================
+   TOOLTIP
+   ============================================================================= */
+.u-tip { position: relative; display: inline-flex; }
+.u-tip-bubble {
+  position: absolute; bottom: calc(100% + 8px); left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: var(--eb-navy-800);
+  color: var(--eb-white);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-tiny);
+  line-height: 1.4;
+  white-space: nowrap;
+  max-width: 280px;
+  box-shadow: var(--shadow-md);
+  z-index: var(--z-tooltip);
+  pointer-events: none;
+}
+.u-tip-bubble[data-wrap='true'] { white-space: normal; width: max-content; max-width: 240px; }
+
+/* =============================================================================
+   TABS
+   ============================================================================= */
+.u-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border-subtle); }
+.u-tab {
+  position: relative;
+  padding: 10px var(--eb-space-4);
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: var(--fs-body); font-weight: 600;
+  color: var(--content-tertiary);
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+.u-tab:hover { color: var(--content-primary); }
+.u-tab:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.u-tab[aria-selected='true'] { color: var(--content-primary); }
+.u-tab[aria-selected='true']::after {
+  content: ''; position: absolute; left: var(--eb-space-3); right: var(--eb-space-3); bottom: -1px;
+  height: 2px; border-radius: 2px 2px 0 0; background: var(--action-primary);
+}
+
+/* =============================================================================
+   PAGE HEADER / TOOLBAR
+   ============================================================================= */
+.u-page-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--eb-space-5); flex-wrap: wrap;
+  margin-bottom: var(--eb-space-5);
+}
+.u-page-title { font-size: var(--fs-h1); font-weight: 700; color: var(--content-primary); margin: 0; line-height: var(--lh-tight); }
+.u-page-desc { font-size: var(--fs-body); color: var(--content-tertiary); margin: 6px 0 0; max-width: 68ch; }
+.u-page-actions { display: flex; align-items: center; gap: var(--eb-space-3); flex-shrink: 0; }
+
+.u-toolbar {
+  display: flex; align-items: center; gap: var(--eb-space-3); flex-wrap: wrap;
+  padding: var(--eb-space-3) var(--eb-space-4);
+  margin-bottom: var(--eb-space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.u-toolbar-grow { flex: 1; min-width: 200px; }
+.u-toolbar-spacer { margin-left: auto; }
+
+/* =============================================================================
+   BREADCRUMBS
+   ============================================================================= */
+.u-crumbs { display: flex; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--content-tertiary); flex-wrap: wrap; }
+.u-crumb-link { background: none; border: none; padding: 2px 4px; border-radius: 4px; font: inherit; color: var(--content-tertiary); cursor: pointer; }
+.u-crumb-link:hover { color: var(--content-primary); background: var(--surface-hover); }
+.u-crumb-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.u-crumb-current { color: var(--content-primary); font-weight: 600; }
+.u-crumbs svg { width: 14px; height: 14px; opacity: 0.5; flex-shrink: 0; }
+
+/* =============================================================================
+   AVATAR
+   ============================================================================= */
+.u-avatar {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--eb-navy-800); color: var(--eb-white);
+  font-size: var(--fs-small); font-weight: 700; letter-spacing: 0.02em;
+  overflow: hidden;
+}
+.u-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.u-avatar-sm { width: 28px; height: 28px; font-size: var(--fs-tiny); }
+.u-avatar-lg { width: 44px; height: 44px; font-size: var(--fs-body); }
+.u-avatar-gold { background: var(--eb-gold-500); color: var(--eb-navy-900); }
+
+/* =============================================================================
+   UTILITIES
+   ============================================================================= */
+.u-stack   { display: flex; flex-direction: column; }
+.u-row     { display: flex; align-items: center; }
+.u-gap-2   { gap: var(--eb-space-2); }
+.u-gap-3   { gap: var(--eb-space-3); }
+.u-gap-4   { gap: var(--eb-space-4); }
+.u-gap-5   { gap: var(--eb-space-5); }
+.u-grow    { flex: 1; min-width: 0; }
+.u-muted   { color: var(--content-tertiary); }
+
+/* Grids collapse at the same two breakpoints everywhere, so a dashboard and a
+   settings page reflow together instead of at slightly different widths. */
+.u-grid    { display: grid; gap: var(--eb-space-4); }
+.u-grid-2  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.u-grid-3  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.u-grid-4  { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .u-grid-3, .u-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px)  { .u-grid-2, .u-grid-3, .u-grid-4 { grid-template-columns: 1fr; } }
+
+/* Visible only to screen readers — for the live regions that announce loading
+   and error transitions. */
+.u-sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .u-card-interactive:hover,
+  .u-metric-action:hover { transform: none; }
+  .u-skeleton { animation: none; }
+  .u-spinner, .u-btn-loading::after { animation-duration: 1.6s; }
+}

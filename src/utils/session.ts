@@ -29,13 +29,15 @@ import type { OrganizationRow } from '../api/organization';
  */
 export interface StoredSession {
   role: string | null;
+  /** Display name for the header and sidebar. Never a placeholder. */
+  userName: string | null;
   organization: OrganizationRow | null;
   view: string | null;
 }
 
 const KEY = 'hpbrain-session';
 
-const EMPTY: StoredSession = { role: null, organization: null, view: null };
+const EMPTY: StoredSession = { role: null, userName: null, organization: null, view: null };
 
 export function loadSession(): StoredSession {
   try {
@@ -49,6 +51,7 @@ export function loadSession(): StoredSession {
     // organization to a component that will crash on it.
     return {
       role: typeof parsed?.role === 'string' ? parsed.role : null,
+      userName: typeof parsed?.userName === 'string' ? parsed.userName : null,
       organization:
         parsed?.organization && typeof parsed.organization?.id === 'string'
           ? (parsed.organization as OrganizationRow)
