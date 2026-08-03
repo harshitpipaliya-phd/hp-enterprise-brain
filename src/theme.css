@@ -1,15 +1,15 @@
-/* ============================================================
-   HP Enterprise Brain — theme.css
+﻿/* ============================================================
+   HP Enterprise Brain â€” theme.css
    Now built directly on EB-DLS v1.0, the real design system
-   (design-tokens/*.css — copied verbatim from the source of
+   (design-tokens/*.css â€” copied verbatim from the source of
    truth, not re-derived, to guarantee fidelity).
 
-   Default theme: "light" (Golden Instrument) — per EB-DLS's own
+   Default theme: "light" (Golden Instrument) â€” per EB-DLS's own
    stated default: warm off-white ground, white cards, gold
    accent, no green/no teal. Dark remains available by setting
    data-theme="dark" on <html> later if wanted.
 
-   Every .eb-* class below keeps its EXACT original name — only
+   Every .eb-* class below keeps its EXACT original name â€” only
    the CSS variables it points to changed, from the earlier
    hand-approximated palette to the real EB-DLS semantic tokens.
    This means every existing screen inherits the real system
@@ -178,9 +178,58 @@ tbody tr:hover { background: var(--surface-hover); box-shadow: inset 3px 0 0 var
   border: none; box-shadow: none; color: rgba(237,242,251,0.78); padding: 7px 8px; border-radius: var(--radius-xs);
   font-size: 13px; font-weight: 500; margin-bottom: 1px; white-space: nowrap; overflow: hidden;
 }
-.eb-sidebar-item:hover:not(:disabled) { background: rgba(237,242,251,0.08); opacity: 1; color: var(--color-ink-0); }
+/*
+  HOVER AFFORDANCE. A gold rail slides in from the left and the row lifts
+  slightly — enough to confirm the pointer is on a target, not so much that
+  running the cursor down the list makes the whole menu jump.
+
+  The rail is a transform on a pseudo-element rather than an animated width or
+  a border that appears: both of those change the row's layout box and shove
+  the label sideways on every hover.
+*/
+.eb-sidebar-item { position: relative; transition: background 120ms ease, color 120ms ease, transform 120ms ease; }
+.eb-sidebar-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 6px; bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-gold-400);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 140ms var(--ease-out, cubic-bezier(.2,.8,.3,1));
+}
+.eb-sidebar-item:hover:not(:disabled) {
+  background: rgba(237,242,251,0.08);
+  opacity: 1;
+  color: var(--color-ink-0);
+  transform: translateX(2px);
+}
+.eb-sidebar-item:hover:not(:disabled)::before { transform: scaleY(1); }
+
+/* Keyboard parity: a focus ring the pointer never sees, so tabbing through the
+   nav is as legible as hovering it. */
+.eb-sidebar-item:focus-visible {
+  outline: 2px solid var(--color-gold-300);
+  outline-offset: -2px;
+  color: var(--color-ink-0);
+}
+
 .eb-sidebar-item.active { background: var(--color-gold-400); color: var(--color-ink-950); font-weight: 650; box-shadow: 0 2px 8px rgba(224,174,71,0.35); }
-.eb-sidebar-item:disabled { color: rgba(237,242,251,0.25); }
+/* The active row already reads as selected; a rail on top of it is noise. */
+.eb-sidebar-item.active::before { display: none; }
+.eb-sidebar-item.active:hover { transform: none; }
+
+/* A disabled item is disabled because no organization is selected. It must not
+   offer a hover response — that promises a click that will not do anything. */
+.eb-sidebar-item:disabled { color: rgba(237,242,251,0.25); cursor: not-allowed; }
+.eb-sidebar-item:disabled:hover { background: transparent; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .eb-sidebar-item,
+  .eb-sidebar-item::before { transition: none; }
+  .eb-sidebar-item:hover:not(:disabled) { transform: none; }
+}
 .eb-sidebar-icon { width: 16px; text-align: center; flex-shrink: 0; font-size: 13px; }
 .eb-sidebar-label { overflow: hidden; text-overflow: ellipsis; }
 .eb-sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(237,242,251,0.12); }
@@ -193,17 +242,623 @@ tbody tr:hover { background: var(--surface-hover); box-shadow: inset 3px 0 0 var
 .eb-breadcrumb { font-size: 12px; color: var(--content-secondary); }
 .eb-breadcrumb b { color: var(--content-primary); font-weight: 650; }
 
-.eb-login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 20% 20%, var(--color-ink-800) 0%, var(--color-ink-900) 55%, var(--color-ink-950) 100%); padding: 24px; }
-.eb-login-card { width: 100%; max-width: 420px; background: var(--surface-card); border-radius: var(--radius); box-shadow: var(--shadow-raise); padding: 36px 32px; }
-.eb-login-logo { width: 44px; height: 44px; border-radius: var(--radius-sm); background: var(--color-gold-400); color: var(--color-ink-950); display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700; font-size: 19px; margin-bottom: 16px; }
-.eb-login-tabs { display: flex; gap: 6px; margin-bottom: 20px; background: var(--surface-inset); padding: 4px; border-radius: var(--radius-sm); }
-.eb-login-tabs button { flex: 1; background: transparent; color: var(--content-secondary); border: none; box-shadow: none; font-size: 12px; padding: 7px; border-radius: var(--radius-xs); }
-.eb-login-tabs button[disabled] { background: var(--surface-card); color: var(--content-primary); opacity: 1; box-shadow: var(--shadow); cursor: default; }
-.eb-field { margin-bottom: 14px; }
-.eb-field label { display: block; margin-bottom: 5px; }
-.eb-field input { width: 100%; }
-.eb-login-submit { width: 100%; padding: 10px 0; margin-top: 4px; }
-.eb-login-error { background: var(--feedback-error-surface); color: var(--feedback-error-content); padding: 10px 12px; border-radius: var(--radius-xs); font-size: 12px; margin-bottom: 14px; }
+/* ============================================================
+   LOGIN — Premium split-screen
+   ============================================================ */
+
+/* ---- Page: full-viewport field the card floats on ---- */
+.eb-login-page {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 4vw, 48px);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(224,174,71,0.10), transparent 42%),
+    radial-gradient(circle at 88% 82%, rgba(51,214,198,0.10), transparent 44%),
+    linear-gradient(155deg, var(--color-ink-1000), var(--color-ink-900) 60%, var(--color-ink-950));
+  color: var(--color-ink-0);
+  overflow: hidden;
+}
+
+/* ---- Ambient motion, behind the card ---- */
+.eb-login-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+
+/* Slow-drifting colour fields. Heavily blurred and low-alpha so they read as
+   depth rather than as shapes — anything crisper competes with the form. */
+.eb-login-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.eb-login-orb-1 {
+  width: 44vmin; height: 44vmin; top: -8%; left: -6%;
+  background: radial-gradient(circle, rgba(224,174,71,0.42), transparent 68%);
+  animation: eb-orb-drift-a 26s ease-in-out infinite;
+}
+.eb-login-orb-2 {
+  width: 52vmin; height: 52vmin; bottom: -14%; right: -8%;
+  background: radial-gradient(circle, rgba(51,214,198,0.34), transparent 68%);
+  animation: eb-orb-drift-b 32s ease-in-out infinite;
+}
+.eb-login-orb-3 {
+  width: 34vmin; height: 34vmin; top: 42%; left: 52%;
+  background: radial-gradient(circle, rgba(122,140,220,0.26), transparent 70%);
+  animation: eb-orb-drift-a 38s ease-in-out infinite reverse;
+}
+@keyframes eb-orb-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(6vw, 5vh, 0) scale(1.12); }
+}
+@keyframes eb-orb-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.06); }
+  50%      { transform: translate3d(-7vw, -4vh, 0) scale(1); }
+}
+
+/* Rising motes. CSS-only — no animation library for six lines of keyframes. */
+.eb-login-particles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.eb-login-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--color-gold-300);
+  box-shadow: 0 0 6px rgba(240,197,96,0.55);
+  opacity: 0;
+  animation: eb-particle-float linear infinite;
+  will-change: transform, opacity;
+}
+@keyframes eb-particle-float {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+  12%  { opacity: 0.75; }
+  88%  { opacity: 0.75; }
+  100% { opacity: 0; transform: translate3d(48px, -46vh, 0); }
+}
+
+/*
+  MOTION IS OPTIONAL, ALWAYS. Three drifting orbs and thirty-four rising motes
+  behind a form is exactly the sustained background movement that triggers
+  vestibular symptoms. Everything decorative stops; the login itself is
+  untouched, so nobody loses the ability to sign in to avoid being made unwell.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .eb-login-orb,
+  .eb-login-particle {
+    animation: none;
+  }
+  .eb-login-particle { opacity: 0.5; }
+}
+
+/* ---- Shell: the floating card ---- */
+.eb-login-shell {
+  position: relative;
+  z-index: 1;
+  width: min(1040px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.98fr);
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--color-ink-900);
+  border: 1px solid rgba(148,170,214,0.14);
+  box-shadow:
+    0 40px 90px -30px rgba(0,0,0,0.75),
+    0 0 0 1px rgba(255,255,255,0.03) inset;
+  animation: eb-login-rise var(--dur-enter, 240ms) var(--ease-out, cubic-bezier(.2,.8,.3,1)) both;
+}
+@keyframes eb-login-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.995); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eb-login-shell { animation: none; }
+}
+
+/* Single column below the split's comfortable width. The visual panel is
+   decorative, so it is dropped rather than stacked — a 400px-tall ornament
+   above the form on a phone just pushes the fields off-screen. */
+@media (max-width: 880px) {
+  .eb-login-shell { grid-template-columns: 1fr; width: min(440px, 100%); }
+  .eb-login-visual { display: none; }
+}
+
+/* ---- Left: Visual ---- */
+.eb-login-visual {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 24px;
+  padding: clamp(28px, 3.4vw, 44px);
+  background:
+    radial-gradient(circle at 22% 26%, rgba(224,174,71,0.20), transparent 40%),
+    radial-gradient(circle at 76% 74%, rgba(51,214,198,0.14), transparent 38%),
+    linear-gradient(160deg, var(--color-ink-950), var(--color-ink-850) 60%, var(--color-ink-800));
+  overflow: hidden;
+}
+/*
+  No curved seam. An ellipse tall enough to span the panel necessarily pokes out
+  above and below it, and those stray arcs read as a rendering fault rather than
+  as a curve. A clean vertical split states the same division without the
+  artifact.
+*/
+
+.eb-login-brand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.eb-login-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--color-gold-400), var(--color-gold-600));
+  color: var(--color-ink-950);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 18px;
+  flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(224,174,71,0.35);
+}
+.eb-login-brand h1 {
+  color: var(--color-ink-0);
+  font-size: 22px;
+  margin: 0 0 2px;
+  letter-spacing: 0;
+}
+.eb-login-brand p {
+  color: rgba(237,242,251,0.62);
+  font-size: 12px;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+/* 3D-ish brain/neural illustration — pure CSS. */
+.eb-login-hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  gap: 22px;
+  padding: 16px 0;
+}
+.eb-login-tagline {
+  margin: 0;
+  text-align: center;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: rgba(237,242,251,0.82);
+}
+.eb-login-brain {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: grid;
+  place-items: center;
+}
+/* Raised from 0.22/0.18/0.12 alpha. At those values the rings were effectively
+   invisible against the panel gradient, leaving the middle of the visual half
+   looking empty rather than deliberately quiet. */
+.eb-login-brain-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(224,174,71,0.48);
+  animation: eb-ring-pulse 4s ease-in-out infinite;
+}
+.eb-login-brain-ring:nth-child(2) { inset: 18%; animation-delay: 1.2s; border-color: rgba(51,214,198,0.42); }
+.eb-login-brain-ring:nth-child(3) { inset: 36%; animation-delay: 2.4s; border-color: rgba(237,242,251,0.28); }
+.eb-login-brain-core {
+  font-size: 64px;
+  color: var(--color-gold-400);
+  text-shadow: 0 0 40px rgba(224,174,71,0.55), 0 0 80px rgba(224,174,71,0.25);
+  animation: eb-core-glow 3s ease-in-out infinite;
+}
+@keyframes eb-ring-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50%      { transform: scale(1.06); opacity: 1; }
+}
+@keyframes eb-core-glow {
+  0%, 100% { text-shadow: 0 0 40px rgba(224,174,71,0.55), 0 0 80px rgba(224,174,71,0.25); }
+  50%      { text-shadow: 0 0 60px rgba(224,174,71,0.85), 0 0 120px rgba(224,174,71,0.40); }
+}
+
+.eb-login-metrics {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.eb-login-metrics div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(224,174,71,0.14);
+  border-radius: var(--radius-sm);
+  background: rgba(8,13,22,0.46);
+  backdrop-filter: blur(8px);
+}
+.eb-login-metrics span {
+  display: block;
+  color: rgba(237,242,251,0.56);
+  font-size: 11px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.eb-login-metrics strong {
+  color: var(--color-gold-300);
+  font-family: var(--mono);
+  font-size: 18px;
+}
+
+/* ---- Right: Glass card ---- */
+/*
+  The form panel. Kept LIGHT against the dark visual half — the same contrast
+  the reference uses, and the reason the eye lands on the fields first.
+
+  backdrop-filter is gone: it was blurring the opaque panel underneath it, which
+  costs a compositor layer on every frame the background animates behind it and
+  buys nothing, because the layer above it is already 92% opaque white.
+*/
+.eb-login-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(30px, 3.6vw, 48px);
+  background: #FFFFFF;
+  color: var(--color-ink-900);
+}
+.eb-login-card-head { margin-bottom: 24px; }
+.eb-login-kicker {
+  display: inline-flex;
+  margin-bottom: 12px;
+  color: var(--accent-intelligence-deep);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+.eb-login-card-head h2 {
+  font-size: 38px;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+.eb-login-card-head p,
+.eb-login-dev p,
+.eb-login-footnote {
+  color: var(--content-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ---- Tabs ---- */
+.eb-login-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  background: var(--surface-inset);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+.eb-login-tabs button {
+  flex: 1;
+  background: transparent;
+  color: var(--content-secondary);
+  border: none;
+  box-shadow: none;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: var(--radius-xs);
+}
+.eb-login-tabs button[disabled] {
+  background: var(--surface-card);
+  color: var(--content-primary);
+  opacity: 1;
+  box-shadow: var(--shadow);
+  cursor: default;
+}
+
+/* ---- Fields ---- */
+.eb-field { margin-bottom: 15px; }
+.eb-field label { display: block; margin-bottom: 6px; }
+.eb-field input { width: 100%; min-height: 42px; }
+.eb-password-field { position: relative; }
+.eb-password-field input { padding-right: 74px; }
+.eb-password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 58px;
+  padding: 6px 9px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent-intelligence-deep);
+  box-shadow: none;
+}
+.eb-password-toggle:hover:not(:disabled) {
+  background: var(--action-subtle);
+  border-color: var(--action-subtle-hover);
+  box-shadow: none;
+}
+
+/* ---- Organization picker ---- */
+.eb-org-picker { margin-bottom: 15px; }
+.eb-org-picker label { display: block; margin-bottom: 6px; }
+.eb-org-picker-input { position: relative; }
+.eb-org-picker-input input { width: 100%; min-height: 42px; cursor: pointer; }
+.eb-org-picker-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--content-tertiary);
+  font-size: 12px;
+  pointer-events: none;
+}
+.eb-org-picker-dropdown {
+  margin-top: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-raise);
+  padding: 8px;
+  z-index: 10;
+  position: relative;
+}
+.eb-org-picker-hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-eyebrow);
+  color: var(--content-tertiary);
+  margin-bottom: 6px;
+  padding: 0 6px;
+}
+.eb-org-picker-empty {
+  font-size: 12px;
+  color: var(--content-tertiary);
+  padding: 6px;
+}
+.eb-org-picker-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--content-primary);
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 13px;
+  cursor: pointer;
+}
+.eb-org-picker-option:hover { background: var(--surface-hover); }
+.eb-org-picker-option[aria-selected="true"] {
+  background: var(--action-subtle);
+  color: var(--accent-intelligence-deep);
+  font-weight: 600;
+}
+.eb-org-picker-manual { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+.eb-org-picker-manual label { display: block; margin-bottom: 4px; }
+.eb-org-picker-manual input { width: 100%; min-height: 36px; }
+.eb-org-tooltip {
+  display: block;
+  font-size: 11px;
+  color: var(--content-tertiary);
+  margin-top: 4px;
+}
+
+/* ---- Options ---- */
+.eb-login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 6px 0 20px;
+}
+.eb-login-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+.eb-login-check input { width: 16px; height: 16px; accent-color: var(--action-primary); }
+.eb-login-link {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--accent-intelligence-deep);
+  padding: 0;
+  white-space: nowrap;
+}
+.eb-login-link:hover:not(:disabled) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-decoration: underline;
+}
+
+/* ---- Submit ---- */
+/*
+  Solid gold, dark text. The previous version was a near-black button with gold
+  LABEL text — gold-300 on ink-900 is a thin, low-contrast combination at
+  14px, and it made the one action on the page the least legible thing on it.
+  Inverting that puts the brand colour on the primary action, where the eye is
+  supposed to land, and lifts the label to a comfortable contrast ratio.
+*/
+.eb-login-submit {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 0;
+  margin-top: 4px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: linear-gradient(135deg, var(--color-gold-300), var(--color-gold-400));
+  color: var(--color-ink-950);
+  border: 1px solid var(--color-gold-400);
+  box-shadow: 0 10px 24px -10px rgba(224,174,71,0.55);
+}
+.eb-login-submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-gold-200), var(--color-gold-300));
+  border-color: var(--color-gold-300);
+  box-shadow: 0 12px 28px -10px rgba(224,174,71,0.7);
+  /* Stays dark. Inherited from the old dark-button rule, a gold label here
+     would be gold-on-gold — the button's text vanishing on hover. */
+  color: var(--color-ink-950);
+}
+
+/* ---- Divider ---- */
+.eb-login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 14px;
+  color: var(--content-tertiary);
+  font-size: 12px;
+}
+.eb-login-divider::before,
+.eb-login-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: var(--border-subtle);
+}
+
+/* ---- Social ---- */
+.eb-login-google {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--content-primary);
+  background: rgba(255,255,255,0.86);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow);
+}
+.eb-login-google:hover:not(:disabled) {
+  color: var(--content-primary);
+  background: var(--color-gold-50);
+  border-color: var(--color-gold-200);
+}
+.eb-login-microsoft {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--content-primary);
+  background: rgba(255,255,255,0.86);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow);
+  margin-top: 10px;
+}
+.eb-login-microsoft:hover:not(:disabled) {
+  color: var(--content-primary);
+  background: var(--color-ink-50);
+  border-color: var(--color-ink-200);
+}
+.eb-google-mark {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #4285F4;
+  background: #FFFFFF;
+  border: 1px solid rgba(66,133,244,0.20);
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 800;
+}
+.eb-microsoft-mark {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #0078D4;
+  background: #FFFFFF;
+  border: 1px solid rgba(0,120,212,0.20);
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+/* ---- States ---- */
+.eb-login-error {
+  background: var(--feedback-error-surface);
+  color: var(--feedback-error-content);
+  border: 1px solid var(--feedback-error-border);
+  padding: 10px 12px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.eb-login-notice {
+  background: var(--feedback-info-surface);
+  color: var(--feedback-info-content);
+  border: 1px solid var(--feedback-info-border);
+  padding: 10px 12px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.eb-login-dev {
+  padding: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+}
+.eb-login-dev p { margin-bottom: 16px; }
+.eb-login-footnote {
+  margin: 18px 0 0;
+  text-align: center;
+  color: var(--content-tertiary);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 960px) {
+  .eb-login-shell {
+    grid-template-columns: 1fr;
+  }
+  .eb-login-visual {
+    min-height: 340px;
+    padding: 28px 24px;
+  }
+  .eb-login-hero { padding: 16px 0; }
+  .eb-login-brain { width: 160px; height: 160px; }
+  .eb-login-brain-core { font-size: 44px; }
+  .eb-login-metrics { grid-template-columns: 1fr 1fr 1fr; }
+  .eb-login-card { border-left: none; border-top: 1px solid rgba(255,255,255,0.18); }
+}
+@media (max-width: 560px) {
+  .eb-login-shell { min-height: 100dvh; }
+  .eb-login-visual { min-height: 280px; padding: 22px 18px; }
+  .eb-login-brand h1 { font-size: 18px; }
+  .eb-login-brain { width: 130px; height: 130px; }
+  .eb-login-brain-core { font-size: 36px; }
+  .eb-login-metrics { grid-template-columns: 1fr; }
+  .eb-login-card { padding: 28px 20px 32px; }
+  .eb-login-card-head h2 { font-size: 30px; }
+  .eb-login-options { align-items: flex-start; flex-direction: column; gap: 10px; }
+}
 
 .eb-picker { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; }
 .eb-picker select, .eb-picker input { flex: 1; }
@@ -266,3 +921,37 @@ tbody tr:hover { background: var(--surface-hover); box-shadow: inset 3px 0 0 var
 pre { border: 1px solid var(--border-subtle); background: var(--surface-inset); }
 a { transition: opacity 0.15s ease; }
 a:hover { text-decoration: underline; opacity: 0.85; }
+
+/* Organization Intelligence Home */
+.eb-home { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.eb-home-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.eb-home-brand { display: flex; align-items: center; gap: 14px; }
+.eb-home-logo { width: 44px; height: 44px; border-radius: var(--radius-sm); object-fit: cover; border: 1px solid var(--border-subtle); }
+.eb-home-header h1 { font-family: var(--display); font-size: var(--fs-h2); margin: 0; }
+.eb-home-subtitle { font-size: 12.5px; color: var(--content-secondary); margin: 0; }
+.eb-home-user { text-align: right; }
+.eb-home-role { font-family: var(--mono); font-size: 11px; color: var(--content-tertiary); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); }
+.eb-home-hero { margin-bottom: 24px; }
+.eb-home-hero h2 { font-family: var(--display); font-size: var(--fs-h1); margin: 0 0 6px; }
+.eb-home-hero p { color: var(--content-secondary); margin: 0; }
+.eb-home-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.eb-stat-card { border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-inset); padding: 16px; text-align: center; }
+.eb-stat-value { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--content-primary); }
+.eb-stat-label { font-size: 12px; color: var(--content-secondary); margin-top: 4px; text-transform: uppercase; letter-spacing: var(--ls-eyebrow); }
+.eb-home-attention { border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-inset); padding: 18px; }
+.eb-home-attention h3 { font-family: var(--display); font-size: var(--fs-h3); margin: 0 0 14px; }
+.eb-attention-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.eb-attention-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border-radius: var(--radius-sm); border-left: 4px solid var(--border-strong); }
+.eb-attention-high { border-left-color: var(--color-semantic-error); background: rgba(220, 38, 38, 0.04); }
+.eb-attention-medium { border-left-color: var(--accent-intelligence); background: rgba(234, 179, 8, 0.04); }
+.eb-attention-low { border-left-color: var(--border-strong); background: transparent; }
+.eb-attention-content strong { display: block; font-size: 13.5px; color: var(--content-primary); margin-bottom: 2px; }
+.eb-attention-content p { font-size: 12.5px; color: var(--content-secondary); margin: 0; }
+.eb-attention-link { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent-intelligence-deep); background: none; border: none; cursor: pointer; padding: 6px 10px; border-radius: var(--radius-sm); }
+.eb-attention-link:hover { background: var(--surface-inset); }
+.eb-loading, .eb-error, .eb-empty { text-align: center; padding: 60px 20px; color: var(--content-secondary); }
+.eb-loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border-default); border-top-color: var(--accent-intelligence); border-radius: 50%; animation: eb-spin 0.8s linear infinite; margin: 0 auto 14px; }
+@keyframes eb-spin { to { transform: rotate(360deg); } }
+.eb-error { color: var(--color-semantic-error); }
+.eb-error button { margin-top: 10px; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--surface-inset); cursor: pointer; font-weight: 600; }
+

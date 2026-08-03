@@ -1,0 +1,411 @@
+/* ============================================================
+   HP Enterprise Brain — DASHBOARD / HOME
+   Hero banner, KPI grid, panels, and the shared hover affordance.
+
+   Token-driven throughout. Nothing here hardcodes a colour, so any
+   screen that adopts these classes follows the active theme and stays
+   in step with every other screen. Imported after theme.css so it can
+   build on the .eb-* vocabulary defined there.
+   ============================================================ */
+
+/* ---- Welcome banner ------------------------------------------------ */
+.eb-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  padding: clamp(22px, 3vw, 34px) clamp(24px, 3.4vw, 40px);
+  margin-bottom: var(--space-6);
+  border-radius: 18px;
+  color: var(--color-ink-0);
+  background:
+    radial-gradient(circle at 88% 18%, rgba(224, 174, 71, 0.30), transparent 46%),
+    radial-gradient(circle at 12% 92%, rgba(51, 214, 198, 0.20), transparent 44%),
+    linear-gradient(120deg, var(--color-ink-850), var(--color-ink-750) 58%, var(--color-ink-700));
+  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+}
+
+/* One slow sheen, not a carousel. The banner sits above the numbers the
+   user actually came to read; decoration here must not pull focus off them. */
+.eb-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.06) 50%, transparent 62%);
+  transform: translateX(-100%);
+  animation: eb-hero-sheen 9s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes eb-hero-sheen {
+  0%, 62% { transform: translateX(-100%); }
+  100%    { transform: translateX(100%); }
+}
+
+.eb-hero-copy { position: relative; z-index: 1; min-width: 0; }
+.eb-hero-date {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-eyebrow);
+  color: rgba(237, 242, 251, 0.62);
+  margin-bottom: 8px;
+}
+.eb-hero-copy h1 {
+  font-family: var(--display);
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--color-ink-0);
+}
+.eb-hero-copy p {
+  margin: 0;
+  font-size: 13.5px;
+  color: rgba(237, 242, 251, 0.72);
+  max-width: 52ch;
+}
+
+/* ---- Hero score ---------------------------------------------------- */
+.eb-hero-score {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.eb-hero-ring {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background: rgba(5, 8, 15, 0.42);
+  border: 3px solid var(--border-default);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.03);
+}
+
+/* Health tints the ring, and the badge beside it repeats the same fact in a
+   word. Colour alone would encode the most important number on the screen in
+   the one channel a colour-blind reader does not have. */
+.eb-hero-ring[data-health='good'] { border-color: var(--health-good); }
+.eb-hero-ring[data-health='warn'] { border-color: var(--health-warn); }
+.eb-hero-ring[data-health='crit'] { border-color: var(--health-crit); }
+
+.eb-hero-ring-value {
+  font-family: var(--mono);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-ink-0);
+}
+.eb-hero-ring-max {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(237, 242, 251, 0.55);
+}
+.eb-hero-score-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.eb-hero-score-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-eyebrow);
+  color: rgba(237, 242, 251, 0.66);
+}
+
+/* ---- Section heads ------------------------------------------------- */
+.eb-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: var(--space-4);
+}
+.eb-section-head h2 {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 650;
+  margin: 0;
+  color: var(--content-primary);
+}
+
+.eb-link-btn {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-intelligence-deep);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.eb-link-btn:hover {
+  background: var(--surface-hover);
+  color: var(--content-primary);
+}
+.eb-link-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---- KPI grid ------------------------------------------------------ */
+.eb-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+@media (max-width: 1100px) { .eb-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px)  { .eb-kpi-grid { grid-template-columns: 1fr; } }
+
+.eb-kpi {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 18px;
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow);
+  /* An explicit list, not `all`. Transitioning everything animates properties
+     the compositor cannot handle and drops frames across a grid this size. */
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+/*
+  HEALTH COLOURS ARE OVERRIDDEN LOCALLY, AND THAT NEEDS EXPLAINING.
+
+  In the light "Golden Instrument" theme the shipped tokens are:
+
+      --status-good : gold-600   #9A7220
+      --status-warn : amber-600  #B47E20
+
+  Those are the same brown to any reader. A dashboard whose "healthy" and
+  "needs attention" states are indistinguishable is not conveying status at
+  all, so consuming those two tokens directly here would produce a screen that
+  looks finished and communicates nothing.
+
+  design-tokens/colors.css states it is copied verbatim from the EB-DLS source
+  of truth, so it is not this component's place to edit it. The variables below
+  scope the fix to this file. The correct long-term fix is upstream, in the
+  design system, where --status-good should not collide with --status-warn.
+
+  Red is already used for --status-crit in this theme, so pairing it with green
+  for good is consistent with how the palette already treats status, not a new
+  idea imposed on it.
+
+  Colour is still never the only channel: every health state is accompanied by
+  a word (Healthy / Attention / Critical) in the markup.
+*/
+.eb-kpi,
+.eb-hero-ring {
+  --health-good: var(--color-green-600);
+  --health-warn: var(--color-amber-500);
+  --health-crit: var(--color-red-600);
+}
+
+/* Accent rail — neutral unless health is actually known, so an un-flagged
+   tile never implies an assessment nobody made. */
+.eb-kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--border-default);
+  transition: background 140ms ease;
+}
+.eb-kpi[data-health='good']::before { background: var(--health-good); }
+.eb-kpi[data-health='warn']::before { background: var(--health-warn); }
+.eb-kpi[data-health='crit']::before { background: var(--health-crit); }
+
+.eb-kpi-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-eyebrow);
+  color: var(--content-secondary);
+}
+
+/* Values wear TEXT tokens, never the status colour. The rail and the badge
+   carry state; a number painted red reads poorly and fails contrast against
+   several of the surfaces this component is mounted on. */
+.eb-kpi-value {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--content-primary);
+}
+.eb-kpi-hint {
+  font-size: 11.5px;
+  color: var(--content-tertiary);
+}
+
+/* The hover highlight — on things that actually navigate somewhere. */
+.eb-kpi-action {
+  cursor: pointer;
+  font: inherit;
+}
+.eb-kpi-action:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-intelligence);
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--accent-intelligence-glow);
+}
+.eb-kpi-action:active { transform: translateY(0); }
+.eb-kpi-action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---- Panels & lists ------------------------------------------------ */
+.eb-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+@media (max-width: 900px) { .eb-split { grid-template-columns: 1fr; } }
+
+.eb-panel {
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow);
+}
+.eb-panel-empty {
+  font-size: 13px;
+  color: var(--content-tertiary);
+  margin: 0;
+  padding: 10px 0;
+}
+
+.eb-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.eb-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.eb-list-row:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+  box-shadow: inset 3px 0 0 var(--accent-intelligence);
+}
+.eb-list-title {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--content-primary);
+}
+.eb-list-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--content-secondary);
+  white-space: nowrap;
+}
+
+.eb-hint {
+  margin-top: var(--space-6);
+  font-size: 11.5px;
+  color: var(--content-tertiary);
+}
+.eb-hint kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-default);
+  color: var(--content-secondary);
+}
+
+/* ============================================================
+   MOTION IS OPTIONAL
+   Sustained background movement is a vestibular trigger. Every
+   decorative animation stops; nothing that conveys state or
+   blocks a task is affected.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .eb-hero::after { animation: none; opacity: 0; }
+  .eb-kpi-action:hover { transform: none; }
+}
+
+/* ============================================================
+   STATUS BADGES — legibility and separation
+   ============================================================ */
+
+/*
+  Two problems with the shipped badge tokens in the light theme:
+
+    1. --feedback-success-* and --feedback-info-* are byte-identical
+       (gold-50 / gold-200 / gold-700), so "success" and "not configured"
+       render as the same chip.
+    2. gold-700 on gold-50 is a low-contrast pairing at 11px uppercase, which
+       is the smallest, thinnest text on the screen.
+
+  Scoped here rather than in the vendored token file, for the same reason as
+  the health colours above. Each badge also gains a leading glyph, so the
+  distinction survives greyscale, a colour-vision deficiency, and a printout —
+  colour is reinforcement, never the only carrier.
+*/
+.eb-badge::before {
+  font-weight: 700;
+  margin-right: 1px;
+}
+.eb-badge-success {
+  background: var(--color-green-50, #E8F9EF);
+  border: 1px solid var(--color-green-300, #8FE0AC);
+  color: var(--color-green-700, #227044);
+}
+.eb-badge-success::before { content: '✓'; }
+
+.eb-badge-warning {
+  background: var(--color-amber-50, #FEF6E4);
+  border: 1px solid var(--color-amber-300, #F2CC82);
+  color: var(--color-amber-700, #8A5F17);
+}
+.eb-badge-warning::before { content: '!'; }
+
+.eb-badge-danger {
+  background: var(--color-red-50, #FDECEC);
+  border: 1px solid var(--color-red-300, #F5A3A3);
+  color: var(--color-red-700, #9B1C1C);
+}
+.eb-badge-danger::before { content: '✕'; }
+
+/* Info stays deliberately neutral: "not configured" is a statement about setup,
+   not a result, and dressing it as an outcome invites someone to go fix a
+   thing that is not broken. */
+.eb-badge-info {
+  background: var(--surface-inset);
+  border: 1px solid var(--border-default);
+  color: var(--content-secondary);
+}
+.eb-badge-info::before { content: '·'; }

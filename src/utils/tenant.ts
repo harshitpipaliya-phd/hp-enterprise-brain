@@ -14,12 +14,6 @@
 
 const SELECTED_ORG_KEY = 'selectedOrgId';
 
-/** Falls back to the first organization the ERP seeds (Scholar Clone). */
-const DEFAULT_ORG_ID: string = import.meta.env.VITE_DEFAULT_ORG_ID || '6';
-
-/** Tenant the dev-bypass token carries; see AuthenticateJwt::handle(). */
-const DEV_BYPASS_TENANT: string = import.meta.env.VITE_AUTH_TENANT_ID || 'demo-tenant';
-
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const payload = token.split('.')[1];
@@ -31,20 +25,21 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-/**
- * The tenant segment for every /api/v1/{resource}/{tenantId} call: the selected
- * organization's sub_institute_id.
- */
 export function getTenantId(): string {
-  return getSelectedOrgId();
+  const selected = getSelectedOrgId();
+  if (selected) return selected;
+
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    const claims = decodeJwtPayload(token);
+    if (typeof claims?.tenantId === 'string' && claims.tenantId !== '') {
+      return claims.tenantId;
+    }
+  }
+
+  return '';
 }
 
-/**
- * The tenant the bearer token itself carries. Used for the one call that has to
- * happen BEFORE an organization is chosen — listing the organizations — since
- * at that point there is no selection to derive a tenant from. The endpoint
- * ignores its tenant segment and returns all organizations regardless.
- */
 export function getAuthTenantId(): string {
   const token = localStorage.getItem('accessToken');
   if (token) {
@@ -53,12 +48,12 @@ export function getAuthTenantId(): string {
       return claims.tenantId;
     }
   }
-  return DEV_BYPASS_TENANT;
+
+  return '';
 }
 
-/** The selected organization's sub_institute_id. */
 export function getSelectedOrgId(): string {
-  return localStorage.getItem(SELECTED_ORG_KEY) || DEFAULT_ORG_ID;
+  return localStorage.getItem(SELECTED_ORG_KEY) || '';
 }
 
 export function setSelectedOrgId(orgId: string | number): void {

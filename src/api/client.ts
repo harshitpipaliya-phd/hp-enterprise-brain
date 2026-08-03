@@ -12,39 +12,10 @@ const API_BASE = `${API_ORIGIN.replace(/\/+$/, '')}/api/v1`;
 
 export { API_ORIGIN, API_BASE };
 
-/**
- * Local development credential. AuthenticateJwt accepts the literal string
- * 'dev-bypass' as a bearer token when APP_ENV is local/development and mints
- * an admin identity for it. A real accessToken always takes precedence, so
- * signing in through Login upgrades every subsequent request automatically.
- */
-export const DEV_BYPASS_TOKEN = 'dev-bypass';
-
 export function authToken(): string {
-  return localStorage.getItem('accessToken') || DEV_BYPASS_TOKEN;
+  return localStorage.getItem('accessToken') || '';
 }
 
-export function isDevBypass(): boolean {
-  return !localStorage.getItem('accessToken');
-}
-
-/**
- * The Brain-owned controllers (signals, evidence, cases, recommendations,
- * decisions, outcomes, learnings, risks, policies, executors, notifications,
- * eso-executions, capabilities) return the raw database row — every column in
- * snake_case, straight out of `DB::table(...)->get()`. Every screen that
- * consumes them reads camelCase: executorType, capabilityTags, createdDate,
- * currentWorkload. The two have never lined up, which is why those screens
- * render blank columns the moment their tables hold anything.
- *
- * Rather than hand-map twenty entity shapes, camelCase aliases are added at
- * the response boundary. This is deliberately ADDITIVE — the original
- * snake_case keys are kept — so nothing that already reads a raw column name
- * breaks, and a value can never be lost to a rename.
- *
- * Bounded to plain objects and arrays: Date/File/Blob and other class
- * instances pass through untouched.
- */
 function toCamel(key: string): string {
   return key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 }
@@ -129,13 +100,6 @@ export async function request(path: string, options: RequestInit = {}, _isRetry 
   }
 
   if (res.status === 401 && !_isRetry) {
-    // Under dev-bypass there is no session to refresh or expire; a 401 there
-    // means the backend rejected the bypass token (wrong APP_ENV), which is a
-    // configuration error, not an expired session. Logging the user out would
-    // hide the real cause behind a login screen.
-    if (isDevBypass()) {
-      throw new Error('unauthorized: backend rejected the dev-bypass token (APP_ENV must be local or development)');
-    }
     const refreshed = await tryRefresh();
     if (refreshed) return request(path, options, true);
     localStorage.removeItem('accessToken');

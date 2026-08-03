@@ -29,6 +29,10 @@ import MemoryScreen from './components/workspace/MemoryScreen';
 import EsoLibraryScreen from './components/workspace/EsoLibraryScreen';
 import CommandCenter from './components/workspace/CommandCenter';
 import KasbaExplorer from './components/workspace/KasbaExplorer';
+// OrganizationIntelligenceHome previously rendered the 'home' view. Home is now
+// Command Center, so the component is no longer mounted anywhere. The file is
+// left in place rather than deleted — it is a complete screen, and nothing here
+// establishes that it should be thrown away rather than given its own nav entry.
 import Login from './components/auth/Login';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { Sidebar, Breadcrumb, breadcrumbFor } from './components/Sidebar';
@@ -39,16 +43,11 @@ import { api } from './api/organization';
 import type { OrganizationRow } from './api/organization';
 import { onSessionExpired } from './api/client';
 import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
+import { loadSession, saveSession, clearSession } from './utils/session';
+import { API_BASE } from './api/client';
 
-export type View = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer';
+export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer';
 
-/**
- * The organization shape is now owned by api/organization.ts, which is where
- * the ERP row is normalized. Re-exported here so the ~10 components that
- * `import type { Organization } from '../../App'` keep working, and so the two
- * definitions cannot drift apart again — the previous local copy declared
- * timezone/currency as non-null strings that the ERP has no columns for.
- */
 export type Organization = OrganizationRow;
 
 export default function App() {
@@ -59,36 +58,47 @@ export default function App() {
   );
 }
 
-/**
- * With no accessToken the client falls back to the dev-bypass bearer token,
- * which the backend accepts outside production — so the app is usable without
- * signing in. An explicit sign-out has to be remembered, otherwise the Logout
- * button would drop straight back into a dev-bypass session and Login would be
- * unreachable.
- */
-const SIGNED_OUT_KEY = 'signedOut';
-
 function initialAuthState(): boolean {
-  if (localStorage.getItem('accessToken')) return true;
-  return localStorage.getItem(SIGNED_OUT_KEY) === null;
+  return !!localStorage.getItem('accessToken');
 }
 
+/**
+ * The landing view.
+ *
+ * 'home' renders Command Center. Keeping one name for the landing screen —
+ * rather than having both 'home' and 'commandcenter' mean it — is what lets the
+ * sidebar highlight, the breadcrumb and the persisted view agree with each
+ * other. 'commandcenter' is still accepted so a session saved by an earlier
+ * build does not land the user on a screen that no longer exists.
+ */
+const HOME_VIEW: View = 'home';
+
 function AppShell() {
+  // Read ONCE, synchronously, before the first render. Everything below that
+  // depends on it — the role filter in the sidebar, and the `selected` gate on
+  // every view — is wrong for as long as it is unknown, and "wrong" here means
+  // a stripped-down menu and an empty page rather than a spinner.
+  const restored = loadSession();
+
   const [authenticated, setAuthenticated] = useState(initialAuthState);
-  const [view, setView] = useState<View>('list');
-  // The organizations list is the one call made BEFORE an organization has been
-  // chosen, so it is addressed with the token's own tenant. Every screen after
-  // this point derives its tenant from the selected organization instead
-  // (org.tenantId === org.id), which is where the Brain's rows actually live.
+  const [view, setView] = useState<View>((restored.view as View) || HOME_VIEW);
   const [tenantId, setTenantId] = useState(getAuthTenantId());
-  const [selected, setSelected] = useState<Organization | null>(null);
+  const [selected, setSelected] = useState<Organization | null>(restored.organization);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(restored.role);
   const { showToast } = useToast();
 
   useEffect(() => {
-    onSessionExpired(() => setAuthenticated(false));
+    onSessionExpired(() => {
+      clearSelectedOrgId();
+      clearSession();
+      setSelected(null);
+      setOrganizations([]);
+      setUserRole(null);
+      setAuthenticated(false);
+    });
   }, []);
 
   const load = async () => {
@@ -98,13 +108,36 @@ function AppShell() {
       const data = await api.listOrganizations(tenantId);
       setOrganizations(data);
 
-      // Re-attach the organization the user last selected so a refresh keeps
-      // the same tenant context instead of dropping back to the empty list.
       const remembered = getSelectedOrgId();
-      setSelected((current) => current ?? data.find((o) => o.id === remembered) ?? null);
+
+      // Resolved OUTSIDE the state updater on purpose. Writing to localStorage
+      // from inside one would run twice per render under StrictMode, which
+      // double-invokes updaters to surface exactly this kind of hidden side
+      // effect. A state updater has to be a pure function of its argument.
+      const next =
+        // Prefer the freshly-fetched row over the one restored from storage:
+        // same organization, but with any rename or new logo picked up.
+        data.find((o) => o.id === remembered) ??
+        data.find((o) => o.id === selected?.id) ??
+        // A single organization needs no choosing. Leaving it unselected just
+        // renders an empty shell behind a menu the user cannot use.
+        (data.length === 1 ? data[0] : null) ??
+        selected ??
+        null;
+
+      if (next) {
+        setSelected(next);
+        setSelectedOrgId(next.id);
+        saveSession({ organization: next });
+      }
     } catch (e: any) {
       setError(e.message);
       setOrganizations([]);
+      // `selected` is deliberately NOT cleared here. It was restored from a
+      // previous good session, and a failed refresh of the organization list —
+      // which this deployment sees regularly on a flaky remote database — is
+      // not evidence that the organization stopped existing. Clearing it would
+      // blank every screen because a background list request timed out.
     } finally {
       setLoading(false);
     }
@@ -114,37 +147,100 @@ function AppShell() {
     if (authenticated) load();
   }, [authenticated, tenantId]);
 
-  // Every hook above runs unconditionally; the sign-in gate has to come after
-  // them, or the hook count changes between renders when auth flips.
   if (!authenticated) {
     return (
       <Login
-        onLogin={() => {
-          localStorage.removeItem(SIGNED_OUT_KEY);
-          setTenantId(getAuthTenantId());
+        onLogin={(userData) => {
+          if (!userData?.organizationId) {
+            setAuthenticated(false);
+            return;
+          }
+
+          const org: Organization = {
+            id: userData.organizationId,
+            tenantId: userData.organizationId,
+            name: userData.organizationName || userData.organizationId,
+            legalName: null,
+            orgCode: '',
+            industry: null,
+            country: null,
+            timezone: null,
+            currency: null,
+            logo: userData.organizationLogo ?? null,
+            status: 'active',
+            createdBy: '',
+            createdDate: '',
+            updatedDate: '',
+          };
+
+          setSelectedOrgId(userData.organizationId);
+          setSelected(org);
+          setTenantId(userData.organizationId);
+          setUserRole(userData.role || null);
+          setView(HOME_VIEW);
           setAuthenticated(true);
+
+          // Written here, not in Login.tsx, because this is where the app
+          // decides what the session IS. The role in particular has to survive
+          // a refresh: without it the sidebar cannot tell an admin from a
+          // member and shows the member menu to everyone.
+          saveSession({
+            role: userData.role || null,
+            organization: org,
+            view: HOME_VIEW,
+          });
         }}
       />
     );
   }
 
   const navigate = (v: View, org?: Organization) => {
-    if (org) setSelectedOrgId(org.id);
-    setSelected(org ?? null);
+    // `org ?? null` used to clear the selection on every argument-less
+    // navigate() — and the sidebar calls it with `selected ?? undefined`, so
+    // any nav click while nothing was selected wiped it. Keeping the current
+    // organization unless a new one is named is what makes the menu usable.
+    const nextOrg = org ?? selected;
+
+    if (nextOrg) setSelectedOrgId(nextOrg.id);
+    setSelected(nextOrg);
     setView(v);
+    saveSession({ organization: nextOrg, view: v });
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}`,
+          },
+          body: JSON.stringify({ refreshToken }),
+        });
+      }
+    } catch {
+      // Best-effort logout; local state is the authoritative clear.
+    }
+
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    localStorage.setItem(SIGNED_OUT_KEY, '1');
+    // 'hpbrain-user' is deliberately NOT removed. It holds only the remembered
+    // email for the sign-in form, and signing out then back in is the exact
+    // situation "Remember me" exists for — clearing it here made the checkbox
+    // impossible to benefit from. The Login form clears it when the user
+    // unticks the box, which is the control that should own it.
     clearSelectedOrgId();
+    clearSession();
     setSelected(null);
     setOrganizations([]);
+    setUserRole(null);
+    setView(HOME_VIEW);
     setAuthenticated(false);
   };
 
-  /** Re-read the list from the API after any mutation, rather than splicing local state. */
   const reloadAfter = async (message?: string, tone: 'success' | 'warning' = 'success') => {
     await load();
     if (message) showToast(tone, message);
@@ -153,12 +249,13 @@ function AppShell() {
   return (
     <div className="eb-app">
       <CommandPalette onNavigate={(v) => navigate(v, selected ?? undefined)} hasSelectedOrg={!!selected} />
-<Sidebar
-         currentView={view}
-         hasSelectedOrg={!!selected}
-         onNavigate={(v) => navigate(v, selected ?? undefined)}
-         onLogout={logout}
-       />
+      <Sidebar
+        currentView={view}
+        hasSelectedOrg={!!selected}
+        userRole={userRole}
+        onNavigate={(v) => navigate(v, selected ?? undefined)}
+        onLogout={logout}
+      />
       <div className="eb-main">
         <div style={{ position: 'relative' }}>
           <Breadcrumb items={breadcrumbFor(view, selected?.name)} />
@@ -169,145 +266,173 @@ function AppShell() {
           )}
         </div>
         <div className="eb-content">
-          {/*
-            Keyed on `view` so navigating to another screen clears a caught
-            error — without the key the boundary would stay in its failed state
-            and every subsequent screen would show the same stale message.
-          */}
           <ErrorBoundary key={view} label={view}>
-          {view === 'list' && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-              <button onClick={() => navigate('create')}>+ New Organization</button>
-            </div>
-          )}
-          {error && <div style={{ color: 'red' }}>{error}</div>}
-      {view === 'list' && (
-        <OrganizationList
-          organizations={organizations}
-          loading={loading}
-          onSelect={(org) => navigate('details', org)}
-          onEdit={(org) => navigate('edit', org)}
-          onArchive={(org) => navigate('archive', org)}
-        />
-      )}
-      {view === 'create' && (
-        <OrganizationCreate
-          tenantId={tenantId}
-          onCreated={(org) => { navigate('list'); reloadAfter(`Organization "${org.name}" created`); }}
-          onCancel={() => navigate('list')}
-        />
-      )}
-      {view === 'edit' && selected && (
-        <OrganizationEdit
-          organization={selected}
-          onUpdated={(org) => { navigate('details', org); reloadAfter('Organization updated'); }}
-          onCancel={() => navigate('details', selected)}
-        />
-      )}
-      {view === 'details' && selected && (
-        <OrganizationDetails
-          organization={selected}
-          onEdit={() => navigate('edit', selected)}
-          onArchive={() => navigate('archive', selected)}
-          onBack={() => navigate('list')}
-          onViewDepartments={() => navigate('departments', selected)}
-          onViewPeople={() => navigate('people', selected)}
-          onViewCapabilities={() => navigate('capabilities', selected)}
-          onViewSignals={() => navigate('signals', selected)}
-          onViewWorkspace={() => navigate('workspace', selected)}
-          onViewAnalytics={() => navigate('analytics', selected)}
-          onViewExecutive={() => navigate('executive', selected)}
-          onViewGraph={() => navigate('graph', selected)}
-          onViewAgents={() => navigate('agents', selected)}
-          onViewEvidence={() => navigate('evidence', selected)}
-          onViewCopilot={() => navigate('copilot', selected)}
-          onViewDecisionIntel={() => navigate('decisionintel', selected)}
-          onViewTasks={() => navigate('tasks', selected)}
-          onViewDeliberation={() => navigate('deliberation', selected)}
-        />
-      )}
-      {view === 'departments' && selected && (
-        <DepartmentApp organization={selected} onBack={() => navigate('details', selected)} />
-      )}
-      {view === 'people' && selected && (
-        <PersonApp organization={selected} onBack={() => navigate('details', selected)} />
-      )}
-      {view === 'capabilities' && selected && (
-        <CapabilityApp organization={selected} onBack={() => navigate('details', selected)} />
-      )}
-      {view === 'signals' && selected && (
-        <SignalDashboard tenantId={selected.tenantId} />
-      )}
-      {view === 'workspace' && selected && (
-        <IntelligenceWorkspace tenantId={selected.tenantId} />
-      )}
-      {view === 'analytics' && selected && (
-        <DecisionAnalyticsPanel tenantId={selected.tenantId} />
-      )}
-      {view === 'executive' && selected && (
-        <ExecutiveDashboard tenantId={selected.tenantId} />
-      )}
-      {view === 'graph' && selected && (
-        <GraphExplorer tenantId={selected.tenantId} />
-      )}
-      {view === 'agents' && selected && (
-        <AgentMonitor tenantId={selected.tenantId} />
-      )}
-      {view === 'evidence' && selected && (
-        <EvidenceWorkspace tenantId={selected.tenantId} />
-      )}
-      {view === 'copilot' && selected && (
-        <ConversationWorkspace tenantId={selected.tenantId} />
-      )}
-      {view === 'decisionintel' && selected && (
-        <DecisionIntelligence tenantId={selected.tenantId} />
-      )}
-      {view === 'tasks' && selected && (
-        <TaskMonitor tenantId={selected.tenantId} />
-      )}
-      {view === 'deliberation' && selected && (
-        <DeliberationWorkspace tenantId={selected.tenantId} />
-      )}
-      {view === 'settings' && selected && (
-        <Settings tenantId={selected.tenantId} />
-      )}
-      {view === 'search' && selected && (
-        <GlobalSearch tenantId={selected.tenantId} />
-      )}
-      {view === 'policies' && selected && (
-        <PolicyManagement tenantId={selected.tenantId} />
-      )}
-      {view === 'mentalmodels' && selected && (
-        <MentalModelBrowser tenantId={selected.tenantId} />
-      )}
-      {view === 'executions' && selected && (
-        <ExecutionCenter tenantId={selected.tenantId} />
-      )}
-      {view === 'aiworkspace' && selected && (
-        <AIWorkspace tenantId={selected.tenantId} />
-      )}
-      {view === 'knowledgelibrary' && selected && (
-        <KnowledgeLibrary tenantId={selected.tenantId} />
-      )}
-      {view === 'memory' && selected && (
-        <MemoryScreen tenantId={selected.tenantId} />
-      )}
-      {view === 'esolibrary' && selected && (
-        <EsoLibraryScreen />
-      )}
-      {view === 'commandcenter' && selected && (
-        <CommandCenter tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
-      )}
-      {view === 'kasbaexplorer' && selected && (
-        <KasbaExplorer tenantId={selected.tenantId} />
-      )}
-      {view === 'archive' && selected && (
-        <OrganizationArchiveConfirm
-          organization={selected}
-          onArchived={(org) => { setSelected(null); setView('list'); reloadAfter(`Organization "${org.name}" archived`, 'warning'); }}
-          onCancel={() => navigate('details', selected)}
-        />
-      )}
+            {error && <div style={{ color: 'red' }}>{error}</div>}
+
+            {/*
+              Nothing selected and nothing to select yet. Every view below is
+              gated on `selected`, so without this branch the content pane
+              renders literally nothing — which is what a refresh used to show
+              while the organization list was in flight, and what it showed
+              permanently if that request failed. A blank page is
+              indistinguishable from a broken one, so say which it is.
+            */}
+            {!selected && (
+              <div style={{ padding: 32, color: '#666' }}>
+                {loading ? (
+                  <p>Loading your organization…</p>
+                ) : organizations.length > 0 ? (
+                  <>
+                    <p>Select an organization to continue.</p>
+                    <button onClick={() => navigate('list')}>Choose organization</button>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      {error
+                        ? 'Could not reach the server to load your organization.'
+                        : 'No organization is available for this account.'}
+                    </p>
+                    <button onClick={() => load()}>Retry</button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Home IS Command Center. Both names render it so a view
+                persisted by an earlier build still resolves. */}
+            {(view === 'home' || view === 'commandcenter') && selected && (
+              <CommandCenter tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
+            )}
+            {view === 'list' && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                <button onClick={() => navigate('create')}>+ New Organization</button>
+              </div>
+            )}
+            {view === 'list' && (
+              <OrganizationList
+                organizations={organizations}
+                loading={loading}
+                onSelect={(org) => navigate('details', org)}
+                onEdit={(org) => navigate('edit', org)}
+                onArchive={(org) => navigate('archive', org)}
+              />
+            )}
+            {view === 'create' && (
+              <OrganizationCreate
+                tenantId={tenantId}
+                onCreated={(org) => { navigate('list'); reloadAfter(`Organization "${org.name}" created`); }}
+                onCancel={() => navigate('list')}
+              />
+            )}
+            {view === 'edit' && selected && (
+              <OrganizationEdit
+                organization={selected}
+                onUpdated={(org) => { navigate('details', org); reloadAfter('Organization updated'); }}
+                onCancel={() => navigate('details', selected)}
+              />
+            )}
+            {view === 'details' && selected && (
+              <OrganizationDetails
+                organization={selected}
+                onEdit={() => navigate('edit', selected)}
+                onArchive={() => navigate('archive', selected)}
+                onBack={() => navigate('list')}
+                onViewDepartments={() => navigate('departments', selected)}
+                onViewPeople={() => navigate('people', selected)}
+                onViewCapabilities={() => navigate('capabilities', selected)}
+                onViewSignals={() => navigate('signals', selected)}
+                onViewWorkspace={() => navigate('workspace', selected)}
+                onViewAnalytics={() => navigate('analytics', selected)}
+                onViewExecutive={() => navigate('executive', selected)}
+                onViewGraph={() => navigate('graph', selected)}
+                onViewAgents={() => navigate('agents', selected)}
+                onViewEvidence={() => navigate('evidence', selected)}
+                onViewCopilot={() => navigate('copilot', selected)}
+                onViewDecisionIntel={() => navigate('decisionintel', selected)}
+                onViewTasks={() => navigate('tasks', selected)}
+                onViewDeliberation={() => navigate('deliberation', selected)}
+              />
+            )}
+            {view === 'departments' && selected && (
+              <DepartmentApp organization={selected} onBack={() => navigate('details', selected)} />
+            )}
+            {view === 'people' && selected && (
+              <PersonApp organization={selected} onBack={() => navigate('details', selected)} />
+            )}
+            {view === 'capabilities' && selected && (
+              <CapabilityApp organization={selected} onBack={() => navigate('details', selected)} />
+            )}
+            {view === 'signals' && selected && (
+              <SignalDashboard tenantId={selected.tenantId} />
+            )}
+            {view === 'workspace' && selected && (
+              <IntelligenceWorkspace tenantId={selected.tenantId} />
+            )}
+            {view === 'analytics' && selected && (
+              <DecisionAnalyticsPanel tenantId={selected.tenantId} />
+            )}
+            {view === 'executive' && selected && (
+              <ExecutiveDashboard tenantId={selected.tenantId} />
+            )}
+            {view === 'graph' && selected && (
+              <GraphExplorer tenantId={selected.tenantId} />
+            )}
+            {view === 'agents' && selected && (
+              <AgentMonitor tenantId={selected.tenantId} />
+            )}
+            {view === 'evidence' && selected && (
+              <EvidenceWorkspace tenantId={selected.tenantId} />
+            )}
+            {view === 'copilot' && selected && (
+              <ConversationWorkspace tenantId={selected.tenantId} />
+            )}
+            {view === 'decisionintel' && selected && (
+              <DecisionIntelligence tenantId={selected.tenantId} />
+            )}
+            {view === 'tasks' && selected && (
+              <TaskMonitor tenantId={selected.tenantId} />
+            )}
+            {view === 'deliberation' && selected && (
+              <DeliberationWorkspace tenantId={selected.tenantId} />
+            )}
+            {view === 'settings' && selected && (
+              <Settings tenantId={selected.tenantId} />
+            )}
+            {view === 'search' && selected && (
+              <GlobalSearch tenantId={selected.tenantId} />
+            )}
+            {view === 'policies' && selected && (
+              <PolicyManagement tenantId={selected.tenantId} />
+            )}
+            {view === 'mentalmodels' && selected && (
+              <MentalModelBrowser tenantId={selected.tenantId} />
+            )}
+            {view === 'executions' && selected && (
+              <ExecutionCenter tenantId={selected.tenantId} />
+            )}
+            {view === 'aiworkspace' && selected && (
+              <AIWorkspace tenantId={selected.tenantId} />
+            )}
+            {view === 'knowledgelibrary' && selected && (
+              <KnowledgeLibrary tenantId={selected.tenantId} />
+            )}
+            {view === 'memory' && selected && (
+              <MemoryScreen tenantId={selected.tenantId} />
+            )}
+            {view === 'esolibrary' && selected && (
+              <EsoLibraryScreen />
+            )}
+            {view === 'kasbaexplorer' && selected && (
+              <KasbaExplorer tenantId={selected.tenantId} />
+            )}
+            {view === 'archive' && selected && (
+              <OrganizationArchiveConfirm
+                organization={selected}
+                onArchived={(org) => { setSelected(null); setView('list'); reloadAfter(`Organization "${org.name}" archived`, 'warning'); }}
+                onCancel={() => navigate('details', selected)}
+              />
+            )}
           </ErrorBoundary>
         </div>
       </div>

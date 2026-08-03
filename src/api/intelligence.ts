@@ -8,6 +8,7 @@ export const api = {
   // Workspace (Story 9)
   getWorkspace: (tenantId: string) => request(`/workspace/${tenantId}`),
   getSignalChain: (tenantId: string, signalId: string) => request(`/workspace/${tenantId}/signal/${signalId}/chain`),
+  getHomeMetrics: (tenantId: string) => request(`/workspace/${tenantId}/home-metrics`),
 
   // Evidence (Story 2)
   listEvidence: (tenantId: string) => request(`/evidence/${tenantId}`),

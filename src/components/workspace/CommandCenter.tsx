@@ -4,7 +4,6 @@ import { reasoningEngineApi } from '../../api/reasoning-engine';
 import { notificationApi } from '../../api/notification';
 import { aiApi } from '../../api/ai';
 import { taskApi } from '../../api/task';
-import { useTheme } from '../../hooks/useTheme';
 import { LoadingState, ErrorState } from '../shared/States';
 import type { View } from '../../App';
 
@@ -14,13 +13,21 @@ interface CommandCenterProps {
 }
 
 /**
- * Command Center — single pane of glass. Composes data already served by
- * existing, already-tested endpoints into one view. No new backend logic —
- * every number here is something another screen already computes
- * correctly; this brings them together with quick navigation.
+ * Command Center — the home screen. A single pane of glass over numbers that
+ * other screens already compute correctly; this composes them and offers a
+ * route into each.
+ *
+ * STYLED WITH THE DESIGN SYSTEM, NOT INLINE STYLES. Every rule here comes from
+ * a token or an eb- class. The previous version hardcoded '#22c55e', '#f59e0b'
+ * and '#ef4444' in the markup, so this screen ignored the theme it was mounted
+ * in, drifted from every other screen, and could not follow a palette change.
+ * Status now comes from the reserved status tokens.
+ *
+ * STATUS IS NEVER COLOUR ALONE. Each health signal carries a word — Healthy,
+ * Attention, Critical — beside its colour, so the state survives a monochrome
+ * display, a printout, and a reader with a colour-vision deficiency.
  */
 export default function CommandCenter({ tenantId, onNavigate }: CommandCenterProps) {
-  const theme = useTheme();
   const [summary, setSummary] = useState<any>(null);
   const [missingEvidence, setMissingEvidence] = useState(0);
   const [duplicates, setDuplicates] = useState(0);
@@ -32,8 +39,11 @@ export default function CommandCenter({ tenantId, onNavigate }: CommandCenterPro
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     setLoading(true);
     setError(null);
+
     Promise.all([
       decisionIntelligenceApi.getExecutiveSummary(tenantId),
       reasoningEngineApi.missingEvidence(tenantId),
@@ -44,16 +54,40 @@ export default function CommandCenter({ tenantId, onNavigate }: CommandCenterPro
       taskApi.listRegistry(),
     ])
       .then(([summaryRes, missingRes, dupRes, unreadRes, execRes, providerRes, tasksRes]) => {
-        setSummary(summaryRes);
-        setMissingEvidence(missingRes.count);
-        setDuplicates(dupRes.count);
-        setUnreadNotifications(unreadRes.count);
-        setAiExecutions(execRes.slice(0, 5));
-        setProviders(providerRes.providers);
-        setTaskCount(tasksRes.length);
+        // Guards a tenant switch whose older request resolves last: without it
+        // the slower of two in-flight loads wins and the screen shows the
+        // organization the user just navigated away from.
+        if (cancelled) return;
+
+        // NORMALISED, NOT TRUSTED.
+        //
+        // `providers.filter is not a function` took this whole screen down in
+        // production. The cause was a shadowed route serving a different shape
+        // (see routes/api.php), and that is fixed — but the lesson stands: a
+        // dashboard that composes seven independent endpoints will eventually
+        // meet one that answers differently than expected, and the right
+        // outcome is a tile reading zero, not a white screen where the other
+        // six numbers used to be.
+        //
+        // Only the shape is defended here. Nothing is invented: an absent list
+        // becomes an empty list, which is what "we were told nothing" means.
+        setSummary({
+          intelligenceScore: { score: 0, ...(summaryRes?.intelligenceScore ?? {}) },
+          pendingRecommendations: asArray(summaryRes?.pendingRecommendations),
+          openDecisionsCount: Number(summaryRes?.openDecisionsCount ?? 0),
+          topRisks: asArray(summaryRes?.topRisks),
+        });
+        setMissingEvidence(Number(missingRes?.count ?? 0));
+        setDuplicates(Number(dupRes?.count ?? 0));
+        setUnreadNotifications(Number(unreadRes?.count ?? 0));
+        setAiExecutions(asArray(execRes).slice(0, 5));
+        setProviders(asArray(providerRes?.providers));
+        setTaskCount(asArray(tasksRes).length);
       })
-      .catch((e: any) => setError(e.message))
-      .finally(() => setLoading(false));
+      .catch((e: any) => { if (!cancelled) setError(e.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
   }, [tenantId]);
 
   if (loading) return <LoadingState label="Loading command center..." />;
@@ -61,67 +95,182 @@ export default function CommandCenter({ tenantId, onNavigate }: CommandCenterPro
   if (!summary) return null;
 
   const configuredProviders = providers.filter((p) => p.available).length;
+  const qualityAlerts = missingEvidence + duplicates;
+  const score = summary.intelligenceScore.score;
+  const health = healthOf(score);
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <h1 style={{ marginBottom: 4 }}>Command Center</h1>
-      <p style={{ color: theme.textMuted, marginBottom: 24, fontSize: 13 }}>Everything in one view — click any card to go to its full screen.</p>
+    <div className="eb-fade-in">
+      {/* ---- Welcome banner --------------------------------------------- */}
+      <header className="eb-hero">
+        <div className="eb-hero-copy">
+          <span className="eb-hero-date">
+            {new Date().toLocaleDateString(undefined, {
+              weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+            })}
+          </span>
+          <h1>Command Center</h1>
+          <p>Every signal, decision and risk in one view. Select any card to open its full screen.</p>
+        </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 32 }}>
-        <Card theme={theme} onClick={() => onNavigate('executive')} label="Intelligence Score" value={String(summary.intelligenceScore.score)}
-          color={summary.intelligenceScore.score >= 70 ? '#22c55e' : summary.intelligenceScore.score >= 40 ? '#f59e0b' : '#ef4444'} />
-        <Card theme={theme} onClick={() => onNavigate('executive')} label="Pending Recommendations" value={String(summary.pendingRecommendations.length)} />
-        <Card theme={theme} onClick={() => onNavigate('executive')} label="Open Decisions" value={String(summary.openDecisionsCount)} />
-        <Card theme={theme} onClick={() => onNavigate('executive')} label="Top Risks" value={String(summary.topRisks.length)} color={summary.topRisks.length > 0 ? '#ef4444' : undefined} />
-        <Card theme={theme} onClick={() => onNavigate('executive')} label="Data Quality Alerts" value={String(missingEvidence + duplicates)} color={(missingEvidence + duplicates) > 0 ? '#f59e0b' : '#22c55e'} />
-        <Card theme={theme} label="Unread Notifications" value={String(unreadNotifications)} />
-        <Card theme={theme} onClick={() => onNavigate('aiworkspace')} label="AI Providers Configured" value={`${configuredProviders}/${providers.length}`} color={configuredProviders > 0 ? '#22c55e' : theme.textMuted} />
-        <Card theme={theme} onClick={() => onNavigate('tasks')} label="Available Tasks" value={String(taskCount)} />
-      </div>
+        {/* The headline number gets the hero slot rather than a tile: it is the
+            one figure that answers "should I be worried?" on its own. */}
+        <div className="eb-hero-score" role="group" aria-label="Organizational intelligence score">
+          <div className="eb-hero-ring" data-health={health}>
+            <span className="eb-hero-ring-value">{score}</span>
+            <span className="eb-hero-ring-max">/ 100</span>
+          </div>
+          <div className="eb-hero-score-meta">
+            <span className="eb-hero-score-label">Intelligence Score</span>
+            <span className={`eb-badge eb-badge-${badgeOf(health)}`}>{labelOf(health)}</span>
+          </div>
+        </div>
+      </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        <div>
-          <h3 style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Top Risks</span>
-            <button onClick={() => onNavigate('executive')} style={{ fontSize: 11 }}>View all →</button>
-          </h3>
+      {/* ---- KPI row ------------------------------------------------------ */}
+      <section aria-labelledby="cc-overview">
+        <div className="eb-section-head">
+          <h2 id="cc-overview">Overview</h2>
+        </div>
+
+        <div className="eb-kpi-grid">
+          <Kpi label="Pending Recommendations" value={summary.pendingRecommendations.length}
+            hint="Awaiting review" onClick={() => onNavigate('executive')} />
+          <Kpi label="Open Decisions" value={summary.openDecisionsCount}
+            hint="Not yet resolved" onClick={() => onNavigate('executive')} />
+          <Kpi label="Top Risks" value={summary.topRisks.length}
+            hint={summary.topRisks.length > 0 ? 'Needs attention' : 'None recorded'}
+            health={summary.topRisks.length > 0 ? 'warn' : 'good'}
+            onClick={() => onNavigate('executive')} />
+          <Kpi label="Data Quality Alerts" value={qualityAlerts}
+            hint={`${missingEvidence} missing evidence · ${duplicates} duplicate`}
+            health={qualityAlerts > 0 ? 'warn' : 'good'}
+            onClick={() => onNavigate('executive')} />
+          <Kpi label="Unread Notifications" value={unreadNotifications} hint="Across this organization" />
+          <Kpi label="AI Providers" value={`${configuredProviders}/${providers.length}`}
+            hint={configuredProviders > 0 ? 'Configured' : 'None configured'}
+            health={configuredProviders > 0 ? 'good' : 'warn'}
+            onClick={() => onNavigate('aiworkspace')} />
+          <Kpi label="Available Tasks" value={taskCount} hint="In the registry"
+            onClick={() => onNavigate('tasks')} />
+          <Kpi label="Evidence Gaps" value={missingEvidence} hint="Claims without support"
+            health={missingEvidence > 0 ? 'warn' : 'good'}
+            onClick={() => onNavigate('evidence')} />
+        </div>
+      </section>
+
+      {/* ---- Two-column detail -------------------------------------------- */}
+      <div className="eb-split">
+        <section className="eb-panel" aria-labelledby="cc-risks">
+          <div className="eb-section-head">
+            <h2 id="cc-risks">Top Risks</h2>
+            <button className="eb-link-btn" onClick={() => onNavigate('executive')}>See all</button>
+          </div>
+
           {summary.topRisks.length === 0 ? (
-            <p style={{ color: theme.textMuted, fontSize: 13 }}>No risks assessed yet.</p>
-          ) : summary.topRisks.slice(0, 4).map((r: any) => (
-            <div key={r.id} style={{ padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, marginBottom: 6, fontSize: 12 }}>
-              <span style={{ textTransform: 'uppercase', color: theme.textMuted }}>{r.category}</span> — Score: {r.score}
-            </div>
-          ))}
-        </div>
-        <div>
-          <h3 style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Recent AI Activity</span>
-            <button onClick={() => onNavigate('aiworkspace')} style={{ fontSize: 11 }}>View all →</button>
-          </h3>
+            <p className="eb-panel-empty">No risks assessed yet.</p>
+          ) : (
+            <ul className="eb-list">
+              {summary.topRisks.slice(0, 5).map((r: any) => (
+                <li key={r.id} className="eb-list-row">
+                  <span className="eb-list-title">{r.category}</span>
+                  <span className="eb-list-meta">Score {r.score}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="eb-panel" aria-labelledby="cc-ai">
+          <div className="eb-section-head">
+            <h2 id="cc-ai">Recent AI Activity</h2>
+            <button className="eb-link-btn" onClick={() => onNavigate('aiworkspace')}>See all</button>
+          </div>
+
           {aiExecutions.length === 0 ? (
-            <p style={{ color: theme.textMuted, fontSize: 13 }}>No AI executions yet.</p>
-          ) : aiExecutions.map((e: any) => (
-            <div key={e.id} style={{ padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, marginBottom: 6, fontSize: 12, display: 'flex', justifyContent: 'space-between' }}>
-              <span>{e.serviceName}</span>
-              <span style={{ color: e.status === 'success' ? '#22c55e' : e.status === 'not_configured' ? theme.textMuted : '#ef4444' }}>{e.status}</span>
-            </div>
-          ))}
-        </div>
+            <p className="eb-panel-empty">No AI executions yet.</p>
+          ) : (
+            <ul className="eb-list">
+              {aiExecutions.map((e: any) => (
+                <li key={e.id} className="eb-list-row">
+                  <span className="eb-list-title">{e.serviceName}</span>
+                  <span className={`eb-badge eb-badge-${execBadge(e.status)}`}>{e.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
-      <p style={{ marginTop: 24, fontSize: 11, color: theme.textMuted }}>Press Ctrl+K / Cmd+K anywhere to jump to any screen directly.</p>
+      <p className="eb-hint">
+        Press <kbd>Ctrl</kbd> + <kbd>K</kbd> anywhere to jump straight to any screen.
+      </p>
     </div>
   );
 }
 
-function Card({ label, value, theme, onClick, color }: { label: string; value: string; theme: ReturnType<typeof useTheme>; onClick?: () => void; color?: string }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{ padding: 16, borderRadius: 8, backgroundColor: theme.surface, border: `1px solid ${theme.border}`, cursor: onClick ? 'pointer' : 'default' }}
-    >
-      <div style={{ fontSize: 12, color: theme.textMuted }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 'bold', color: color ?? theme.text }}>{value}</div>
-    </div>
+/**
+ * Whatever we were handed, as a list.
+ *
+ * Also covers the case that caused the outage: an endpoint returning a
+ * name-keyed OBJECT where the caller expected an array. Object.values() makes
+ * that usable rather than fatal, and an unexpected scalar becomes [] — the
+ * honest reading of "nothing we can enumerate".
+ */
+function asArray(value: unknown): any[] {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object') return Object.values(value);
+  return [];
+}
+
+type Health = 'good' | 'warn' | 'crit';
+
+function healthOf(score: number): Health {
+  if (score >= 70) return 'good';
+  if (score >= 40) return 'warn';
+  return 'crit';
+}
+
+function labelOf(h: Health): string {
+  return h === 'good' ? 'Healthy' : h === 'warn' ? 'Attention' : 'Critical';
+}
+
+function badgeOf(h: Health): string {
+  return h === 'good' ? 'success' : h === 'warn' ? 'warning' : 'danger';
+}
+
+function execBadge(status: string): string {
+  if (status === 'success') return 'success';
+  // 'not_configured' is a neutral fact about setup, not a failure to act on.
+  if (status === 'not_configured') return 'info';
+  return 'danger';
+}
+
+function Kpi({
+  label, value, hint, health, onClick,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+  health?: Health;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
+      <span className="eb-kpi-label">{label}</span>
+      <span className="eb-kpi-value">{value}</span>
+      {hint && <span className="eb-kpi-hint">{hint}</span>}
+    </>
+  );
+
+  // A real <button> when it navigates, a plain <div> when it does not. Making
+  // every tile a button would promise a destination half of them lack, and put
+  // dead stops in the keyboard tab order.
+  return onClick ? (
+    <button type="button" className="eb-kpi eb-kpi-action" data-health={health} onClick={onClick}>
+      {content}
+    </button>
+  ) : (
+    <div className="eb-kpi" data-health={health}>{content}</div>
   );
 }

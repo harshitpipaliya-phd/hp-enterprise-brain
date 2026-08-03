@@ -40,7 +40,7 @@ describe('getAuthTenantId', () => {
     localStorage.setItem('accessToken', makeToken({ sub: 'u-1', tenantId: 'tenant-alpha', role: 'analyst' }));
 
     expect(getAuthTenantId()).toBe('tenant-alpha');
-    expect(getAuthTenantId()).not.toBe('demo-tenant');
+    expect(getAuthTenantId()).not.toBe('6');
   });
 
   it('tracks the session: a different token yields a different tenant', () => {
@@ -52,8 +52,6 @@ describe('getAuthTenantId', () => {
   });
 
   it('decodes base64url payloads containing - and _', () => {
-    // Standard base64 of this payload contains both '+' and '/', so the token
-    // genuinely exercises the url-safe substitution done before atob.
     const tenantId = 'tenant-a?>~b';
     const token = makeToken({ tenantId });
 
@@ -63,26 +61,37 @@ describe('getAuthTenantId', () => {
     expect(getAuthTenantId()).toBe(tenantId);
   });
 
-  it('falls back to the dev-bypass tenant when no token is stored', () => {
-    expect(getAuthTenantId()).toBe('demo-tenant');
+  /**
+   * NO TENANT RESOLVES TO THE EMPTY STRING, NOT TO ORG 6.
+   *
+   * These four cases previously asserted a fallback of '6'. That default was
+   * removed from tenant.ts deliberately and the tests were never updated. The
+   * removal is right and must not be reverted to make them pass: '6' is a real
+   * tenant — Scholar Clone — so falling back to it means an unauthenticated,
+   * malformed-token or missing-claim request quietly addresses a real
+   * organization's data. An empty tenant produces a visibly failed request,
+   * which is the outcome someone can notice and fix.
+   */
+  it('yields no tenant when no token is stored', () => {
+    expect(getAuthTenantId()).toBe('');
   });
 
-  it('falls back when the token is malformed rather than throwing', () => {
+  it('yields no tenant when the token is malformed, rather than throwing', () => {
     localStorage.setItem('accessToken', 'not-a-jwt');
-    expect(getAuthTenantId()).toBe('demo-tenant');
+    expect(getAuthTenantId()).toBe('');
 
     localStorage.setItem('accessToken', 'a.!!!not-base64!!!.c');
-    expect(getAuthTenantId()).toBe('demo-tenant');
+    expect(getAuthTenantId()).toBe('');
   });
 
-  it('falls back when the payload carries no tenantId claim', () => {
+  it('yields no tenant when the payload carries no tenantId claim', () => {
     localStorage.setItem('accessToken', makeToken({ sub: 'u-1', role: 'viewer' }));
-    expect(getAuthTenantId()).toBe('demo-tenant');
+    expect(getAuthTenantId()).toBe('');
   });
 
   it('ignores a non-string tenantId instead of returning a number', () => {
     localStorage.setItem('accessToken', makeToken({ tenantId: 12345 }));
-    expect(getAuthTenantId()).toBe('demo-tenant');
+    expect(getAuthTenantId()).toBe('');
   });
 });
 
@@ -90,11 +99,10 @@ describe('getTenantId', () => {
   beforeEach(() => localStorage.clear());
 
   it('is the selected organization, not the token tenant', () => {
-    localStorage.setItem('accessToken', makeToken({ tenantId: 'demo-tenant' }));
+    localStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-alpha' }));
     setSelectedOrgId('6');
 
     expect(getTenantId()).toBe('6');
-    // The distinction that matters: signals live under '6', never 'demo-tenant'.
     expect(getTenantId()).not.toBe(getAuthTenantId());
   });
 
@@ -106,9 +114,16 @@ describe('getTenantId', () => {
     expect(getTenantId()).toBe('4');
   });
 
-  it('defaults to org 6 before anything has been selected', () => {
+  it('yields no tenant before anything has been selected', () => {
     expect(hasSelectedOrg()).toBe(false);
-    expect(getTenantId()).toBe('6');
+    expect(getTenantId()).toBe('');
+  });
+
+  it('falls back to the token tenant when nothing has been selected yet', () => {
+    localStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-alpha' }));
+
+    expect(hasSelectedOrg()).toBe(false);
+    expect(getTenantId()).toBe('tenant-alpha');
   });
 
   it('accepts a numeric org id and stores it as a string', () => {
@@ -117,11 +132,11 @@ describe('getTenantId', () => {
     expect(getTenantId()).toBe('4');
   });
 
-  it('returns to the default once the selection is cleared on sign-out', () => {
+  it('stops naming any tenant once the selection is cleared on sign-out', () => {
     setSelectedOrgId('4');
     clearSelectedOrgId();
 
     expect(hasSelectedOrg()).toBe(false);
-    expect(getTenantId()).toBe('6');
+    expect(getTenantId()).toBe('');
   });
 });

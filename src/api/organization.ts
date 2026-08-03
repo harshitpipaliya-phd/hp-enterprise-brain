@@ -64,7 +64,7 @@ function normalize(row: any, _listedUnder: string): OrganizationRow {
 }
 
 export const api = {
-  /** GET /api/v1/organizations/{tenantId} — returns ALL organizations. */
+  /** GET /api/v1/organizations/{tenantId} — returns only the requested organization. */
   listOrganizations: async (tenantId: string = getAuthTenantId()): Promise<OrganizationRow[]> => {
     const rows = await request(`/organizations/${tenantId}`);
     return Array.isArray(rows) ? rows.map((r) => normalize(r, tenantId)) : [];

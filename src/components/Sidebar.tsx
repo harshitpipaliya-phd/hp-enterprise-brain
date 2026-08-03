@@ -10,7 +10,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { view: 'commandcenter', label: 'Command Center', section: 'Overview', requiresOrg: true, icon: '⌘' },
+  // 'home' IS Command Center. The app's landing view is 'home', but there was
+  // no nav entry for it, so breadcrumbFor() fell through to its else branch and
+  // rendered the literal string — the breadcrumb read "Home / home". Giving the
+  // view a real entry is what makes the trail, the active highlight and the
+  // role filter all agree on what the landing screen is.
+  { view: 'home', label: 'Command Center', section: 'Overview', requiresOrg: true, icon: '⌘' },
 
   { view: 'list', label: 'Organizations', section: 'Foundation', requiresOrg: false, icon: '▢' },
   { view: 'departments', label: 'Departments', section: 'Foundation', requiresOrg: true, icon: '☷' },
@@ -51,11 +56,12 @@ const SECTIONS = ['Overview', 'Foundation', 'Intelligence Loop', 'Analytics', 'K
 interface SidebarProps {
   currentView: View;
   hasSelectedOrg: boolean;
+  userRole: string | null;
   onNavigate: (view: View) => void;
   onLogout: () => void;
 }
 
-export function Sidebar({ currentView, hasSelectedOrg, onNavigate, onLogout }: SidebarProps) {
+export function Sidebar({ currentView, hasSelectedOrg, userRole, onNavigate, onLogout }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('hpbrain-sidebar-collapsed') === 'true');
 
   const toggleCollapsed = () => {
@@ -63,6 +69,48 @@ export function Sidebar({ currentView, hasSelectedOrg, onNavigate, onLogout }: S
     setCollapsed(next);
     localStorage.setItem('hpbrain-sidebar-collapsed', String(next));
   };
+
+  const role = userRole || 'member';
+  const visibleViews = new Set<string>();
+
+  if (role === 'admin') {
+    NAV_ITEMS.forEach((item) => visibleViews.add(item.view));
+  } else if (role === 'tenant_admin') {
+    const allowed = [
+      'home', 'commandcenter', 'list', 'departments', 'people', 'capabilities',
+      'signals', 'evidence', 'deliberation', 'workspace', 'executions',
+      'executive', 'analytics', 'decisionintel', 'mentalmodels', 'graph',
+      'kasbaexplorer', 'search', 'copilot', 'aiworkspace', 'knowledgelibrary',
+      'memory', 'esolibrary', 'tasks', 'policies', 'settings',
+    ];
+    allowed.forEach((v) => visibleViews.add(v));
+  } else if (role === 'manager') {
+    const allowed = [
+      'home', 'commandcenter', 'departments', 'people', 'capabilities',
+      'signals', 'evidence', 'deliberation', 'workspace', 'executions',
+      'executive', 'analytics', 'decisionintel', 'tasks', 'settings',
+    ];
+    allowed.forEach((v) => visibleViews.add(v));
+  } else if (role === 'analyst') {
+    const allowed = [
+      'home', 'commandcenter', 'departments', 'people', 'capabilities',
+      'signals', 'evidence', 'deliberation', 'workspace', 'analytics',
+      'decisionintel', 'mentalmodels', 'graph', 'search', 'copilot',
+      'aiworkspace', 'knowledgelibrary', 'memory', 'settings',
+    ];
+    allowed.forEach((v) => visibleViews.add(v));
+  } else if (role === 'viewer') {
+    const allowed = [
+      'home', 'commandcenter', 'departments', 'people', 'capabilities',
+      'executive', 'analytics', 'decisionintel', 'graph', 'search', 'settings',
+    ];
+    allowed.forEach((v) => visibleViews.add(v));
+  } else {
+    const allowed = ['home', 'commandcenter', 'settings'];
+    allowed.forEach((v) => visibleViews.add(v));
+  }
+
+  const visibleItems = NAV_ITEMS.filter((item) => visibleViews.has(item.view));
 
   return (
     <nav className={`eb-sidebar${collapsed ? ' collapsed' : ''}`}>
@@ -79,7 +127,7 @@ export function Sidebar({ currentView, hasSelectedOrg, onNavigate, onLogout }: S
         </button>
       </div>
       {SECTIONS.map((section) => {
-        const items = NAV_ITEMS.filter((item) => item.section === section);
+        const items = visibleItems.filter((item) => item.section === section);
         if (items.length === 0) return null;
         return (
           <div key={section}>
