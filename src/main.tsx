@@ -9,6 +9,10 @@ import './dashboard.css';
 // .eb-* rule on a screen that has been migrated but still sits inside the old
 // shell markup.
 import './ui/ui.css';
+// The .bl-* / .bc-* intelligence layer: the three-layer reading and the charts.
+// After ui.css because it composes those primitives; before the shell because
+// the shell still needs the last word on page chrome.
+import './ui/layers.css';
 // Shell last: it composes the primitives and needs to win on the few rules
 // where the old .eb-* chrome and the new .s-* chrome describe the same box.
 import './shell/shell.css';

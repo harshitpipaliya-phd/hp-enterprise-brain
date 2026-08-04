@@ -1,0 +1,373 @@
+/**
+ * Styling for the three-layer reading and the chart legend.
+ *
+ * Tokens only — no literal colours. Both themes are defined in design-tokens,
+ * and anything hardcoded here would be right in one of them and wrong in the
+ * other.
+ */
+
+/* ─────────────── layer strip ─────────────── */
+
+.bl-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3, 14px);
+  margin-bottom: var(--space-4, 20px);
+}
+
+@media (max-width: 1100px) {
+  .bl-strip { grid-template-columns: 1fr; }
+}
+
+.bl-layer {
+  position: relative;
+  overflow: hidden;
+  padding: 15px 17px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface-card);
+}
+
+.bl-layer::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+}
+
+.bl-layer--state::before  { background: var(--feedback-info-solid); }
+.bl-layer--move::before   { background: var(--feedback-warning-solid); }
+.bl-layer--conseq::before { background: var(--feedback-error-solid); }
+
+.bl-layer__tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.bl-layer--state  .bl-layer__tag { color: var(--feedback-info-content); }
+.bl-layer--move   .bl-layer__tag { color: var(--feedback-warning-content); }
+.bl-layer--conseq .bl-layer__tag { color: var(--feedback-error-content); }
+
+.bl-figure {
+  margin-top: 6px;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--content-primary);
+}
+
+.bl-figure small {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--content-tertiary);
+  margin-left: 3px;
+}
+
+.bl-note {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--content-secondary);
+}
+
+.bl-points {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bl-points li {
+  position: relative;
+  margin-bottom: 5px;
+  padding-left: 14px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--content-secondary);
+}
+
+.bl-points li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-default);
+}
+
+.bl-layer--conseq .bl-points li::before { background: var(--feedback-error-solid); }
+.bl-points strong { color: var(--content-primary); font-weight: 700; }
+
+/* ─────────────── empty layers ─────────────── */
+
+.bl-empty {
+  padding: 14px 16px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface-inset);
+}
+
+.bl-empty__what {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--content-primary);
+}
+
+.bl-empty__why,
+.bl-empty__how {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--content-secondary);
+}
+
+.bl-empty__how {
+  margin-top: 6px;
+  color: var(--content-tertiary);
+}
+
+/* ─────────────── metric ─────────────── */
+
+.bl-metric {
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 9px);
+  background: var(--surface-card);
+}
+
+.bl-metric__label {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+}
+
+.bl-metric__value {
+  margin-top: 4px;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--content-primary);
+}
+
+.bl-metric__value small { font-size: 15px; color: var(--content-tertiary); }
+
+/* Never-measured is set in the muted colour and at prose size, so it cannot be
+   mistaken for a value at a glance. */
+.bl-metric__none {
+  margin-top: 6px;
+  font-size: 16px;
+  font-style: italic;
+  color: var(--content-tertiary);
+}
+
+.bl-metric__bar {
+  margin-top: 9px;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--border-subtle);
+}
+
+.bl-metric__bar i {
+  display: block;
+  height: 100%;
+  background: var(--feedback-info-solid);
+}
+
+.bl-metric__basis {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--content-secondary);
+}
+
+.bl-metric--none .bl-metric__basis { color: var(--content-tertiary); }
+
+/* ─────────────── undetermined ─────────────── */
+
+.bl-undet {
+  padding: 16px 18px;
+  border: 1px dashed var(--feedback-error-border);
+  border-radius: var(--radius-md, 9px);
+  background: var(--feedback-error-surface);
+}
+
+.bl-undet h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--feedback-error-content);
+}
+
+.bl-undet p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--content-secondary); }
+.bl-undet__q { margin-bottom: 6px !important; font-style: italic; }
+.bl-undet__why { margin-top: 8px !important; color: var(--content-tertiary) !important; }
+
+.bl-undet code {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11.5px;
+  background: var(--surface-card);
+  color: var(--feedback-error-content);
+}
+
+/* ─────────────── chips ─────────────── */
+
+.bl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.bl-chip--ev { cursor: pointer; background: var(--feedback-error-surface); color: var(--feedback-error-content); }
+.bl-chip--conf { background: var(--feedback-info-surface); color: var(--feedback-info-content); }
+.bl-chip--none { background: transparent; color: var(--content-tertiary); font-style: italic; text-transform: none; letter-spacing: 0; }
+
+.bl-chip--sev-critical { background: var(--feedback-error-solid); color: var(--surface-deep); }
+.bl-chip--sev-high     { background: var(--feedback-error-surface); color: var(--feedback-error-content); }
+.bl-chip--sev-medium   { background: var(--feedback-warning-surface); color: var(--feedback-warning-content); }
+.bl-chip--sev-low      { background: var(--feedback-info-surface); color: var(--feedback-info-content); }
+.bl-chip--sev-unknown  { background: var(--surface-inset); color: var(--content-tertiary); }
+
+.bl-chip--ev:focus-visible,
+.bl-chip--ev:hover { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+
+/* ─────────────── evidence ─────────────── */
+
+.bl-evidence {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-inset);
+}
+
+.bl-evidence__row {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--content-secondary);
+  word-break: break-word;
+}
+
+/* ─────────────── panel ─────────────── */
+
+.bl-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface-card);
+}
+
+.bl-panel__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.bl-panel__head h3 { margin: 0; font-size: 14.5px; font-weight: 700; letter-spacing: -0.02em; color: var(--content-primary); }
+.bl-panel__hint { font-size: 11.5px; color: var(--content-tertiary); }
+.bl-panel__right { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--content-tertiary); }
+
+.bl-panel__body { padding: 16px 18px 18px; }
+.bl-panel__body--flush { padding: 0; }
+
+/* The takeaway. Prose, deliberately — a chart without one leaves the reader to
+   guess what they were meant to notice. */
+.bl-panel__foot {
+  padding: 11px 18px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--content-secondary);
+}
+
+.bl-panel__foot strong { color: var(--feedback-error-content); font-weight: 700; }
+
+/* ─────────────── attention queue ─────────────── */
+
+.bl-queue { display: flex; flex-direction: column; gap: 9px; }
+
+.bl-att {
+  padding: 13px 16px;
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--border-default);
+  border-radius: var(--radius-sm, 9px);
+  background: var(--surface-card);
+}
+
+.bl-att--critical { border-left-color: var(--feedback-error-solid); }
+.bl-att--high     { border-left-color: var(--feedback-error-content); }
+.bl-att--medium   { border-left-color: var(--feedback-warning-solid); }
+.bl-att--low      { border-left-color: var(--feedback-info-solid); }
+
+.bl-att__row { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.bl-att__row--meta { margin-top: 9px; gap: 7px; }
+.bl-att__title { margin: 0; font-size: 14.5px; font-weight: 700; letter-spacing: -0.015em; color: var(--content-primary); }
+.bl-att__detail { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--content-secondary); }
+.bl-att__cost { font-size: 12px; font-weight: 700; color: var(--feedback-error-content); }
+
+/* ─────────────── chart legend ─────────────── */
+
+.bc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--content-secondary);
+}
+
+.bc-legend__item { display: inline-flex; align-items: center; gap: 6px; }
+.bc-legend strong { color: var(--content-primary); }
+
+.bc-legend__hatch {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  border: 1px solid var(--border-default);
+  background: repeating-linear-gradient(45deg,
+    var(--content-tertiary) 0 2px, transparent 2px 5px);
+}
+
+.bc-legend__swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.bc-legend__swatch--data { background: linear-gradient(90deg, var(--feedback-info-solid) 0%, var(--feedback-info-solid) 100%); opacity: 0.55; }
+.bc-legend__swatch--conseq { background: var(--feedback-error-solid); opacity: 0.7; }
+
+/* ─────────────── layout helpers ─────────────── */
+
+.bl-grid { display: grid; gap: var(--space-3, 14px); }
+.bl-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bl-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bl-grid--wide-left { grid-template-columns: 2fr 1fr; }
+
+@media (max-width: 1100px) {
+  .bl-grid--2, .bl-grid--3, .bl-grid--wide-left { grid-template-columns: 1fr; }
+}
+
+/* Wide charts and tables scroll inside their panel. The page body must never
+   scroll sideways. */
+.bl-scroll { overflow-x: auto; }

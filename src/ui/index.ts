@@ -10,3 +10,15 @@
  */
 export * from './primitives';
 export * from './LazyView';
+
+/**
+ * Charts and the three-layer reading.
+ *
+ * These two DO know about the Brain's concepts — a null that means "never
+ * assessed", a confidence that governs belief, a Consequence layer that is
+ * allowed to be empty. They live here rather than in components/rcl/ because
+ * every screen needs them and none should reimplement them; the honesty rules
+ * they encode only work if there is one implementation of each.
+ */
+export * from './charts';
+export * from './layers';
