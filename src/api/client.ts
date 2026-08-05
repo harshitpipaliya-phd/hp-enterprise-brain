@@ -118,7 +118,15 @@ export async function request(path: string, options: RequestInit = {}, _isRetry 
     // rather than a wall of HTML or JSON.
     try {
       const body = JSON.parse(text);
-      throw new Error(body.error || body.message || res.statusText);
+      // A 422 carries the useful detail in `errors`, keyed by field name —
+      // "The source id field is required." names what to fix, where the
+      // status line alone ("Unprocessable Content") names only that something
+      // was wrong. Falls through to the old order when there is no such key.
+      const fieldError =
+        body.errors && typeof body.errors === 'object'
+          ? (Object.values(body.errors as Record<string, string[]>).flat()[0] as string | undefined)
+          : undefined;
+      throw new Error(fieldError || body.error || body.message || res.statusText);
     } catch (e: any) {
       if (e instanceof SyntaxError) throw new Error(res.statusText || `HTTP ${res.status}`);
       throw e;

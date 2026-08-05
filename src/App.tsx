@@ -37,6 +37,7 @@ import MentalModelBrowser from './components/workspace/MentalModelBrowser';
 import ExecutionCenter from './components/workspace/ExecutionCenter';
 import AIWorkspace from './components/workspace/AIWorkspace';
 import KnowledgeLibrary from './components/workspace/KnowledgeLibrary';
+import IngestionWorkspace from './components/workspace/IngestionWorkspace';
 import MemoryScreen from './components/workspace/MemoryScreen';
 import EsoLibraryScreen from './components/workspace/EsoLibraryScreen';
 import CommandCenter from './components/workspace/CommandCenter';
@@ -58,7 +59,7 @@ import { loadSession, saveSession, clearSession } from './utils/session';
 import { LazyView } from './ui';
 import { API_BASE } from './api/client';
 
-export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer';
+export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion';
 
 export type Organization = OrganizationRow;
 
@@ -436,6 +437,9 @@ function AuthenticatedApp() {
             )}
             {view === 'knowledgelibrary' && selected && (
               <KnowledgeLibrary tenantId={selected.tenantId} />
+            )}
+            {view === 'ingestion' && selected && (
+              <IngestionWorkspace tenantId={selected.tenantId} />
             )}
             {view === 'memory' && selected && (
               <MemoryScreen tenantId={selected.tenantId} />

@@ -3,7 +3,7 @@ import {
   Activity, Boxes, Brain, Building2, ChartNoAxesColumn, CircleGauge,
   Database, FileSearch, FolderTree, Gauge, Layers, Library, ListChecks,
   MessageSquare, Network, Notebook, Radio, Scale, Search, Settings, ShieldCheck,
-  Sparkles, Target, TrendingUp, Users, Workflow,
+  Sparkles, Target, TrendingUp, Upload, Users, Workflow,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -59,6 +59,7 @@ export const VIEW_META: Record<View, ViewMeta> = {
   departments:      { label: 'Departments', section: 'Foundation', icon: FolderTree, requiresOrg: true, description: 'Organizational units and their reporting structure.' },
   people:           { label: 'People', section: 'Foundation', icon: Users, requiresOrg: true, description: 'Everyone recorded in this organization.' },
   capabilities:     { label: 'Capabilities', section: 'Foundation', icon: Target, requiresOrg: true, description: 'Capabilities, competencies and proficiency.' },
+  ingestion:        { label: 'Ingestion', section: 'Foundation', icon: Upload, requiresOrg: true, description: 'Bring a CSV in as Signals and Evidence.' },
 
   signals:          { label: 'Signals', section: 'Intelligence Loop', icon: Radio, requiresOrg: true, description: 'Raw observations entering the loop.' },
   evidence:         { label: 'Evidence', section: 'Intelligence Loop', icon: FileSearch, requiresOrg: true, description: 'What supports each claim, and how firmly.' },

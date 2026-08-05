@@ -83,8 +83,12 @@ describe('role matrix — unchanged by the redesign', () => {
   // Lifted from the pre-redesign Sidebar.tsx. If any of these counts move, the
   // refactor changed who can reach what, which is a product decision.
   const EXPECTED: Record<string, number> = {
-    admin: 31,        // every view in VIEW_META
-    tenant_admin: 26,
+    // +1 on both: 'ingestion' was added to VIEW_META and to TENANT_ADMIN. Its
+    // routes carry permission:settings.manage, so it was deliberately NOT
+    // granted to manager/analyst/viewer/member — their counts below are
+    // unchanged, which is what shows the addition did not widen anything else.
+    admin: 32,        // every view in VIEW_META
+    tenant_admin: 27,
     manager: 15,
     analyst: 19,
     viewer: 11,

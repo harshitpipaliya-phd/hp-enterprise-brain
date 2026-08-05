@@ -17,6 +17,10 @@ import { NAV_VIEWS, VIEW_META } from './viewMeta';
 
 const TENANT_ADMIN: View[] = [
   'home', 'commandcenter', 'list', 'departments', 'people', 'capabilities',
+  // Ingestion writes real Signals under a provenance record, and its four
+  // routes all carry permission:settings.manage. Kept out of the other role
+  // lists to match that, rather than widened here where the API would 403.
+  'ingestion',
   'signals', 'evidence', 'deliberation', 'workspace', 'executions',
   'executive', 'analytics', 'decisionintel', 'mentalmodels', 'graph',
   'kasbaexplorer', 'search', 'copilot', 'aiworkspace', 'knowledgelibrary',
