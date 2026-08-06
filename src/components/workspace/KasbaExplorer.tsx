@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { kasbaApi } from '../../api/kasba';
 import { api as capabilityApi } from '../../api/capability';
 import { KasbaBadge } from '../../components/rcl';
+import { IntelligenceCard, type IntelligenceStatus } from '../../ui/intelligenceCard';
 import { useToast } from '../Toast';
 
 interface HeatmapCell {
@@ -87,7 +88,26 @@ export default function KasbaExplorer({ tenantId }: { tenantId: string }) {
     }
   };
 
-  const levelColor = (level: number) => level >= 4 ? 'var(--status-good)' : level >= 2.5 ? 'var(--status-warn)' : 'var(--status-crit)';
+  /**
+   * The capability bands, named for IntelligenceCard.
+   *
+   * This replaces levelColor(), which returned a raw token string and had no
+   * caller left once the cards stopped being hand-drawn.
+   *
+   * THRESHOLDS ARE UNCHANGED — 4.0 and 2.5, exactly as levelColor used — because
+   * they are a judgement about capability, not a styling detail, and this change
+   * is meant to restyle the card rather than move the line between "fine" and
+   * "not fine".
+   *
+   * Two of the three hues are identical to what they replace: 'at-risk' resolves
+   * to var(--status-warn) and 'critical' to var(--status-crit). Only the top
+   * band shifts, from var(--status-good) to the card's teal — the one
+   * documented divergence between the design prototype and the token set.
+   * 'watch' is deliberately unused: inventing a fourth band here would change
+   * what the screen asserts about a capability.
+   */
+  const levelStatus = (level: number): IntelligenceStatus =>
+    level >= 4 ? 'healthy' : level >= 2.5 ? 'at-risk' : 'critical';
 
   /**
    * A level answers "how good". A state answers "how firmly do we know that"
@@ -113,32 +133,42 @@ export default function KasbaExplorer({ tenantId }: { tenantId: string }) {
         <p style={{ color: 'var(--content-tertiary)', marginBottom: 24 }}>No assessed capabilities yet — this fills in as real proficiency assessments are recorded.</p>
       ) : (
         <div style={{ display: 'grid', gap: 8, marginBottom: 32 }}>
+          {/*
+            IntelligenceCard replaces the hand-rolled card that stood here. The
+            geometry is unchanged — it was copied from this pattern in the first
+            place — and three things are deliberately carried across rather than
+            lost in the swap:
+
+              · KasbaBadge, in the card's `badge` slot. The level and the state
+                answer different questions and both stay visible (see the note
+                above levelStatus, and Invariant 6).
+              · "N unknown" keeps its critical hue, which is why `meta` takes
+                nodes and not strings.
+              · The 4.0 / 2.5 thresholds are untouched.
+
+            One real improvement comes free: the card renders a <button> when
+            given onClick, so this list is now keyboard-reachable and shows a
+            focus ring. The <div onClick> it replaces was neither.
+          */}
           {heatmap.map((cell, i) => (
-            <div
+            <IntelligenceCard
               key={i}
+              status={levelStatus(cell.averageLevel)}
+              title={capabilityName(cell.capabilityId)}
+              description={cell.departmentId ? `Department ${cell.departmentId}` : undefined}
+              badge={<KasbaBadge state={cell.capabilityState ?? 'Unknown'} />}
+              meta={[
+                `${cell.averageLevel} / 5`,
+                // "3 assessed" beside a Mastered badge would imply all three
+                // were; the cell shows the weakest state precisely because they
+                // were not. The original wording is kept verbatim.
+                `${cell.assessedCount} assessed`,
+                ...((cell.unknownCount ?? 0) > 0
+                  ? [<span key="unknown" style={{ color: 'var(--status-crit)' }}>{cell.unknownCount} unknown</span>]
+                  : []),
+              ]}
               onClick={() => loadTasks(cell.capabilityId)}
-              style={{ padding: 12, borderRadius: 8, border: '1px solid var(--border-default)', borderLeft: `4px solid ${levelColor(cell.averageLevel)}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--surface-card)' }}
-            >
-              <div>
-                <strong style={{ color: 'var(--content-primary)' }}>{capabilityName(cell.capabilityId)}</strong>
-                {cell.departmentId && <span style={{ fontSize: 11, color: 'var(--content-tertiary)', marginLeft: 8 }}>dept: {cell.departmentId}</span>}
-              </div>
-              <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <KasbaBadge state={cell.capabilityState ?? 'Unknown'} />
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 'bold', color: levelColor(cell.averageLevel) }}>{cell.averageLevel}/5</div>
-                  <div style={{ fontSize: 10, color: 'var(--content-tertiary)' }}>
-                    {cell.assessedCount} assessed
-                    {/* Named explicitly: "3 assessed" beside a Mastered badge
-                        would imply all three were, when the cell shows the
-                        weakest state precisely because they were not. */}
-                    {(cell.unknownCount ?? 0) > 0 && (
-                      <span style={{ color: 'var(--status-crit)' }}> · {cell.unknownCount} unknown</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+            />
           ))}
         </div>
       )}

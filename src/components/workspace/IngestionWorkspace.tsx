@@ -42,6 +42,7 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
   const { showToast } = useToast();
 
   const [sources, setSources] = useState<DataSourceRow[]>([]);
+  const [sourcesError, setSourcesError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [sourceId, setSourceId] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
@@ -54,9 +55,37 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
   const [result, setResult] = useState<CommitResponse | null>(null);
 
   useEffect(() => {
-    // A tenant with no configured sources is normal on a first run, so a
-    // failure here is not worth a toast — the field stays free text either way.
-    ingestionApi.listSources(tenantId).then(setSources).catch(() => setSources([]));
+    /*
+      AN EMPTY LIST AND A BROKEN ENDPOINT ARE NOT THE SAME ANSWER.
+
+      This was `.catch(() => setSources([]))`, on the reasoning that a tenant
+      with no configured sources is normal on a first run and not worth a
+      toast. That reasoning is right about an empty RESULT and wrong about a
+      failed REQUEST — and it swallowed a 404 from a route that did not exist
+      for as long as the route did not exist. The screen rendered an empty
+      dropdown and looked merely unconfigured, which is why nobody noticed
+      (docs/API-FUNCTIONAL-AUDIT.md F4a).
+
+      So: an empty list still passes silently. A failure is surfaced.
+    */
+    let cancelled = false;
+
+    ingestionApi
+      .listSources(tenantId)
+      .then((rows) => {
+        if (cancelled) return;
+        setSources(Array.isArray(rows) ? rows : []);
+        setSourcesError(null);
+      })
+      .catch((e: any) => {
+        if (cancelled) return;
+        setSources([]);
+        setSourcesError(e?.message ?? 'Could not load configured sources.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [tenantId]);
 
   const reset = () => {
@@ -189,9 +218,20 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
                 <option key={s.source_key} value={s.source_key}>{s.display_name}</option>
               ))}
             </datalist>
-            <span style={{ fontSize: 11, color: theme.textMuted }}>
-              Re-using a known source id loads the mapping saved for it.
-            </span>
+            {sourcesError ? (
+              /*
+                Stated, not swallowed. The field still accepts a typed source id
+                — a failed lookup of SAVED sources does not stop an upload — so
+                this explains what is missing rather than blocking the screen.
+              */
+              <span style={{ fontSize: 11, color: 'var(--status-warn)' }}>
+                Saved sources unavailable — {sourcesError}. You can still type a source id.
+              </span>
+            ) : (
+              <span style={{ fontSize: 11, color: theme.textMuted }}>
+                Re-using a known source id loads the mapping saved for it.
+              </span>
+            )}
           </label>
 
           <div>
