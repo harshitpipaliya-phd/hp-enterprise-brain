@@ -1,33 +1,74 @@
-import { useState, useEffect } from 'react';
-import { decisionIntelligenceApi } from '../../api/intelligence';
+import { useCallback, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  Bell,
+  Bot,
+  BrainCircuit,
+  Building2,
+  CheckCircle2,
+  ClipboardCheck,
+  DatabaseZap,
+  FileSearch,
+  Gauge,
+  IdCard,
+  ListChecks,
+  RefreshCw,
+  ShieldAlert,
+  Sparkles,
+  UserX,
+  Users,
+  Workflow,
+} from 'lucide-react';
+import { api, decisionIntelligenceApi } from '../../api/intelligence';
 import { reasoningEngineApi } from '../../api/reasoning-engine';
 import { notificationApi } from '../../api/notification';
 import { aiApi } from '../../api/ai';
 import { taskApi } from '../../api/task';
 import { LoadingState, ErrorState } from '../shared/States';
 import type { View } from '../../App';
+import './CommandCenter.css';
 
 interface CommandCenterProps {
   tenantId: string;
+  organizationName?: string;
   onNavigate: (view: View) => void;
 }
 
-/**
- * Command Center — the home screen. A single pane of glass over numbers that
- * other screens already compute correctly; this composes them and offers a
- * route into each.
- *
- * STYLED WITH THE DESIGN SYSTEM, NOT INLINE STYLES. Every rule here comes from
- * a token or an eb- class. The previous version hardcoded '#22c55e', '#f59e0b'
- * and '#ef4444' in the markup, so this screen ignored the theme it was mounted
- * in, drifted from every other screen, and could not follow a palette change.
- * Status now comes from the reserved status tokens.
- *
- * STATUS IS NEVER COLOUR ALONE. Each health signal carries a word — Healthy,
- * Attention, Critical — beside its colour, so the state survives a monochrome
- * display, a printout, and a reader with a colour-vision deficiency.
- */
-export default function CommandCenter({ tenantId, onNavigate }: CommandCenterProps) {
+type Health = 'good' | 'warn' | 'crit';
+
+interface HomeMetrics {
+  erp: {
+    activePeople: number;
+    activeDepartments: number;
+    peopleWithoutDepartment: number;
+    departmentsWithoutManager: number;
+    peopleWithoutProfile: number;
+  };
+  intelligence: {
+    openSignals: number;
+    highSignals: number;
+    pendingRecommendations: number;
+    openDecisions: number;
+  };
+  attention: Array<{
+    id: string;
+    title: string;
+    description: string;
+    severity: 'high' | 'medium' | 'low';
+    link?: string | null;
+    metric?: number;
+    confidence?: number;
+  }>;
+  dataFreshness: {
+    erp: string;
+    brain: string;
+  };
+}
+
+export default function CommandCenter({ tenantId, organizationName, onNavigate }: CommandCenterProps) {
   const [summary, setSummary] = useState<any>(null);
   const [missingEvidence, setMissingEvidence] = useState(0);
   const [duplicates, setDuplicates] = useState(0);
@@ -35,195 +76,372 @@ export default function CommandCenter({ tenantId, onNavigate }: CommandCenterPro
   const [aiExecutions, setAiExecutions] = useState<any[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
   const [taskCount, setTaskCount] = useState(0);
+  const [homeMetrics, setHomeMetrics] = useState<HomeMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+    if (mode === 'initial') setLoading(true);
+    if (mode === 'refresh') setRefreshing(true);
+    setError(null);
+
+    try {
+      const [summaryRes, homeRes, missingRes, dupRes, unreadRes, execRes, providerRes, tasksRes] = await Promise.all([
+        decisionIntelligenceApi.getExecutiveSummary(tenantId),
+        api.getHomeMetrics(tenantId),
+        reasoningEngineApi.missingEvidence(tenantId),
+        reasoningEngineApi.duplicateSignals(tenantId),
+        notificationApi.unreadCount(tenantId),
+        aiApi.executions(tenantId),
+        aiApi.providers(),
+        taskApi.listRegistry(),
+      ]);
+
+      setSummary({
+        intelligenceScore: { score: 0, ...(summaryRes?.intelligenceScore ?? {}) },
+        pendingRecommendations: asArray(summaryRes?.pendingRecommendations),
+        openDecisionsCount: Number(summaryRes?.openDecisionsCount ?? 0),
+        topRisks: asArray(summaryRes?.topRisks),
+      });
+      setMissingEvidence(Number(missingRes?.count ?? 0));
+      setDuplicates(Number(dupRes?.count ?? 0));
+      setUnreadNotifications(Number(unreadRes?.count ?? 0));
+      setAiExecutions(asArray(execRes).slice(0, 7));
+      setProviders(asArray(providerRes?.providers));
+      setTaskCount(asArray(tasksRes).length);
+      setHomeMetrics(homeRes as HomeMetrics);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [tenantId]);
 
   useEffect(() => {
     let cancelled = false;
-
-    setLoading(true);
-    setError(null);
-
-    Promise.all([
-      decisionIntelligenceApi.getExecutiveSummary(tenantId),
-      reasoningEngineApi.missingEvidence(tenantId),
-      reasoningEngineApi.duplicateSignals(tenantId),
-      notificationApi.unreadCount(tenantId),
-      aiApi.executions(tenantId),
-      aiApi.providers(),
-      taskApi.listRegistry(),
-    ])
-      .then(([summaryRes, missingRes, dupRes, unreadRes, execRes, providerRes, tasksRes]) => {
-        // Guards a tenant switch whose older request resolves last: without it
-        // the slower of two in-flight loads wins and the screen shows the
-        // organization the user just navigated away from.
-        if (cancelled) return;
-
-        // NORMALISED, NOT TRUSTED.
-        //
-        // `providers.filter is not a function` took this whole screen down in
-        // production. The cause was a shadowed route serving a different shape
-        // (see routes/api.php), and that is fixed — but the lesson stands: a
-        // dashboard that composes seven independent endpoints will eventually
-        // meet one that answers differently than expected, and the right
-        // outcome is a tile reading zero, not a white screen where the other
-        // six numbers used to be.
-        //
-        // Only the shape is defended here. Nothing is invented: an absent list
-        // becomes an empty list, which is what "we were told nothing" means.
-        setSummary({
-          intelligenceScore: { score: 0, ...(summaryRes?.intelligenceScore ?? {}) },
-          pendingRecommendations: asArray(summaryRes?.pendingRecommendations),
-          openDecisionsCount: Number(summaryRes?.openDecisionsCount ?? 0),
-          topRisks: asArray(summaryRes?.topRisks),
-        });
-        setMissingEvidence(Number(missingRes?.count ?? 0));
-        setDuplicates(Number(dupRes?.count ?? 0));
-        setUnreadNotifications(Number(unreadRes?.count ?? 0));
-        setAiExecutions(asArray(execRes).slice(0, 5));
-        setProviders(asArray(providerRes?.providers));
-        setTaskCount(asArray(tasksRes).length);
-      })
-      .catch((e: any) => { if (!cancelled) setError(e.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-
+    load().finally(() => {
+      if (cancelled) return;
+    });
     return () => { cancelled = true; };
-  }, [tenantId]);
+  }, [load]);
 
   if (loading) return <LoadingState label="Loading command center..." />;
   if (error) return <ErrorState message={error} />;
   if (!summary) return null;
 
   const configuredProviders = providers.filter((p) => p.available).length;
+  const providerTotal = providers.length;
   const qualityAlerts = missingEvidence + duplicates;
-  const score = summary.intelligenceScore.score;
+  const score = Number(summary.intelligenceScore.score ?? 0);
   const health = healthOf(score);
+  const pendingCount = summary.pendingRecommendations.length;
+  const riskCount = summary.topRisks.length;
+  const openDecisions = Number(summary.openDecisionsCount ?? 0);
+  const erp = homeMetrics?.erp ?? {
+    activePeople: 0,
+    activeDepartments: 0,
+    peopleWithoutDepartment: 0,
+    departmentsWithoutManager: 0,
+    peopleWithoutProfile: 0,
+  };
+  const orgAttention = asArray(homeMetrics?.attention).filter((item) => item.id !== 'all-clear');
+  const profileCompleteness = erp.activePeople > 0
+    ? Math.round(((erp.activePeople - erp.peopleWithoutProfile) / erp.activePeople) * 100)
+    : 0;
+  const departmentAssignment = erp.activePeople > 0
+    ? Math.round(((erp.activePeople - erp.peopleWithoutDepartment) / erp.activePeople) * 100)
+    : 0;
+  const leadershipCoverage = erp.activeDepartments > 0
+    ? Math.round(((erp.activeDepartments - erp.departmentsWithoutManager) / erp.activeDepartments) * 100)
+    : 0;
+  const derivedSignalLoad = riskCount + qualityAlerts + pendingCount;
+  const systemStatus = statusModel({
+    health,
+    riskCount,
+    missingEvidence,
+    configuredProviders,
+    providers: providerTotal,
+    orgGaps: erp.peopleWithoutDepartment + erp.departmentsWithoutManager + erp.peopleWithoutProfile,
+  });
+
+  const flow = [
+    { label: 'Organization', value: erp.activeDepartments, health: erp.departmentsWithoutManager > 0 ? 'warn' : 'good', icon: <Building2 size={17} /> },
+    { label: 'Signals', value: derivedSignalLoad, health: riskCount > 0 ? 'warn' : 'good', icon: <Activity size={17} /> },
+    { label: 'Evidence', value: missingEvidence, health: missingEvidence > 0 ? 'crit' : 'good', icon: <FileSearch size={17} /> },
+    { label: 'Reasoning', value: pendingCount, health: pendingCount > 0 ? 'warn' : 'good', icon: <BrainCircuit size={17} /> },
+    { label: 'Decisions', value: openDecisions, health: openDecisions > 0 ? 'warn' : 'good', icon: <ClipboardCheck size={17} /> },
+    { label: 'Execution', value: taskCount, health: taskCount > 0 ? 'good' : 'warn', icon: <Workflow size={17} /> },
+    { label: 'Learning', value: aiExecutions.length, health: aiExecutions.length > 0 ? 'good' : 'warn', icon: <Sparkles size={17} /> },
+  ];
+
+  const attention = [
+    ...orgAttention.slice(0, 3).map((item: any) => ({
+      id: `org-${item.id}`,
+      type: 'Organization',
+      title: String(item.title ?? 'Organization record needs review'),
+      meta: String(item.description ?? 'Operational completeness issue'),
+      tone: item.severity === 'high' ? 'crit' as Health : 'warn' as Health,
+      view: viewFromHomeLink(item.link),
+    })),
+    ...summary.topRisks.slice(0, 4).map((r: any) => ({
+      id: `risk-${r.id ?? r.category}`,
+      type: 'Risk',
+      title: String(r.category ?? 'Unclassified risk'),
+      meta: `Score ${r.score ?? 'unmeasured'}`,
+      tone: 'crit' as Health,
+      view: 'executive' as View,
+    })),
+    ...(missingEvidence > 0 ? [{
+      id: 'missing-evidence',
+      type: 'Evidence',
+      title: `${missingEvidence} claims are missing supporting evidence`,
+      meta: 'Blocks grounded reasoning',
+      tone: 'warn' as Health,
+      view: 'evidence' as View,
+    }] : []),
+    ...(duplicates > 0 ? [{
+      id: 'duplicate-signals',
+      type: 'Quality',
+      title: `${duplicates} duplicate signal groups detected`,
+      meta: 'Review deduplication',
+      tone: 'warn' as Health,
+      view: 'signals' as View,
+    }] : []),
+    ...summary.pendingRecommendations.slice(0, 3).map((r: any, index: number) => ({
+      id: `rec-${r.id ?? index}`,
+      type: 'Recommendation',
+      title: String(r.title ?? r.category ?? 'Recommendation awaiting review'),
+      meta: String(r.priority ?? 'Awaiting decision'),
+      tone: 'warn' as Health,
+      view: 'executive' as View,
+    })),
+  ].slice(0, 7);
 
   return (
-    <div className="eb-fade-in">
-      {/* ---- Welcome banner --------------------------------------------- */}
-      <header className="eb-hero">
-        <div className="eb-hero-copy">
-          <span className="eb-hero-date">
+    <div className="cc-page eb-fade-in">
+      <header className="cc-hero">
+        <div className="cc-hero__copy">
+          <span className="cc-kicker">
             {new Date().toLocaleDateString(undefined, {
               weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
             })}
           </span>
-          <h1>Command Center</h1>
-          <p>Every signal, decision and risk in one view. Select any card to open its full screen.</p>
+          <h1>{organizationName || 'Command Center'}</h1>
+          <p>Live executive cockpit for signals, evidence, decisions, execution, and AI system health.</p>
+          <div className="cc-hero__actions">
+            <button type="button" onClick={() => onNavigate('signals')}>
+              Open Signals <ArrowRight size={15} />
+            </button>
+            <button type="button" className="eb-pill-btn" onClick={() => load('refresh')} disabled={refreshing}>
+              <RefreshCw size={15} className={refreshing ? 'cc-spin' : ''} /> Refresh
+            </button>
+          </div>
         </div>
 
-        {/* The headline number gets the hero slot rather than a tile: it is the
-            one figure that answers "should I be worried?" on its own. */}
-        <div className="eb-hero-score" role="group" aria-label="Organizational intelligence score">
-          <div className="eb-hero-ring" data-health={health}>
-            <span className="eb-hero-ring-value">{score}</span>
-            <span className="eb-hero-ring-max">/ 100</span>
+        <div className="cc-score" role="group" aria-label="Organizational intelligence score">
+          <div
+            className="cc-score__ring"
+            data-health={health}
+            style={{ ['--score-fill' as any]: Math.max(0, Math.min(100, score)) }}
+          >
+            <span>{formatNumber(score)}</span>
+            <small>/ 100</small>
           </div>
-          <div className="eb-hero-score-meta">
-            <span className="eb-hero-score-label">Intelligence Score</span>
-            <span className={`eb-badge eb-badge-${badgeOf(health)}`}>{labelOf(health)}</span>
+          <div className="cc-score__meta">
+            <span>Intelligence Score</span>
+            <strong>{systemStatus.summary}</strong>
+            <em className={`eb-badge eb-badge-${badgeOf(health)}`}>{labelOf(health)}</em>
           </div>
         </div>
       </header>
 
-      {/* ---- KPI row ------------------------------------------------------ */}
-      <section aria-labelledby="cc-overview">
-        <div className="eb-section-head">
-          <h2 id="cc-overview">Overview</h2>
+      <section className="cc-org-command" aria-label="Organization command overview">
+        <div className="cc-org-command__header">
+          <div>
+            <span className="cc-kicker">Organization Backbone</span>
+            <h2>Structure, coverage, and operating completeness</h2>
+          </div>
+          <div className="cc-org-command__actions">
+            <button type="button" className="eb-pill-btn" onClick={() => onNavigate('departments')}>Departments</button>
+            <button type="button" className="eb-pill-btn" onClick={() => onNavigate('people')}>People</button>
+          </div>
         </div>
 
-        <div className="eb-kpi-grid">
-          <Kpi label="Pending Recommendations" value={summary.pendingRecommendations.length}
-            hint="Awaiting review" onClick={() => onNavigate('executive')} />
-          <Kpi label="Open Decisions" value={summary.openDecisionsCount}
-            hint="Not yet resolved" onClick={() => onNavigate('executive')} />
-          <Kpi label="Top Risks" value={summary.topRisks.length}
-            hint={summary.topRisks.length > 0 ? 'Needs attention' : 'None recorded'}
-            health={summary.topRisks.length > 0 ? 'warn' : 'good'}
-            onClick={() => onNavigate('executive')} />
-          <Kpi label="Data Quality Alerts" value={qualityAlerts}
-            hint={`${missingEvidence} missing evidence · ${duplicates} duplicate`}
-            health={qualityAlerts > 0 ? 'warn' : 'good'}
-            onClick={() => onNavigate('executive')} />
-          <Kpi label="Unread Notifications" value={unreadNotifications} hint="Across this organization" />
-          <Kpi label="AI Providers" value={`${configuredProviders}/${providers.length}`}
-            hint={configuredProviders > 0 ? 'Configured' : 'None configured'}
-            health={configuredProviders > 0 ? 'good' : 'warn'}
-            onClick={() => onNavigate('aiworkspace')} />
-          <Kpi label="Available Tasks" value={taskCount} hint="In the registry"
-            onClick={() => onNavigate('tasks')} />
-          <Kpi label="Evidence Gaps" value={missingEvidence} hint="Claims without support"
-            health={missingEvidence > 0 ? 'warn' : 'good'}
-            onClick={() => onNavigate('evidence')} />
+        <div className="cc-org-grid">
+          <OrgMetric icon={<Building2 />} label="Active Departments" value={erp.activeDepartments} detail={`${leadershipCoverage}% leadership coverage`} tone={erp.departmentsWithoutManager > 0 ? 'warn' : 'good'} />
+          <OrgMetric icon={<Users />} label="Active People" value={erp.activePeople} detail={`${departmentAssignment}% assigned to departments`} tone={erp.peopleWithoutDepartment > 0 ? 'warn' : 'good'} />
+          <OrgMetric icon={<UserX />} label="Missing Department" value={erp.peopleWithoutDepartment} detail="Outside org rollups" tone={erp.peopleWithoutDepartment > 0 ? 'crit' : 'good'} />
+          <OrgMetric icon={<IdCard />} label="Missing Profiles" value={erp.peopleWithoutProfile} detail={`${profileCompleteness}% profile completeness`} tone={erp.peopleWithoutProfile > 0 ? 'warn' : 'good'} />
         </div>
       </section>
 
-      {/* ---- Two-column detail -------------------------------------------- */}
-      <div className="eb-split">
-        <section className="eb-panel" aria-labelledby="cc-risks">
-          <div className="eb-section-head">
-            <h2 id="cc-risks">Top Risks</h2>
-            <button className="eb-link-btn" onClick={() => onNavigate('executive')}>See all</button>
+      <section className="cc-pulse" aria-label="Operational pulse">
+        <PulseCard icon={<ListChecks />} label="Pending Recommendations" value={pendingCount} hint="Awaiting review" tone={pendingCount > 0 ? 'warn' : 'good'} onClick={() => onNavigate('executive')} />
+        <PulseCard icon={<ClipboardCheck />} label="Open Decisions" value={openDecisions} hint="Decision backlog" tone={openDecisions > 0 ? 'warn' : 'good'} onClick={() => onNavigate('executive')} />
+        <PulseCard icon={<ShieldAlert />} label="Critical Risks" value={riskCount} hint="Highest priority" tone={riskCount > 0 ? 'crit' : 'good'} onClick={() => onNavigate('executive')} />
+        <PulseCard icon={<DatabaseZap />} label="Data Quality" value={qualityAlerts} hint={`${missingEvidence} gaps / ${duplicates} duplicates`} tone={qualityAlerts > 0 ? 'warn' : 'good'} onClick={() => onNavigate('evidence')} />
+        <PulseCard icon={<Bot />} label="AI Providers" value={`${configuredProviders}/${providerTotal}`} hint={configuredProviders > 0 ? 'Available' : 'Needs setup'} tone={configuredProviders > 0 ? 'good' : 'warn'} onClick={() => onNavigate('aiworkspace')} />
+        <PulseCard icon={<Bell />} label="Notifications" value={unreadNotifications} hint="Unread alerts" tone={unreadNotifications > 0 ? 'warn' : 'good'} />
+      </section>
+
+      <section className="cc-flow" aria-label="Intelligence flow">
+        <div className="cc-section-head">
+          <div>
+            <span className="cc-kicker">Intelligence Flow</span>
+            <h2>Signal to execution pipeline</h2>
+          </div>
+          <span className="cc-live"><span /> Live</span>
+        </div>
+        <div className="cc-flow__track">
+          {flow.map((stage, index) => (
+            <button key={stage.label} type="button" className="cc-flow__stage" data-health={stage.health} onClick={() => onNavigate(flowView(stage.label))}>
+              <span className="cc-flow__icon">{stage.icon}</span>
+              <strong>{stage.label}</strong>
+              <em>{stage.value}</em>
+              {index < flow.length - 1 && <i aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="cc-main-grid">
+        <section className="cc-panel cc-attention" aria-labelledby="cc-attention">
+          <div className="cc-section-head">
+            <div>
+              <span className="cc-kicker">Attention Queue</span>
+              <h2 id="cc-attention">What needs action now</h2>
+            </div>
+            <button className="eb-link-btn" onClick={() => onNavigate('executive')}>Open review</button>
           </div>
 
-          {summary.topRisks.length === 0 ? (
-            <p className="eb-panel-empty">No risks assessed yet.</p>
+          {attention.length === 0 ? (
+            <HealthyEmpty />
           ) : (
-            <ul className="eb-list">
-              {summary.topRisks.slice(0, 5).map((r: any) => (
-                <li key={r.id} className="eb-list-row">
-                  <span className="eb-list-title">{r.category}</span>
-                  <span className="eb-list-meta">Score {r.score}</span>
+            <ul className="cc-attention-list">
+              {attention.map((item) => (
+                <li key={item.id}>
+                  <button type="button" onClick={() => onNavigate(item.view)}>
+                    <span className="cc-attention__tone" data-health={item.tone}><AlertTriangle size={16} /></span>
+                    <span>
+                      <em>{item.type}</em>
+                      <strong>{item.title}</strong>
+                      <small>{item.meta}</small>
+                    </span>
+                    <ArrowRight size={16} />
+                  </button>
                 </li>
               ))}
             </ul>
           )}
         </section>
 
-        <section className="eb-panel" aria-labelledby="cc-ai">
-          <div className="eb-section-head">
-            <h2 id="cc-ai">Recent AI Activity</h2>
-            <button className="eb-link-btn" onClick={() => onNavigate('aiworkspace')}>See all</button>
-          </div>
+        <aside className="cc-side-stack">
+          <section className="cc-panel">
+            <div className="cc-section-head">
+              <div>
+                <span className="cc-kicker">System State</span>
+                <h2>{systemStatus.title}</h2>
+              </div>
+              <Gauge size={20} />
+            </div>
+            <p className="cc-system-copy">{systemStatus.detail}</p>
+            <div className="cc-system-grid">
+              <MiniMetric label="Provider readiness" value={`${configuredProviders}/${providerTotal}`} />
+              <MiniMetric label="Task registry" value={taskCount} />
+              <MiniMetric label="Quality alerts" value={qualityAlerts} />
+              <MiniMetric label="Unread alerts" value={unreadNotifications} />
+            </div>
+          </section>
 
-          {aiExecutions.length === 0 ? (
-            <p className="eb-panel-empty">No AI executions yet.</p>
-          ) : (
-            <ul className="eb-list">
-              {aiExecutions.map((e: any) => (
-                <li key={e.id} className="eb-list-row">
-                  <span className="eb-list-title">{e.serviceName}</span>
-                  <span className={`eb-badge eb-badge-${execBadge(e.status)}`}>{e.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          <section className="cc-panel">
+            <div className="cc-section-head">
+              <div>
+                <span className="cc-kicker">AI Activity</span>
+                <h2>Recent executions</h2>
+              </div>
+              <button className="eb-link-btn" onClick={() => onNavigate('aiworkspace')}>See all</button>
+            </div>
+
+            {aiExecutions.length === 0 ? (
+              <p className="cc-empty">No AI executions yet.</p>
+            ) : (
+              <ul className="cc-activity">
+                {aiExecutions.map((e: any) => (
+                  <li key={e.id}>
+                    <span className={`cc-activity__dot cc-activity__dot--${execBadge(e.status)}`} />
+                    <span>
+                      <strong>{e.serviceName ?? e.service_name ?? 'AI execution'}</strong>
+                      <small>{e.provider ?? e.status ?? 'unknown status'}</small>
+                    </span>
+                    <span className={`eb-badge eb-badge-${execBadge(e.status)}`}>{e.status ?? 'unknown'}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </aside>
       </div>
 
-      <p className="eb-hint">
+      <section className="cc-lower-grid">
+        <div className="cc-panel">
+          <div className="cc-section-head">
+            <div>
+              <span className="cc-kicker">Risk Posture</span>
+              <h2>Top risks</h2>
+            </div>
+            <button className="eb-link-btn" onClick={() => onNavigate('executive')}>See all</button>
+          </div>
+          {summary.topRisks.length === 0 ? (
+            <p className="cc-empty"><CheckCircle2 size={16} /> No risks assessed yet.</p>
+          ) : (
+            <ul className="cc-compact-list">
+              {summary.topRisks.slice(0, 5).map((r: any) => (
+                <li key={r.id ?? r.category}>
+                  <strong>{r.category ?? 'Unclassified'}</strong>
+                  <span>Score {r.score ?? 'n/a'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="cc-panel">
+          <div className="cc-section-head">
+            <div>
+              <span className="cc-kicker">Decision Backlog</span>
+              <h2>Pending recommendations</h2>
+            </div>
+            <button className="eb-link-btn" onClick={() => onNavigate('executive')}>Review</button>
+          </div>
+          {summary.pendingRecommendations.length === 0 ? (
+            <p className="cc-empty"><CheckCircle2 size={16} /> No recommendations awaiting review.</p>
+          ) : (
+            <ul className="cc-compact-list">
+              {summary.pendingRecommendations.slice(0, 5).map((r: any, index: number) => (
+                <li key={r.id ?? index}>
+                  <strong>{r.title ?? r.category ?? 'Recommendation'}</strong>
+                  <span>{r.priority ?? 'pending'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <p className="cc-hint">
         Press <kbd>Ctrl</kbd> + <kbd>K</kbd> anywhere to jump straight to any screen.
       </p>
     </div>
   );
 }
 
-/**
- * Whatever we were handed, as a list.
- *
- * Also covers the case that caused the outage: an endpoint returning a
- * name-keyed OBJECT where the caller expected an array. Object.values() makes
- * that usable rather than fatal, and an unexpected scalar becomes [] — the
- * honest reading of "nothing we can enumerate".
- */
 function asArray(value: unknown): any[] {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return Object.values(value);
   return [];
 }
-
-type Health = 'good' | 'warn' | 'crit';
 
 function healthOf(score: number): Health {
   if (score >= 70) return 'good';
@@ -241,36 +459,140 @@ function badgeOf(h: Health): string {
 
 function execBadge(status: string): string {
   if (status === 'success') return 'success';
-  // 'not_configured' is a neutral fact about setup, not a failure to act on.
   if (status === 'not_configured') return 'info';
   return 'danger';
 }
 
-function Kpi({
-  label, value, hint, health, onClick,
+function formatNumber(value: unknown): string {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? Number.isInteger(number) ? String(number) : number.toFixed(1) : '0';
+}
+
+function statusModel({
+  health, riskCount, missingEvidence, configuredProviders, providers, orgGaps,
 }: {
+  health: Health;
+  riskCount: number;
+  missingEvidence: number;
+  configuredProviders: number;
+  providers: number;
+  orgGaps: number;
+}) {
+  if (health === 'crit') {
+    return {
+      title: 'Critical operating state',
+      summary: 'Immediate review recommended',
+      detail: `${riskCount} risk item${riskCount === 1 ? '' : 's'} and ${missingEvidence} evidence gap${missingEvidence === 1 ? '' : 's'} are currently degrading decision confidence.`,
+    };
+  }
+  if (configuredProviders === 0 && providers > 0) {
+    return {
+      title: 'AI setup incomplete',
+      summary: 'Provider setup needed',
+      detail: 'AI providers exist in the registry, but none are currently available for command center automation.',
+    };
+  }
+  if (orgGaps > 0) {
+    return {
+      title: 'Organization data needs cleanup',
+      summary: 'Structure gaps detected',
+      detail: `${orgGaps} organization completeness issue${orgGaps === 1 ? '' : 's'} were returned by the ERP metrics and may reduce people, department, and leadership accuracy.`,
+    };
+  }
+  if (health === 'warn') {
+    return {
+      title: 'Watch state',
+      summary: 'Attention required',
+      detail: 'The organization is operating, but unresolved decisions, risk, or data quality gaps need review.',
+    };
+  }
+
+  return {
+    title: 'Healthy operating state',
+    summary: 'No immediate blockers',
+    detail: 'The current intelligence loop has no critical blockers from the data returned by the APIs.',
+  };
+}
+
+function flowView(label: string): View {
+  if (label === 'Organization') return 'departments';
+  if (label === 'Signals') return 'signals';
+  if (label === 'Evidence') return 'evidence';
+  if (label === 'Decisions' || label === 'Reasoning') return 'executive';
+  if (label === 'Execution') return 'tasks';
+  return 'aiworkspace';
+}
+
+function viewFromHomeLink(link: string | null | undefined): View {
+  if (link === 'people') return 'people';
+  if (link === 'departments') return 'departments';
+  if (link === 'signals') return 'signals';
+  if (link === 'evidence') return 'evidence';
+  return 'executive';
+}
+
+function PulseCard({
+  icon, label, value, hint, tone, onClick,
+}: {
+  icon: ReactNode;
   label: string;
   value: string | number;
-  hint?: string;
-  health?: Health;
+  hint: string;
+  tone: Health;
   onClick?: () => void;
 }) {
-  const content = (
+  const body = (
     <>
-      <span className="eb-kpi-label">{label}</span>
-      <span className="eb-kpi-value">{value}</span>
-      {hint && <span className="eb-kpi-hint">{hint}</span>}
+      <span>{icon}</span>
+      <strong>{value}</strong>
+      <em>{label}</em>
+      <small>{hint}</small>
     </>
   );
 
-  // A real <button> when it navigates, a plain <div> when it does not. Making
-  // every tile a button would promise a destination half of them lack, and put
-  // dead stops in the keyboard tab order.
   return onClick ? (
-    <button type="button" className="eb-kpi eb-kpi-action" data-health={health} onClick={onClick}>
-      {content}
-    </button>
+    <button type="button" className="cc-pulse-card" data-health={tone} onClick={onClick}>{body}</button>
   ) : (
-    <div className="eb-kpi" data-health={health}>{content}</div>
+    <div className="cc-pulse-card" data-health={tone}>{body}</div>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="cc-mini">
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function OrgMetric({
+  icon, label, value, detail, tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string | number;
+  detail: string;
+  tone: Health;
+}) {
+  return (
+    <div className="cc-org-metric" data-health={tone}>
+      <span>{icon}</span>
+      <div>
+        <strong>{typeof value === 'number' ? value.toLocaleString() : value}</strong>
+        <em>{label}</em>
+        <small>{detail}</small>
+      </div>
+    </div>
+  );
+}
+
+function HealthyEmpty() {
+  return (
+    <div className="cc-healthy">
+      <CheckCircle2 size={22} />
+      <strong>No immediate action queue</strong>
+      <p>No critical risks, evidence blockers, duplicate signals, or pending recommendations were returned by the current APIs.</p>
+    </div>
   );
 }

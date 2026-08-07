@@ -1,71 +1,406 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { Archive, Brain, Clock3, Database, FileCheck2, Link2, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { api } from '../../api/intelligence';
+import { api as signalApi } from '../../api/signal';
 import { aiApi } from '../../api/ai';
-import { useTheme } from '../../hooks/useTheme';
 import { useToast } from '../Toast';
+import './EvidenceWorkspace.css';
 
 interface Evidence {
   id: string;
-  signalId: string | null;
-  source: string;
-  evidenceType: string;
-  content: Record<string, unknown>;
-  provenance: Record<string, unknown>;
-  confidence: number;
-  observedDate: string;
-  createdDate: string;
+  signalId?: string | null;
+  source?: string | null;
+  evidenceType?: string | null;
+  content?: Record<string, unknown> | null;
+  provenance?: Record<string, unknown> | null;
+  confidence?: number | string | null;
+  observedDate?: string | null;
+  createdDate?: string | null;
+  status?: string | null;
 }
 
-/**
- * Evidence Workspace (EPIC-002). The first incomplete item found by the
- * ground-truth audit — real, tested backend since Sprint 2, zero UI until
- * this screen. Shows provenance and freshness explicitly, since that's the
- * whole point of Evidence in this system: it's not fact until corroborated,
- * and it matters less as it ages (see Reasoning's confidence computation).
- */
+interface SignalRecord {
+  id: string;
+  status?: string | null;
+  severity?: string | null;
+  classification?: string | null;
+  createdDate?: string | null;
+}
+
+type DateWindow = '30' | '90' | '180' | 'all';
+type FreshnessBand = 'Fresh' | 'Recent' | 'Aging' | 'Stale';
+type DistributionRow = { name: string; value: number; percent: number };
+type TrendRow = { label: string; date: string; count: number };
+
+const HALF_LIFE_DAYS = 90;
+const FRESHNESS_ORDER: FreshnessBand[] = ['Fresh', 'Recent', 'Aging', 'Stale'];
+const FRESHNESS_COLORS: Record<FreshnessBand, string> = {
+  Fresh: '#2f7f93',
+  Recent: '#3f8798',
+  Aging: '#a8892f',
+  Stale: '#bd2f68',
+};
+const CONFIDENCE_COLORS: Record<string, string> = {
+  high: '#2f7f93',
+  medium: '#a8892f',
+  low: '#bd2f68',
+  unknown: '#7c8496',
+};
+const PALETTE = ['#2f7f93', '#a8892f', '#bd2f68', '#7b68b4', '#5aa8ba', '#596780', '#8b6f2f'];
+
+function parseDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function evidenceDate(item: Evidence): Date | null {
+  return parseDate(item.observedDate) ?? parseDate(item.createdDate) ?? parseDate(String(item.provenance?.ts ?? ''));
+}
+
+function daysBetween(start: Date, end: Date): number {
+  return Math.max(0, (end.getTime() - start.getTime()) / 86_400_000);
+}
+
+function confidenceValue(item: Evidence): number | null {
+  const raw = Number(item.confidence ?? item.provenance?.confidence);
+  if (!Number.isFinite(raw)) return null;
+  return raw > 1 ? Math.min(raw / 100, 1) : Math.max(raw, 0);
+}
+
+function freshnessScore(item: Evidence, now = new Date()): number | null {
+  const observed = evidenceDate(item);
+  if (!observed) return null;
+  const ageDays = daysBetween(observed, now);
+  return 0.5 ** (ageDays / HALF_LIFE_DAYS);
+}
+
+function freshnessBand(score: number | null): FreshnessBand {
+  if (score === null) return 'Stale';
+  if (score >= 0.9) return 'Fresh';
+  if (score >= 0.7) return 'Recent';
+  if (score >= 0.4) return 'Aging';
+  return 'Stale';
+}
+
+function normalized(value: unknown, fallback: string): string {
+  const text = String(value ?? '').trim();
+  return text.length > 0 ? text.toLowerCase() : fallback;
+}
+
+function displayLabel(value: string): string {
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function formatPercent(value: number | null, digits = 0): string {
+  return value === null ? '-' : `${(value * 100).toFixed(digits)}%`;
+}
+
+function formatDays(value: number | null): string {
+  if (value === null) return '-';
+  if (value < 1) return '<1d';
+  return `${value.toFixed(value < 10 ? 1 : 0)}d`;
+}
+
+function countBy(items: Evidence[], pick: (item: Evidence) => string): Record<string, number> {
+  return items.reduce<Record<string, number>>((acc, item) => {
+    const key = pick(item);
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+}
+
+function distribution(counts: Record<string, number>, order?: string[]): DistributionRow[] {
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  return Object.entries(counts)
+    .map(([name, value]) => ({ name, value, percent: total > 0 ? value / total : 0 }))
+    .sort((a, b) => {
+      const ai = order?.indexOf(a.name) ?? -1;
+      const bi = order?.indexOf(b.name) ?? -1;
+      if (ai !== -1 || bi !== -1) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      return b.value - a.value;
+    });
+}
+
+function contentText(item: Evidence): string {
+  const content = item.content ?? {};
+  const preferred = content.note ?? content.text ?? content.summary ?? content.description;
+  if (preferred !== undefined && preferred !== null) return String(preferred);
+  return Object.keys(content).length > 0 ? JSON.stringify(content) : '-';
+}
+
+function buildTrend(items: Evidence[], dateWindow: DateWindow): TrendRow[] {
+  const now = new Date();
+  const dates = items.map(evidenceDate).filter((date): date is Date => date !== null);
+  const earliest = dates.length ? new Date(Math.min(...dates.map((date) => date.getTime()))) : now;
+  const requestedDays = dateWindow === 'all' ? Math.max(1, Math.ceil(daysBetween(earliest, now)) + 1) : Number(dateWindow);
+  const bucketCount = Math.min(12, Math.max(1, requestedDays));
+  const bucketSizeDays = Math.max(1, Math.ceil(requestedDays / bucketCount));
+  const start = new Date(now.getTime() - (bucketCount - 1) * bucketSizeDays * 86_400_000);
+  start.setHours(0, 0, 0, 0);
+
+  const rows = Array.from({ length: bucketCount }, (_, i) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + i * bucketSizeDays);
+    return {
+      label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      date: date.toISOString().slice(0, 10),
+      count: 0,
+    };
+  });
+
+  items.forEach((item) => {
+    const observed = evidenceDate(item);
+    if (!observed || observed < start || observed > now) return;
+    const index = Math.floor(daysBetween(start, observed) / bucketSizeDays);
+    if (rows[index]) rows[index].count += 1;
+  });
+
+  return rows;
+}
+
 export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
-  const theme = useTheme();
   const { showToast } = useToast();
   const [summarizingId, setSummarizingId] = useState<string | null>(null);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
+  const [signals, setSignals] = useState<SignalRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ signalId: '', source: 'internal', content: '', confidence: '0.7' });
   const [submitting, setSubmitting] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [freshnessFilter, setFreshnessFilter] = useState('');
+  const [groundingFilter, setGroundingFilter] = useState('');
+  const [dateWindow, setDateWindow] = useState<DateWindow>('180');
 
   const load = async () => {
-    setLoading(true);
+    setRefreshing(true);
     setError(null);
     try {
-      setEvidence(await api.listEvidence(tenantId));
-    } catch (e: any) {
-      setError(e.message);
+      const [data, signalData] = await Promise.all([
+        api.listEvidence(tenantId),
+        signalApi.listSignals(tenantId),
+      ]);
+      setEvidence(Array.isArray(data) ? data : []);
+      setSignals(Array.isArray(signalData) ? signalData : []);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Unable to load evidence.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  useEffect(() => { load(); }, [tenantId]);
+  useEffect(() => {
+    setLoading(true);
+    load();
+  }, [tenantId]);
+
+  const enriched = useMemo(() => {
+    const now = new Date();
+    return evidence.map((item) => {
+      const observed = evidenceDate(item);
+      const freshness = freshnessScore(item, now);
+      const confidence = confidenceValue(item);
+      const ageDays = observed ? daysBetween(observed, now) : null;
+      return {
+        item,
+        observed,
+        ageDays,
+        freshness,
+        band: freshnessBand(freshness),
+        confidence,
+        source: normalized(item.source, 'unknown'),
+        type: normalized(item.evidenceType, 'unknown'),
+        grounded: Boolean(item.signalId),
+        quality: confidence === null || freshness === null ? null : confidence * freshness,
+      };
+    });
+  }, [evidence]);
+
+  const filteredEvidence = useMemo(() => {
+    const now = new Date();
+    const from = dateWindow === 'all' ? null : new Date(now.getTime() - Number(dateWindow) * 86_400_000);
+    return enriched.filter((row) => {
+      if (sourceFilter && row.source !== sourceFilter) return false;
+      if (typeFilter && row.type !== typeFilter) return false;
+      if (freshnessFilter && row.band !== freshnessFilter) return false;
+      if (groundingFilter === 'grounded' && !row.grounded) return false;
+      if (groundingFilter === 'ungrounded' && row.grounded) return false;
+      if (from && (!row.observed || row.observed < from)) return false;
+      return true;
+    });
+  }, [enriched, sourceFilter, typeFilter, freshnessFilter, groundingFilter, dateWindow]);
+
+  const model = useMemo(() => {
+    const rows = filteredEvidence;
+    const items = rows.map((row) => row.item);
+    const confidences = rows.map((row) => row.confidence).filter((value): value is number => value !== null);
+    const freshnessScores = rows.map((row) => row.freshness).filter((value): value is number => value !== null);
+    const ages = rows.map((row) => row.ageDays).filter((value): value is number => value !== null);
+    const qualityScores = rows.map((row) => row.quality).filter((value): value is number => value !== null);
+    const grounded = rows.filter((row) => row.grounded);
+    const ungrounded = rows.filter((row) => !row.grounded);
+    const avg = (values: number[]) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+    const bandCounts = FRESHNESS_ORDER.reduce<Record<string, number>>((acc, band) => {
+      acc[band] = rows.filter((row) => row.band === band).length;
+      return acc;
+    }, {});
+    const confidenceRows = distribution(countBy(items, (item) => {
+      const value = confidenceValue(item);
+      if (value === null) return 'unknown';
+      if (value >= 0.75) return 'high';
+      if (value >= 0.45) return 'medium';
+      return 'low';
+    }), ['high', 'medium', 'low', 'unknown']);
+    const sourceRows = distribution(countBy(items, (item) => normalized(item.source, 'unknown'))).slice(0, 8);
+    const typeRows = distribution(countBy(items, (item) => normalized(item.evidenceType, 'unknown'))).slice(0, 8);
+    const sourceQualityRows = sourceRows.map((source) => {
+      const sourceMatches = rows.filter((row) => row.source === source.name);
+      const quality = avg(sourceMatches.map((row) => row.quality).filter((value): value is number => value !== null));
+      return { ...source, quality };
+    });
+    const trend = buildTrend(items, dateWindow);
+    const decayPoints = rows
+      .filter((row) => row.ageDays !== null && row.freshness !== null)
+      .map((row) => ({
+        age: Number(row.ageDays?.toFixed(1)),
+        freshness: Number(row.freshness?.toFixed(3)),
+        confidence: row.confidence ?? 0,
+        source: row.source,
+        band: row.band,
+      }));
+    const staleOrAging = rows.filter((row) => row.band === 'Aging' || row.band === 'Stale');
+    const lowQuality = rows.filter((row) => row.quality !== null && row.quality < 0.4);
+    const dominantSource = sourceRows[0] ?? null;
+    const coveredSignalIds = new Set(rows.map((row) => row.item.signalId).filter(Boolean).map(String));
+    const openSignals = signals.filter((signal) => !['resolved', 'closed', 'dismissed'].includes(normalized(signal.status, 'unknown')));
+    const highSeverityOpenSignals = openSignals.filter((signal) => ['critical', 'high'].includes(normalized(signal.severity, 'unknown')));
+    const evidenceDensity = coveredSignalIds.size > 0 ? rows.length / coveredSignalIds.size : null;
+    const signalCoverage = signals.length > 0 ? coveredSignalIds.size / signals.length : null;
+    const openSignalCoverage = openSignals.length > 0
+      ? openSignals.filter((signal) => coveredSignalIds.has(signal.id)).length / openSignals.length
+      : null;
+    const sourceConcentration = dominantSource && rows.length > 0 ? dominantSource.value / rows.length : null;
+    const staleGrounded = rows.filter((row) => row.grounded && row.band === 'Stale');
+
+    return {
+      total: rows.length,
+      avgConfidence: avg(confidences),
+      avgFreshness: avg(freshnessScores),
+      avgAge: avg(ages),
+      avgQuality: avg(qualityScores),
+      grounded,
+      ungrounded,
+      bandRows: distribution(bandCounts, FRESHNESS_ORDER),
+      confidenceRows,
+      sourceRows,
+      typeRows,
+      sourceQualityRows,
+      trend,
+      decayPoints,
+      staleOrAging,
+      lowQuality,
+      dominantSource,
+      coveredSignalIds,
+      openSignals,
+      highSeverityOpenSignals,
+      evidenceDensity,
+      signalCoverage,
+      openSignalCoverage,
+      sourceConcentration,
+      staleGrounded,
+    };
+  }, [filteredEvidence, dateWindow, signals]);
+
+  const filterOptions = useMemo(() => ({
+    sources: Object.keys(countBy(evidence, (item) => normalized(item.source, 'unknown'))).sort(),
+    types: Object.keys(countBy(evidence, (item) => normalized(item.evidenceType, 'unknown'))).sort(),
+  }), [evidence]);
+
+  const insights = useMemo(() => {
+    const groundedRate = model.total ? model.grounded.length / model.total : null;
+    return [
+      {
+        label: 'Layer 1 - State',
+        title: 'Current Evidence State',
+        body: model.total === 0
+          ? 'No evidence records match the current filters.'
+          : `${model.total.toLocaleString()} evidence records are in view with ${formatPercent(model.avgConfidence)} average confidence and ${formatPercent(groundedRate)} grounded to signals.`,
+        tone: 'state',
+      },
+      {
+        label: 'Layer 2 - Movement',
+        title: 'Freshness Trend',
+        body: model.avgAge === null
+          ? 'Evidence age cannot be calculated because the filtered records do not include usable observation dates.'
+          : `The average evidence age is ${formatDays(model.avgAge)} and average freshness is ${formatPercent(model.avgFreshness)} on the 90-day half-life curve.`,
+        tone: 'movement',
+      },
+      {
+        label: 'Layer 3 - Consequence',
+        title: 'Grounding Risk',
+        body: model.ungrounded.length > 0
+          ? `${model.ungrounded.length.toLocaleString()} records are not linked to a signal, so they cannot ground signal reasoning until attached.`
+          : 'Every filtered evidence record is linked to a signal.',
+        tone: model.ungrounded.length > 0 ? 'impact' : 'state',
+      },
+      {
+        label: 'Quality',
+        title: 'Evidence Quality',
+        body: model.lowQuality.length > 0
+          ? `${model.lowQuality.length.toLocaleString()} records combine low confidence or low freshness into weak corroboration.`
+          : `Average quality score is ${formatPercent(model.avgQuality)} after confidence is weighted by freshness.`,
+        tone: model.lowQuality.length > 0 ? 'impact' : 'movement',
+      },
+      {
+        label: 'Coverage',
+        title: 'Signal Proof Coverage',
+        body: signals.length === 0
+          ? 'No signals were returned by the API, so organization-level proof coverage cannot be calculated.'
+          : `${model.coveredSignalIds.size.toLocaleString()} of ${signals.length.toLocaleString()} signals have at least one evidence record. Open-signal coverage is ${formatPercent(model.openSignalCoverage)}.`,
+        tone: model.openSignalCoverage !== null && model.openSignalCoverage >= 0.75 ? 'state' : 'impact',
+      },
+    ] as Array<{ label: string; title: string; body: string; tone: 'state' | 'movement' | 'impact' }>;
+  }, [model, signals.length]);
 
   const summarizeWithAI = async (item: Evidence) => {
     setSummarizingId(item.id);
     try {
-      const note = String((item.content as any)?.note ?? JSON.stringify(item.content));
-      const result = await aiApi.summarizeEvidence(note, item.id);
+      const result = await aiApi.summarizeEvidence(contentText(item), item.id);
       if ('summary' in result) {
         showToast('info', result.summary);
       } else {
         showToast(result.providerConfigured ? 'error' : 'warning', result.error);
       }
-    } catch (e: any) {
-      showToast('error', e.message);
+    } catch (e: unknown) {
+      showToast('error', e instanceof Error ? e.message : 'Unable to summarize evidence.');
     } finally {
       setSummarizingId(null);
     }
   };
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
@@ -75,100 +410,299 @@ export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
         signalId: form.signalId || undefined,
         source: form.source,
         content: { note: form.content },
-        provenance: { source: form.source, confidence: Number(form.confidence) },
+        provenance: { source: form.source, ts: new Date().toISOString(), confidence: Number(form.confidence) },
         confidence: Number(form.confidence),
       });
       setForm({ signalId: '', source: 'internal', content: '', confidence: '0.7' });
       setShowForm(false);
       await load();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Unable to collect evidence.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const freshnessLabel = (observedDate: string): string => {
-    const ageDays = (Date.now() - new Date(observedDate).getTime()) / (1000 * 60 * 60 * 24);
-    if (ageDays < 7) return 'Fresh';
-    if (ageDays < 30) return 'Recent';
-    if (ageDays < 90) return 'Aging';
-    return 'Stale';
+  const clearFilters = () => {
+    setSourceFilter('');
+    setTypeFilter('');
+    setFreshnessFilter('');
+    setGroundingFilter('');
+    setDateWindow('180');
   };
-  const freshnessColor: Record<string, string> = { Fresh: '#22c55e', Recent: '#3b82f6', Aging: '#f59e0b', Stale: '#ef4444' };
+
+  const visibleLabel = `${model.total.toLocaleString()} of ${evidence.length.toLocaleString()} records`;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h1>Evidence Workspace</h1>
-        <div>
-          <button onClick={() => setShowForm((s) => !s)} style={{ marginRight: 8 }}>{showForm ? 'Cancel' : '+ Collect Evidence'}</button>
-          <button onClick={load}>Refresh</button>
+    <div className="evidence-intel">
+      <header className="evidence-intel__header">
+        <div className="evidence-intel__eyebrow">Evidence Intelligence</div>
+        <h1>Proof Command</h1>
+        <p>Organization evidence is scored for freshness, confidence, grounding, source reliability, and signal coverage using live tenant data.</p>
+        <div className="evidence-intel__actions">
+          <button onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ Collect Evidence'}</button>
+          <button className="evidence-intel__refresh" onClick={load} disabled={refreshing} title="Refresh evidence">
+            <RefreshCw size={15} />
+            {refreshing ? 'Refreshing' : 'Refresh'}
+          </button>
         </div>
       </header>
-      <p style={{ color: theme.textMuted, marginBottom: 24, fontSize: 13 }}>
-        Evidence is proof, not fact — freshness and provenance matter as much as confidence. Stale evidence corroborates less, even at the same stated confidence.
-      </p>
 
       {showForm && (
-        <form onSubmit={submit} style={{ padding: 16, borderRadius: 8, border: `1px solid ${theme.border}`, backgroundColor: theme.surface, marginBottom: 24, display: 'grid', gap: 8 }}>
-          <input placeholder="Signal ID (optional)" value={form.signalId} onChange={(e) => setForm({ ...form, signalId: e.target.value })} style={{ padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text }} />
-          <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} style={{ padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text }}>
+        <form onSubmit={submit} className="evidence-intel__form">
+          <input placeholder="Signal ID" value={form.signalId} onChange={(e) => setForm({ ...form, signalId: e.target.value })} />
+          <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
             <option value="internal">Internal</option>
             <option value="market_report">Market Report</option>
             <option value="competitor_data">Competitor Data</option>
             <option value="news">News</option>
             <option value="regulatory">Regulatory</option>
           </select>
-          <textarea placeholder="What does this evidence show?" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} required style={{ padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text, minHeight: 60 }} />
-          <label style={{ fontSize: 12, color: theme.textMuted }}>
+          <textarea placeholder="What does this evidence show?" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} required />
+          <label>
             Confidence: {form.confidence}
-            <input type="range" min="0" max="1" step="0.05" value={form.confidence} onChange={(e) => setForm({ ...form, confidence: e.target.value })} style={{ width: '100%' }} />
+            <input type="range" min="0" max="1" step="0.05" value={form.confidence} onChange={(e) => setForm({ ...form, confidence: e.target.value })} />
           </label>
           <button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit'}</button>
         </form>
       )}
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>{error}</div>}
+      <section className="evidence-intel__filters" aria-label="Evidence filters">
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+          <option value="">All sources</option>
+          {filterOptions.sources.map((source) => <option key={source} value={source}>{displayLabel(source)}</option>)}
+        </select>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+          <option value="">All types</option>
+          {filterOptions.types.map((type) => <option key={type} value={type}>{displayLabel(type)}</option>)}
+        </select>
+        <select value={freshnessFilter} onChange={(e) => setFreshnessFilter(e.target.value)}>
+          <option value="">All freshness bands</option>
+          {FRESHNESS_ORDER.map((band) => <option key={band} value={band}>{band}</option>)}
+        </select>
+        <select value={groundingFilter} onChange={(e) => setGroundingFilter(e.target.value)}>
+          <option value="">Grounded and ungrounded</option>
+          <option value="grounded">Grounded</option>
+          <option value="ungrounded">Ungrounded</option>
+        </select>
+        <select value={dateWindow} onChange={(e) => setDateWindow(e.target.value as DateWindow)}>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="180">Last 180 days</option>
+          <option value="all">All time</option>
+        </select>
+        <button className="evidence-intel__ghost" onClick={clearFilters}>Reset</button>
+        <span className="evidence-intel__count">{visibleLabel}</span>
+      </section>
+
+      {error && <div className="evidence-intel__error">{error}</div>}
+
+      <section className="evidence-intel__kpis">
+        <Kpi icon={<Database size={18} />} label="Total Evidence Records" value={model.total.toLocaleString()} hint={visibleLabel} tone="state" />
+        <Kpi icon={<ShieldCheck size={18} />} label="Average Confidence" value={formatPercent(model.avgConfidence)} hint="Mean stated confidence" tone={model.avgConfidence !== null && model.avgConfidence >= 0.75 ? 'good' : 'warn'} />
+        <Kpi icon={<FileCheck2 size={18} />} label="Fresh Evidence Count" value={(model.bandRows.find((row) => row.name === 'Fresh')?.value ?? 0).toLocaleString()} hint="Freshness score 0.90+" tone="good" />
+        <Kpi icon={<Clock3 size={18} />} label="Aging Evidence Count" value={(model.bandRows.find((row) => row.name === 'Aging')?.value ?? 0).toLocaleString()} hint="Freshness score 0.40-0.69" tone="warn" />
+        <Kpi icon={<Archive size={18} />} label="Stale Evidence Count" value={(model.bandRows.find((row) => row.name === 'Stale')?.value ?? 0).toLocaleString()} hint="Below freshness floor" tone={(model.bandRows.find((row) => row.name === 'Stale')?.value ?? 0) > 0 ? 'crit' : 'good'} />
+        <Kpi icon={<Link2 size={18} />} label="Grounded Evidence" value={formatPercent(model.total ? model.grounded.length / model.total : null)} hint={`${model.ungrounded.length.toLocaleString()} ungrounded records`} tone={model.ungrounded.length > 0 ? 'warn' : 'good'} />
+        <Kpi icon={<Brain size={18} />} label="Quality Score" value={formatPercent(model.avgQuality)} hint="Confidence weighted by freshness" tone={model.avgQuality !== null && model.avgQuality >= 0.5 ? 'good' : 'warn'} />
+      </section>
+
+      <section className="evidence-intel__summary">
+        {insights.map((insight) => (
+          <article className={`evidence-intel__summary-card evidence-intel__summary-card--${insight.tone}`} key={insight.title}>
+            <div className="evidence-intel__summary-label">{insight.label}</div>
+            <h2>{insight.title}</h2>
+            <p>{insight.body}</p>
+          </article>
+        ))}
+      </section>
+
       {loading ? (
-        <div>Loading evidence...</div>
-      ) : evidence.length === 0 ? (
-        <p style={{ color: theme.textMuted }}>No evidence collected yet.</p>
+        <div className="evidence-intel__loading">Loading evidence...</div>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>Source</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>Content</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>Confidence</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>Freshness</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>Signal</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>AI</th>
-            </tr>
-          </thead>
-          <tbody>
-            {evidence.map((e) => {
-              const fresh = freshnessLabel(e.observedDate);
-              return (
-                <tr key={e.id}>
-                  <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}` }}>{e.source}</td>
-                  <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}` }}>{String((e.content as any)?.note ?? JSON.stringify(e.content))}</td>
-                  <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}` }}>{Math.round(e.confidence * 100)}%</td>
-                  <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}` }}>
-                    <span style={{ padding: '2px 8px', borderRadius: 12, fontSize: 11, backgroundColor: `${freshnessColor[fresh]}20`, color: freshnessColor[fresh] }}>{fresh}</span>
-                  </td>
-                  <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}`, color: theme.textMuted, fontSize: 12 }}>{e.signalId ?? '—'}</td>
-                  <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}` }}>
-                    <button onClick={() => summarizeWithAI(e)} disabled={summarizingId === e.id} style={{ fontSize: 11 }}>
-                      {summarizingId === e.id ? 'Summarizing...' : '✦ Summarize'}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <>
+          <section className="evidence-intel__grid evidence-intel__grid--wide-left">
+            <ChartCard title="Freshness Decay" meta={`0.5 ^ (age / ${HALF_LIFE_DAYS} days)`} footer="Every evidence item is plotted against the same freshness curve used by reasoning.">
+              {model.decayPoints.length > 0 ? (
+                <ResponsiveContainer width="100%" height={320}>
+                  <ScatterChart margin={{ top: 12, right: 24, bottom: 18, left: 6 }}>
+                    <CartesianGrid stroke="var(--border-subtle)" />
+                    <XAxis type="number" dataKey="age" name="Age" unit="d" tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <YAxis type="number" dataKey="freshness" name="Freshness" domain={[0, 1]} tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} formatter={(value: unknown, name: unknown) => [Number(value ?? 0), String(name)]} />
+                    <Scatter data={model.decayPoints}>
+                      {model.decayPoints.map((point, index) => <Cell key={`${point.age}-${index}`} fill={FRESHNESS_COLORS[point.band]} />)}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              ) : <EmptyChart />}
+            </ChartCard>
+
+            <ChartCard title="Freshness Bands" meta={`${model.total.toLocaleString()} records`} footer={`${model.staleOrAging.length.toLocaleString()} records are aging or stale in the current view.`}>
+              <HorizontalBars rows={model.bandRows} colorFor={(name) => FRESHNESS_COLORS[name as FreshnessBand] ?? '#7c8496'} />
+            </ChartCard>
+          </section>
+
+          <section className="evidence-intel__grid evidence-intel__grid--thirds">
+            <PieCard title="Confidence Distribution" rows={model.confidenceRows} colorFor={(name) => CONFIDENCE_COLORS[name] ?? CONFIDENCE_COLORS.unknown} />
+            <DistributionCard title="Source Distribution" rows={model.sourceRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} />
+            <DistributionCard title="Evidence Type Mix" rows={model.typeRows} colorFor={(_, index) => PALETTE[(index + 2) % PALETTE.length]} />
+          </section>
+
+          <section className="evidence-intel__grid evidence-intel__grid--two">
+            <ChartCard title="Evidence Collected Over Time" meta={dateWindow === 'all' ? 'all available records' : `last ${dateWindow} days`} footer={`Dominant source: ${model.dominantSource ? displayLabel(model.dominantSource.name) : 'none'}.`}>
+              {model.trend.length > 1 ? (
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={model.trend}>
+                    <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
+                    <Line type="monotone" dataKey="count" stroke="#bd2f68" strokeWidth={3} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : <EmptyChart />}
+            </ChartCard>
+
+            <ChartCard title="Source Reliability" meta="quality by source" footer="Reliability is derived from average confidence multiplied by freshness for records from each source.">
+              {model.sourceQualityRows.length > 0 ? (
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={model.sourceQualityRows} layout="vertical" margin={{ left: 12, right: 28 }}>
+                    <CartesianGrid stroke="var(--border-subtle)" horizontal={false} />
+                    <XAxis type="number" domain={[0, 1]} hide />
+                    <YAxis type="category" dataKey="name" width={112} tickFormatter={displayLabel} tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} formatter={(value: unknown) => [formatPercent(Number(value ?? 0)), 'Quality']} labelFormatter={(value: unknown) => displayLabel(String(value ?? ''))} />
+                    <Bar dataKey="quality" radius={[0, 5, 5, 0]} fill="#2f7f93" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <EmptyChart />}
+            </ChartCard>
+          </section>
+
+          <section className="evidence-intel__review">
+            <div className="evidence-intel__review-main">
+              <div className="evidence-intel__card-head">
+                <h2>Evidence Review Stream</h2>
+                <span>{visibleLabel}</span>
+              </div>
+              {filteredEvidence.length === 0 ? <EmptyChart /> : (
+                <div className="evidence-intel__ledger">
+                  {filteredEvidence.slice(0, 12).map((row) => (
+                    <article className="evidence-intel__ledger-card" key={row.item.id}>
+                      <div className="evidence-intel__ledger-head">
+                        <span className="evidence-intel__freshness" style={{ color: FRESHNESS_COLORS[row.band], backgroundColor: `${FRESHNESS_COLORS[row.band]}1f` }}>{row.band}</span>
+                        <strong>{displayLabel(row.source)}</strong>
+                        <em>{formatPercent(row.confidence)} confidence</em>
+                      </div>
+                      <p>{contentText(row.item)}</p>
+                      <div className="evidence-intel__ledger-foot">
+                        <span>{row.item.signalId ? `Signal ${row.item.signalId}` : 'Ungrounded'}</span>
+                        <span>{row.ageDays === null ? 'No observed date' : `${formatDays(row.ageDays)} old`}</span>
+                        <button onClick={() => summarizeWithAI(row.item)} disabled={summarizingId === row.item.id}>
+                          {summarizingId === row.item.id ? 'Summarizing...' : 'Summarize'}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+            <aside className="evidence-intel__risk-panel">
+              <h2>Grounding Gaps</h2>
+              <div className="evidence-intel__gap-number">{model.ungrounded.length.toLocaleString()}</div>
+              <p>Ungrounded records cannot support signal reasoning until linked.</p>
+              <h2>Stale Grounded Evidence</h2>
+              <div className="evidence-intel__gap-number">{model.staleGrounded.length.toLocaleString()}</div>
+              <p>Grounded but stale evidence can still mislead decisions because it looks attached while its freshness has decayed.</p>
+              <h2>Weak Corroboration</h2>
+              <div className="evidence-intel__gap-number">{model.lowQuality.length.toLocaleString()}</div>
+              <p>Records with low freshness-weighted confidence need re-observation or stronger provenance.</p>
+            </aside>
+          </section>
+        </>
       )}
     </div>
   );
+}
+
+function Kpi({ icon, label, value, hint, tone }: { icon: ReactNode; label: string; value: string; hint: string; tone: 'state' | 'good' | 'warn' | 'crit' }) {
+  return (
+    <article className="evidence-intel__kpi" data-tone={tone}>
+      <div className="evidence-intel__kpi-icon">{icon}</div>
+      <div className="evidence-intel__kpi-label">{label}</div>
+      <div className="evidence-intel__kpi-value">{value}</div>
+      <div className="evidence-intel__kpi-hint">{hint}</div>
+    </article>
+  );
+}
+
+function ChartCard({ title, meta, footer, children }: { title: string; meta: string; footer?: string; children: ReactNode }) {
+  return (
+    <article className="evidence-intel__card">
+      <div className="evidence-intel__card-head">
+        <h2>{title}</h2>
+        <span>{meta}</span>
+      </div>
+      <div className="evidence-intel__chart">{children}</div>
+      {footer && <div className="evidence-intel__card-foot"><Sparkles size={14} /> {footer}</div>}
+    </article>
+  );
+}
+
+function HorizontalBars({ rows, colorFor }: { rows: DistributionRow[]; colorFor: (name: string, index: number) => string }) {
+  if (rows.length === 0) return <EmptyChart />;
+  return (
+    <div className="evidence-intel__bars">
+      {rows.map((row, index) => (
+        <div className="evidence-intel__bar-row" key={row.name}>
+          <span>{displayLabel(row.name)}</span>
+          <div><i style={{ width: `${Math.max(row.percent * 100, row.value > 0 ? 2 : 0)}%`, backgroundColor: colorFor(row.name, index) }} /></div>
+          <strong>{row.value.toLocaleString()}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DistributionCard({ title, rows, colorFor }: { title: string; rows: DistributionRow[]; colorFor: (name: string, index: number) => string }) {
+  return (
+    <ChartCard title={title} meta={`${rows.length.toLocaleString()} groups`}>
+      {rows.length === 0 ? <EmptyChart /> : (
+        <div className="evidence-intel__distribution">
+          {rows.map((row, index) => (
+            <div className="evidence-intel__dist-row" key={row.name}>
+              <div>
+                <span style={{ backgroundColor: colorFor(row.name, index) }} />
+                <strong>{displayLabel(row.name)}</strong>
+              </div>
+              <div className="evidence-intel__dist-track"><i style={{ width: `${row.percent * 100}%`, backgroundColor: colorFor(row.name, index) }} /></div>
+              <em>{row.value.toLocaleString()}</em>
+            </div>
+          ))}
+        </div>
+      )}
+    </ChartCard>
+  );
+}
+
+function PieCard({ title, rows, colorFor }: { title: string; rows: DistributionRow[]; colorFor: (name: string, index: number) => string }) {
+  return (
+    <ChartCard title={title} meta={`${rows.reduce((sum, row) => sum + row.value, 0).toLocaleString()} records`}>
+      {rows.length === 0 ? <EmptyChart /> : (
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie data={rows} dataKey="value" nameKey="name" innerRadius={54} outerRadius={88} paddingAngle={2}>
+              {rows.map((row, index) => <Cell key={row.name} fill={colorFor(row.name, index)} />)}
+            </Pie>
+            <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} formatter={(value: unknown) => [Number(value ?? 0), 'Records']} labelFormatter={(value: unknown) => displayLabel(String(value ?? ''))} />
+            <Legend formatter={(value) => displayLabel(String(value))} />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+    </ChartCard>
+  );
+}
+
+function EmptyChart() {
+  return <div className="evidence-intel__empty">No data in the current filter.</div>;
 }

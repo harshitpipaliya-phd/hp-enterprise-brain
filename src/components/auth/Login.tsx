@@ -196,18 +196,19 @@ export default function Login({ onLogin }: LoginProps) {
         </div>
 
         <div className="eb-login-hero" aria-hidden="true">
-          <div className="eb-login-brain">
-            <div className="eb-login-brain-ring" />
-            <div className="eb-login-brain-ring" />
-            <div className="eb-login-brain-ring" />
-            <div className="eb-login-brain-core">◈</div>
+          <div className="eb-login-productivity-art">
+            <span className="eb-login-panel eb-login-panel-main" />
+            <span className="eb-login-panel eb-login-panel-side" />
+            <span className="eb-login-panel eb-login-panel-mini" />
+            <span className="eb-login-lift-path" />
+            <span className="eb-login-human-node" />
+            <span className="eb-login-spark eb-login-spark-1" />
+            <span className="eb-login-spark eb-login-spark-2" />
+            <span className="eb-login-spark eb-login-spark-3" />
           </div>
           {/* Fills the dead space between the brandmark and the metrics strip.
               The panel is aria-hidden, so this is decoration and carries no
               information a screen-reader user would miss. */}
-          <p className="eb-login-tagline">
-            Signals in. Evidence weighed.<br />Decisions out.
-          </p>
         </div>
 
         <div className="eb-login-metrics" aria-hidden="true">
@@ -317,7 +318,7 @@ export default function Login({ onLogin }: LoginProps) {
             disabled={loading}
             style={{ marginTop: 8 }}
           >
-            <span className="eb-google-mark" aria-hidden="true">M</span>
+            <span className="eb-microsoft-mark" aria-hidden="true">M</span>
             Sign in with Microsoft
           </button>
         </form>

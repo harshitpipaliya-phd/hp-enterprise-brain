@@ -56,22 +56,28 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <button onClick={onBack}>← Back to Organizations</button>
-          <h1 style={{ display: 'inline', marginLeft: 12 }}>Departments — {organization.name}</h1>
-        </div>
-        <button onClick={() => navigate('create')}>+ New Department</button>
-      </header>
+    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1320, margin: '0 auto', padding: view === 'list' ? 0 : 24 }}>
+      {view !== 'list' && (
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <div>
+            <button onClick={() => navigate('list')}>Back to Departments</button>
+            <h1 style={{ display: 'inline', marginLeft: 12 }}>Departments - {organization.name}</h1>
+          </div>
+          <button onClick={() => navigate('create')}>+ New Department</button>
+        </header>
+      )}
       {error && <div style={{ color: 'red' }}>{error}</div>}
       {view === 'list' && (
         <DepartmentList
+          organization={organization}
           departments={departments}
           loading={loading}
           onSelect={(dept) => navigate('intelligence', dept)}
           onEdit={(dept) => navigate('edit', dept)}
           onArchive={(dept) => navigate('archive', dept)}
+          onCreate={() => navigate('create')}
+          onRefresh={load}
+          onBack={onBack}
         />
       )}
       {view === 'intelligence' && selected && viewingPersonId && (

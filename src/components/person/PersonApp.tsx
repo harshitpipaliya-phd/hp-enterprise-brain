@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { Organization } from '../../App';
-import PersonList from './PersonList';
-import PersonCreate from './PersonCreate';
-import PersonEdit from './PersonEdit';
-import PersonDetails from './PersonDetails';
-import PersonArchiveConfirm from './PersonArchiveConfirm';
-import PersonIntelligence from '../workspace/PersonIntelligence';
+import { api as departmentApi } from '../../api/department';
 import { api } from '../../api/person';
+import PersonArchiveConfirm from './PersonArchiveConfirm';
+import PersonCreate from './PersonCreate';
+import PersonDetails from './PersonDetails';
+import PersonEdit from './PersonEdit';
+import PersonList from './PersonList';
+import PersonIntelligence from '../workspace/PersonIntelligence';
+import './PersonList.css';
 
 export type PersonView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
 
@@ -37,10 +39,17 @@ export interface Person {
   updatedDate: string;
 }
 
+export interface PersonDepartment {
+  id: string;
+  name: string;
+  status?: string;
+}
+
 export default function PersonApp({ organization, onBack }: { organization: Organization; onBack: () => void }) {
   const [view, setView] = useState<PersonView>('list');
   const [selected, setSelected] = useState<Person | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
+  const [departments, setDepartments] = useState<PersonDepartment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,10 +57,14 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
     setLoading(true);
     setError(null);
     try {
-      const data = await api.listPeople(organization.tenantId, organization.id);
-      setPeople(data);
+      const [peopleData, departmentData] = await Promise.all([
+        api.listPeople(organization.tenantId, organization.id),
+        departmentApi.listDepartments(organization.tenantId, organization.id),
+      ]);
+      setPeople(Array.isArray(peopleData) ? peopleData : []);
+      setDepartments(Array.isArray(departmentData) ? departmentData : []);
     } catch (e: any) {
-      setError(e.message);
+      setError(e?.message ?? 'Could not load people.');
     } finally {
       setLoading(false);
     }
@@ -59,34 +72,40 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
 
   useEffect(() => { load(); }, [organization.tenantId, organization.id]);
 
-  const navigate = (v: PersonView, person?: Person) => {
+  const navigate = (next: PersonView, person?: Person) => {
     setSelected(person ?? null);
-    setView(v);
+    setView(next);
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+    <div className="people-app">
+      <header className="people-app-header">
         <div>
-          <button onClick={onBack}>← Back to Organizations</button>
-          <h1 style={{ display: 'inline', marginLeft: 12 }}>People — {organization.name}</h1>
+          <button className="eb-pill-btn" onClick={onBack}>Back to Organizations</button>
+          <h1>People Intelligence</h1>
+          <p>{organization.name}</p>
         </div>
-        <button onClick={() => navigate('create')}>+ New Person</button>
+        {view === 'list' && <button onClick={() => navigate('create')}>+ New Person</button>}
       </header>
-      {error && <div style={{ color: 'red' }}>{error}</div>}
+
+      {error && <div className="people-alert" role="alert">{error}</div>}
+
       {view === 'list' && (
         <PersonList
           people={people}
+          departments={departments}
           loading={loading}
           tenantId={organization.tenantId}
           onSelect={(person) => navigate('intelligence', person)}
           onEdit={(person) => navigate('edit', person)}
           onArchive={(person) => navigate('archive', person)}
+          onRefresh={load}
         />
       )}
+
       {view === 'intelligence' && selected && (
         <div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: -4, justifyContent: 'flex-end' }}>
+          <div className="people-inline-actions">
             <button className="eb-pill-btn" onClick={() => navigate('details', selected)}>Raw Details</button>
             <button className="eb-pill-btn" onClick={() => navigate('edit', selected)}>Edit</button>
             <button className="eb-pill-btn" onClick={() => navigate('archive', selected)}>Archive</button>
@@ -94,6 +113,7 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
           <PersonIntelligence tenantId={organization.tenantId} personId={selected.id} onBack={() => navigate('list')} />
         </div>
       )}
+
       {view === 'create' && (
         <PersonCreate
           tenantId={organization.tenantId}
@@ -102,12 +122,13 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
             navigate('list');
             load();
             if (person.tempPassword) {
-              alert('Person created. Temporary password: ' + person.tempPassword + '\n\nThis is a randomly generated placeholder \u2014 it may not match this ERP\'s real login hashing scheme. Use the ERP\'s own password-reset flow before relying on it to log in.');
+              alert('Person created. Temporary password: ' + person.tempPassword + '\n\nThis is a randomly generated placeholder. Use the ERP password-reset flow before relying on it to log in.');
             }
           }}
           onCancel={() => navigate('list')}
         />
       )}
+
       {view === 'edit' && selected && (
         <PersonEdit
           person={selected}
@@ -115,6 +136,7 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
           onCancel={() => navigate('details', selected)}
         />
       )}
+
       {view === 'details' && selected && (
         <PersonDetails
           person={selected}
@@ -124,6 +146,7 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
           onViewTwin={() => navigate('intelligence', selected)}
         />
       )}
+
       {view === 'archive' && selected && (
         <PersonArchiveConfirm
           person={selected}

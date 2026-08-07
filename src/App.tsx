@@ -315,7 +315,11 @@ function AuthenticatedApp() {
             {/* Home IS Command Center. Both names render it so a view
                 persisted by an earlier build still resolves. */}
             {(view === 'home' || view === 'commandcenter') && selected && (
-              <CommandCenter tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
+              <CommandCenter
+                tenantId={selected.tenantId}
+                organizationName={selected.name}
+                onNavigate={(v) => navigate(v, selected)}
+              />
             )}
             {view === 'list' && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>

@@ -1,53 +1,50 @@
-import { useState, useEffect } from 'react';
-import {
-  ingestionApi, CANONICAL_FIELDS, REQUIRED_FIELDS,
-} from '../../api/ingestion';
-import type {
-  CanonicalField, CommitResponse, DataSourceRow, IngestionPreview,
-} from '../../api/ingestion';
-import { useTheme } from '../../hooks/useTheme';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowRight, Bot, CheckCircle2, Database, FileArchive, FileCode2, FileImage, FileJson, FileSpreadsheet, FileText, GitBranch, Layers3, RefreshCw, SearchCheck, Sparkles, UploadCloud, Wand2 } from 'lucide-react';
+import { CANONICAL_FIELDS, REQUIRED_FIELDS, ingestionApi } from '../../api/ingestion';
+import type { CanonicalField, CommitResponse, DataSourceRow, IngestionPreview } from '../../api/ingestion';
 import { useToast } from '../Toast';
+import './IngestionWorkspace.css';
 
-/**
- * Ingestion — upload a CSV, approve the mapping, commit.
- *
- * THREE SECTIONS, ONE SCREEN. Source, then preview, then result, revealed in
- * place as each step completes. Splitting them across views would mean the
- * mapping a reviewer approved and the sample rows they approved it against
- * could not be on screen together, which is the only thing that makes the
- * approval meaningful.
- *
- * THE SUGGESTED MAP IS SHOWN AS A PROPOSAL, NEVER APPLIED SILENTLY. The server
- * matches it from column-name substrings and is wrong often enough to matter,
- * so it seeds the dropdowns and the reviewer confirms every row before the
- * Commit button will do anything.
- */
-
+const ACCEPTED = '.csv,.xls,.xlsx,.pdf,.doc,.docx,.txt,.json,.xml,.html,.htm,.md,.markdown,.zip,.sql,.png,.jpg,.jpeg';
 const NOT_MAPPED = '';
 
-/** What each canonical field becomes once committed. */
+const FILE_GROUPS = [
+  { label: 'Sheets', exts: ['CSV', 'XLS', 'XLSX'], icon: <FileSpreadsheet /> },
+  { label: 'Documents', exts: ['PDF', 'DOC', 'DOCX', 'TXT', 'MD'], icon: <FileText /> },
+  { label: 'Structured', exts: ['JSON', 'XML', 'HTML', 'SQL'], icon: <FileJson /> },
+  { label: 'Media + Archives', exts: ['PNG', 'JPG', 'ZIP'], icon: <FileArchive /> },
+];
+
+const PIPELINE = [
+  { id: 'extract', label: 'Extract', icon: <UploadCloud /> },
+  { id: 'clean', label: 'Clean', icon: <Wand2 /> },
+  { id: 'schema', label: 'Detect Schema', icon: <Database /> },
+  { id: 'relationships', label: 'Relationships', icon: <GitBranch /> },
+  { id: 'embeddings', label: 'Embeddings', icon: <Layers3 /> },
+  { id: 'insights', label: 'AI Insights', icon: <Bot /> },
+];
+
 const FIELD_HELP: Record<CanonicalField, string> = {
-  title: 'Names the Signal, and is its deduplication key.',
-  state: 'Becomes the Signal classification, in the source’s own words.',
-  owner: 'Recorded on the Signal as who the row belongs to.',
-  evidence_text: 'Creates one Evidence row per source row that has any.',
-  evidence_timestamp: 'When the Evidence was observed.',
-  external_ref: 'A stable id in the source, kept for traceability.',
+  title: 'Signal title and deduplication key.',
+  state: 'Signal classification from the source.',
+  owner: 'Owner or accountable party.',
+  evidence_text: 'Evidence content created with the signal.',
+  evidence_timestamp: 'Observation timestamp.',
+  external_ref: 'Stable source reference.',
 };
 
-type Phase = 'idle' | 'previewed' | 'committed';
+type Phase = 'idle' | 'uploading' | 'previewed' | 'committing' | 'committed';
 
 export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
-  const theme = useTheme();
   const { showToast } = useToast();
-
+  const fileInput = useRef<HTMLInputElement | null>(null);
   const [sources, setSources] = useState<DataSourceRow[]>([]);
   const [sourcesError, setSourcesError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [sourceId, setSourceId] = useState('');
+  const [importMode, setImportMode] = useState<'append' | 'merge' | 'replace' | 'new_dataset'>('append');
   const [phase, setPhase] = useState<Phase>('idle');
-  const [uploading, setUploading] = useState(false);
-  const [committing, setCommitting] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [preview, setPreview] = useState<IngestionPreview | null>(null);
   const [map, setMap] = useState<Record<string, string>>({});
@@ -55,23 +52,8 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
   const [result, setResult] = useState<CommitResponse | null>(null);
 
   useEffect(() => {
-    /*
-      AN EMPTY LIST AND A BROKEN ENDPOINT ARE NOT THE SAME ANSWER.
-
-      This was `.catch(() => setSources([]))`, on the reasoning that a tenant
-      with no configured sources is normal on a first run and not worth a
-      toast. That reasoning is right about an empty RESULT and wrong about a
-      failed REQUEST — and it swallowed a 404 from a route that did not exist
-      for as long as the route did not exist. The screen rendered an empty
-      dropdown and looked merely unconfigured, which is why nobody noticed
-      (docs/API-FUNCTIONAL-AUDIT.md F4a).
-
-      So: an empty list still passes silently. A failure is surfaced.
-    */
     let cancelled = false;
-
-    ingestionApi
-      .listSources(tenantId)
+    ingestionApi.listSources(tenantId)
       .then((rows) => {
         if (cancelled) return;
         setSources(Array.isArray(rows) ? rows : []);
@@ -80,13 +62,34 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
       .catch((e: any) => {
         if (cancelled) return;
         setSources([]);
-        setSourcesError(e?.message ?? 'Could not load configured sources.');
+        setSourcesError(e?.message ?? 'Could not load saved ingestion sources.');
       });
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [tenantId]);
+
+  const fileKind = useMemo(() => {
+    const ext = file?.name.split('.').pop()?.toUpperCase() || 'FILE';
+    if (['CSV', 'XLS', 'XLSX'].includes(ext)) return { ext, icon: <FileSpreadsheet />, label: 'tabular dataset' };
+    if (['JSON'].includes(ext)) return { ext, icon: <FileJson />, label: 'structured document' };
+    if (['XML', 'HTML', 'HTM', 'SQL'].includes(ext)) return { ext, icon: <FileCode2 />, label: 'structured text' };
+    if (['PNG', 'JPG', 'JPEG'].includes(ext)) return { ext, icon: <FileImage />, label: 'image asset' };
+    if (['ZIP'].includes(ext)) return { ext, icon: <FileArchive />, label: 'archive' };
+    return { ext, icon: <FileText />, label: 'document' };
+  }, [file]);
+
+  const profile = useMemo(() => {
+    if (!preview) return null;
+    const requiredMapped = REQUIRED_FIELDS.filter((field) => map[field]).length;
+    const mapped = CANONICAL_FIELDS.filter((field) => map[field]).length;
+    const duplicateHeaders = preview.headers.length - new Set(preview.headers).size;
+    return {
+      requiredMapped,
+      mapped,
+      duplicateHeaders,
+      quality: Math.round((mapped / CANONICAL_FIELDS.length) * 100),
+      committable: REQUIRED_FIELDS.every((field) => !!map[field]),
+    };
+  }, [map, preview]);
 
   const reset = () => {
     setFile(null);
@@ -97,292 +100,260 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
     setResult(null);
   };
 
+  const setSelectedFile = (next: File | null) => {
+    setFile(next);
+    setResult(null);
+    setPreview(null);
+    setJobId(null);
+    setPhase('idle');
+    if (next && !sourceId.trim()) {
+      setSourceId(next.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+    }
+  };
+
   const upload = async () => {
     if (!file || !sourceId.trim()) return;
-    setUploading(true);
+    setPhase('uploading');
     try {
       const data = await ingestionApi.upload(file, sourceId.trim());
-      const suggested = data.preview.suggested_map ?? {};
-
-      // Seeded from the fixed canonical list, not from the keys of the
-      // response — see the note in api/ingestion.ts about camelCase aliases.
       const seeded: Record<string, string> = {};
-      for (const field of CANONICAL_FIELDS) {
-        seeded[field] = suggested[field] ?? NOT_MAPPED;
-      }
-
+      for (const field of CANONICAL_FIELDS) seeded[field] = data.preview.suggested_map?.[field] ?? NOT_MAPPED;
       setJobId(data.job_id);
       setPreview(data.preview);
       setMap(seeded);
       setPhase('previewed');
-      showToast('info', `Previewed ${data.preview.row_count} rows. Nothing written yet.`);
+      showToast('info', `Previewed ${data.preview.row_count} row${data.preview.row_count === 1 ? '' : 's'}.`);
     } catch (e: any) {
-      showToast('error', e.message);
-    } finally {
-      setUploading(false);
+      setPhase('idle');
+      showToast('error', e?.message ?? 'Upload failed.');
     }
   };
 
-  const commit = async () => {
-    if (!jobId) return;
-    setCommitting(true);
-    try {
-      // Only bound fields are sent. An empty string would bind the canonical
-      // field to a column named '', which matches nothing and would quietly
-      // produce a Signal missing the value the reviewer thought they mapped.
-      const payload: Partial<Record<CanonicalField, string>> = {};
-      for (const field of CANONICAL_FIELDS) {
-        if (map[field]) payload[field] = map[field];
-      }
+  const autoMap = () => {
+    if (!preview) return;
+    const next: Record<string, string> = {};
+    for (const field of CANONICAL_FIELDS) next[field] = preview.suggested_map?.[field] ?? NOT_MAPPED;
+    setMap(next);
+  };
 
+  const commit = async () => {
+    if (!jobId || !profile?.committable) return;
+    setPhase('committing');
+    try {
+      const payload: Partial<Record<CanonicalField, string>> = {};
+      for (const field of CANONICAL_FIELDS) if (map[field]) payload[field] = map[field];
       const data = await ingestionApi.commit(tenantId, jobId, payload, saveMap);
       setResult(data);
       setPhase('committed');
       showToast('success', `Committed ${data.committed} signals.`);
     } catch (e: any) {
-      // The preview stays on screen: a rejected commit is usually a mapping
-      // to correct and retry, not a reason to make the user upload again.
-      showToast('error', e.message);
-    } finally {
-      setCommitting(false);
+      setPhase('previewed');
+      showToast('error', e?.message ?? 'Commit failed.');
     }
   };
 
-  const committable = REQUIRED_FIELDS.every((f) => !!map[f]);
-
-  const card = {
-    padding: 16,
-    borderRadius: 8,
-    border: `1px solid ${theme.border}`,
-    backgroundColor: theme.surface,
-    marginBottom: 16,
-  } as const;
-
-  const control = {
-    padding: 8,
-    borderRadius: 6,
-    border: `1px solid ${theme.border}`,
-    backgroundColor: theme.bg,
-    color: theme.text,
-  } as const;
-
-  const cell = {
-    padding: 8,
-    borderBottom: `1px solid ${theme.border}`,
-    fontSize: 12,
-    textAlign: 'left',
-  } as const;
+  const activeStep = phase === 'idle' ? -1 : phase === 'uploading' ? 1 : phase === 'previewed' ? 3 : phase === 'committing' ? 4 : 5;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1000, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <header style={{ marginBottom: 16 }}>
-        <h1>Ingestion</h1>
-        <p style={{ color: theme.textMuted, fontSize: 13 }}>
-          Upload a CSV, review the field mapping, then commit it as Signals and Evidence.
-        </p>
-      </header>
-
-      {/* ---- 1 · Source ------------------------------------------------- */}
-      <section style={card}>
-        <h3 style={{ marginTop: 0, marginBottom: 12 }}>1 · Source</h3>
-
-        <div style={{ display: 'grid', gap: 10 }}>
-          <label style={{ display: 'grid', gap: 4 }}>
-            <span style={{ fontSize: 12, color: theme.textMuted }}>CSV file</span>
-            <input
-              type="file"
-              accept=".csv,text/csv,text/plain"
-              disabled={phase !== 'idle'}
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              style={{ ...control, padding: 6 }}
-            />
-            {file && (
-              <span style={{ fontSize: 12, color: theme.textMuted }}>
-                {file.name} · {(file.size / 1024).toFixed(0)} KB
-              </span>
-            )}
-          </label>
-
-          <label style={{ display: 'grid', gap: 4 }}>
-            <span style={{ fontSize: 12, color: theme.textMuted }}>Source id</span>
-            <input
-              list="ingestion-source-ids"
-              placeholder="internal-upload-example-csv"
-              value={sourceId}
-              disabled={phase !== 'idle'}
-              onChange={(e) => setSourceId(e.target.value)}
-              style={control}
-            />
-            <datalist id="ingestion-source-ids">
-              {sources.map((s) => (
-                <option key={s.source_key} value={s.source_key}>{s.display_name}</option>
-              ))}
-            </datalist>
-            {sourcesError ? (
-              /*
-                Stated, not swallowed. The field still accepts a typed source id
-                — a failed lookup of SAVED sources does not stop an upload — so
-                this explains what is missing rather than blocking the screen.
-              */
-              <span style={{ fontSize: 11, color: 'var(--status-warn)' }}>
-                Saved sources unavailable — {sourcesError}. You can still type a source id.
-              </span>
-            ) : (
-              <span style={{ fontSize: 11, color: theme.textMuted }}>
-                Re-using a known source id loads the mapping saved for it.
-              </span>
-            )}
-          </label>
-
-          <div>
-            <button onClick={upload} disabled={!file || !sourceId.trim() || uploading || phase !== 'idle'}>
-              {uploading ? 'Uploading…' : 'Upload & preview'}
-            </button>
-          </div>
+    <div className="ingestion-page">
+      <section className="ingestion-hero">
+        <div>
+          <span className="ingestion-eyebrow">Universal AI Ingestion Engine</span>
+          <h1>Turn operational files into trusted intelligence.</h1>
+          <p>Preview source structure, validate mappings, detect quality gaps, and commit only reviewed signals and evidence.</p>
+        </div>
+        <div className="ingestion-ai-chip">
+          <Sparkles size={18} />
+          DeepSeek-ready extraction pipeline
         </div>
       </section>
 
-      {/* ---- 2 · Preview ------------------------------------------------ */}
-      {preview && phase !== 'committed' && (
-        <section style={card}>
-          <h3 style={{ marginTop: 0, marginBottom: 4 }}>2 · Preview</h3>
-          <p style={{ fontSize: 12, color: theme.textMuted, marginTop: 0 }}>
-            job {jobId?.slice(0, 8)}… · {preview.row_count} rows · {preview.sync_type}
-          </p>
+      <section className="ingestion-format-grid">
+        {FILE_GROUPS.map((group) => (
+          <article key={group.label}>
+            <span>{group.icon}</span>
+            <strong>{group.label}</strong>
+            <small>{group.exts.join(' / ')}</small>
+          </article>
+        ))}
+      </section>
 
-          <p style={{ fontSize: 12, padding: 10, borderRadius: 6, border: `1px solid ${theme.border}`, backgroundColor: theme.bg }}>
-            The suggested mapping is matched from column names. It is wrong often
-            enough to matter — check every row before committing. Nothing has been
-            written yet.
-          </p>
+      <section className="ingestion-pipeline" aria-label="AI ingestion pipeline">
+        {PIPELINE.map((step, index) => (
+          <div key={step.id} className="ingestion-pipeline-step" data-active={index <= activeStep ? 'true' : undefined}>
+            <span>{step.icon}</span>
+            <strong>{step.label}</strong>
+          </div>
+        ))}
+      </section>
 
-          <h4 style={{ marginBottom: 8 }}>Field mapping</h4>
-          <div style={{ display: 'grid', gap: 8, marginBottom: 16 }}>
+      <div className="ingestion-layout">
+        <section className="ingestion-card ingestion-upload-card">
+          <div className="ingestion-card-head">
+            <div>
+              <span>Source intake</span>
+              <h2>Upload workspace</h2>
+            </div>
+            <button className="eb-pill-btn" onClick={reset} disabled={phase === 'uploading' || phase === 'committing'}>
+              <RefreshCw size={14} /> Reset
+            </button>
+          </div>
+
+          <button
+            className="ingestion-dropzone"
+            data-dragging={dragging ? 'true' : undefined}
+            onClick={() => fileInput.current?.click()}
+            onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDragging(false);
+              setSelectedFile(event.dataTransfer.files?.[0] ?? null);
+            }}
+          >
+            <input ref={fileInput} type="file" accept={ACCEPTED} onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
+            <span className="ingestion-drop-icon">{fileKind.icon}</span>
+            <strong>{file ? file.name : 'Drop a file or browse'}</strong>
+            <small>{file ? `${fileKind.ext} ${fileKind.label} - ${(file.size / 1024).toFixed(1)} KB` : 'CSV, XLSX, PDF, DOCX, JSON, XML, HTML, Markdown, SQL, images and archives'}</small>
+          </button>
+
+          <div className="ingestion-form-grid">
+            <label>
+              <span>Source ID</span>
+              <input list="ingestion-source-ids" value={sourceId} onChange={(event) => setSourceId(event.target.value)} placeholder="finance-monthly-upload" />
+              <datalist id="ingestion-source-ids">
+                {sources.map((source) => <option key={source.source_key} value={source.source_key}>{source.display_name}</option>)}
+              </datalist>
+            </label>
+            <label>
+              <span>Import mode</span>
+              <select value={importMode} onChange={(event) => setImportMode(event.target.value as typeof importMode)}>
+                <option value="append">Append</option>
+                <option value="merge">Merge</option>
+                <option value="replace">Replace</option>
+                <option value="new_dataset">Create New Dataset</option>
+              </select>
+            </label>
+          </div>
+
+          {sourcesError && <p className="ingestion-warning">{sourcesError}. You can still type a source id.</p>}
+
+          <button className="ingestion-primary" onClick={upload} disabled={!file || !sourceId.trim() || phase === 'uploading' || phase === 'committing'}>
+            {phase === 'uploading' ? 'Analyzing source...' : 'Upload and preview'}
+            <ArrowRight size={16} />
+          </button>
+        </section>
+
+        <section className="ingestion-card">
+          <div className="ingestion-card-head">
+            <div>
+              <span>AI analysis</span>
+              <h2>Schema profile</h2>
+            </div>
+            {preview && <span className="ingestion-status">Preview only</span>}
+          </div>
+
+          {!preview ? (
+            <div className="ingestion-empty">
+              <SearchCheck size={30} />
+              <strong>No source analyzed yet</strong>
+              <p>The pipeline will show schema, duplicate header checks, mapping quality, and sample rows after upload.</p>
+            </div>
+          ) : (
+            <div className="ingestion-profile">
+              <div><strong>{preview.row_count}</strong><span>Rows detected</span></div>
+              <div><strong>{preview.headers.length}</strong><span>Fields detected</span></div>
+              <div><strong>{profile?.quality ?? 0}%</strong><span>Auto-map coverage</span></div>
+              <div><strong>{profile?.duplicateHeaders ?? 0}</strong><span>Duplicate headers</span></div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {preview && (
+        <section className="ingestion-card">
+          <div className="ingestion-card-head">
+            <div>
+              <span>Mapping studio</span>
+              <h2>Auto mapping and validation</h2>
+            </div>
+            <button className="eb-pill-btn" onClick={autoMap}><Wand2 size={14} /> Auto Mapping</button>
+          </div>
+
+          <div className="ingestion-mapping-grid">
             {CANONICAL_FIELDS.map((field) => {
               const required = REQUIRED_FIELDS.includes(field);
               const missing = required && !map[field];
-
               return (
-                <label key={field} style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 10, alignItems: 'center' }}>
-                  <span style={{ fontSize: 13 }}>
-                    {field}{required && <span style={{ color: theme.textMuted }}> *</span>}
-                    <span style={{ display: 'block', fontSize: 11, color: theme.textMuted }}>
-                      {FIELD_HELP[field]}
-                    </span>
+                <label key={field} data-missing={missing ? 'true' : undefined}>
+                  <span>
+                    {field}{required ? ' *' : ''}
+                    <small>{FIELD_HELP[field]}</small>
                   </span>
-                  <select
-                    value={map[field] ?? NOT_MAPPED}
-                    onChange={(e) => setMap((m) => ({ ...m, [field]: e.target.value }))}
-                    style={{ ...control, borderColor: missing ? '#b91c1c' : theme.border }}
-                  >
-                    <option value={NOT_MAPPED}>— not mapped —</option>
-                    {preview.headers.map((h) => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
+                  <select value={map[field] ?? NOT_MAPPED} onChange={(event) => setMap((current) => ({ ...current, [field]: event.target.value }))}>
+                    <option value={NOT_MAPPED}>Not mapped</option>
+                    {preview.headers.map((header) => <option key={header} value={header}>{header}</option>)}
                   </select>
                 </label>
               );
             })}
           </div>
-          <p style={{ fontSize: 11, color: theme.textMuted, marginTop: 0 }}>
-            * required before this batch can be committed.
-          </p>
 
-          <h4 style={{ marginBottom: 8 }}>
-            Sample rows ({Math.min(preview.sample_rows.length, 3)} of {preview.row_count})
-          </h4>
-          <div style={{ overflowX: 'auto', marginBottom: 16 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="ingestion-validation-row">
+            <label>
+              <input type="checkbox" checked={saveMap} onChange={(event) => setSaveMap(event.target.checked)} />
+              Save mapping for this source
+            </label>
+            <span>{profile?.committable ? 'Required fields mapped' : `Map ${REQUIRED_FIELDS.filter((field) => !map[field]).join(' and ')} before commit`}</span>
+          </div>
+        </section>
+      )}
+
+      {preview && (
+        <section className="ingestion-card">
+          <div className="ingestion-card-head">
+            <div>
+              <span>Preview</span>
+              <h2>Sample records</h2>
+            </div>
+            <span className="ingestion-status">{preview.sync_type}</span>
+          </div>
+          <div className="ingestion-preview-table">
+            <table>
               <thead>
-                <tr>
-                  {preview.headers.map((h) => (
-                    <th key={h} style={{ ...cell, color: theme.textMuted, whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
+                <tr>{preview.headers.map((header) => <th key={header}>{header}</th>)}</tr>
               </thead>
               <tbody>
-                {preview.sample_rows.slice(0, 3).map((row, i) => (
-                  <tr key={i}>
-                    {/* Keyed off headers, not off the row's own keys: client.ts
-                        adds camelCase aliases to every parsed object, so a
-                        column named first_name arrives twice. */}
-                    {preview.headers.map((h) => (
-                      <td key={h} style={cell}>{String(row[h] ?? '')}</td>
-                    ))}
+                {preview.sample_rows.map((row, index) => (
+                  <tr key={index}>
+                    {preview.headers.map((header) => <td key={header}>{String(row[header] ?? '')}</td>)}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginBottom: 12 }}>
-            <input type="checkbox" checked={saveMap} onChange={(e) => setSaveMap(e.target.checked)} />
-            Save this mapping for future uploads of this source
-          </label>
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={reset} disabled={committing}>Start over</button>
-            <button onClick={commit} disabled={!committable || committing}>
-              {committing ? 'Committing…' : `Commit ${preview.row_count} rows`}
+          <div className="ingestion-commit-row">
+            <p>Mode: <strong>{importMode.replace('_', ' ')}</strong>. Current backend commits reviewed rows into Signals and Evidence; dataset/table creation remains a governed backend workflow.</p>
+            <button className="ingestion-primary" onClick={commit} disabled={!profile?.committable || phase === 'committing'}>
+              {phase === 'committing' ? 'Committing...' : `Commit ${preview.row_count} rows`}
+              <CheckCircle2 size={16} />
             </button>
-            {!committable && (
-              <span style={{ fontSize: 12, color: theme.textMuted, alignSelf: 'center' }}>
-                Map {REQUIRED_FIELDS.filter((f) => !map[f]).join(' and ')} first.
-              </span>
-            )}
           </div>
         </section>
       )}
 
-      {/* ---- 3 · Result -------------------------------------------------- */}
-      {result && phase === 'committed' && (
-        <section style={card}>
-          <h3 style={{ marginTop: 0, marginBottom: 12 }}>3 · Result</h3>
-
-          <div style={{ display: 'flex', gap: 24, marginBottom: 16 }}>
-            <Stat label="Committed" value={result.committed} theme={theme} />
-            <Stat label="Errors" value={result.errors} theme={theme} />
-            <Stat label="Skipped" value={result.skipped} theme={theme} />
+      {result && (
+        <section className="ingestion-card ingestion-result">
+          <div>
+            <span>Completed</span>
+            <h2>{result.committed} committed, {result.errors} errors, {result.skipped} skipped</h2>
+            <p>Job {jobId}. Created signal ids are shown for traceability.</p>
           </div>
-
-          {result.errors > 0 && (
-            <p style={{ fontSize: 12, color: theme.textMuted }}>
-              Failed rows are recorded per row in the import log for job {jobId?.slice(0, 8)}….
-            </p>
-          )}
-
-          <h4 style={{ marginBottom: 8 }}>
-            Created signals
-            {result.committed > result.signal_ids.length && (
-              <span style={{ fontWeight: 'normal', fontSize: 12, color: theme.textMuted }}>
-                {' '}(first {result.signal_ids.length} of {result.committed})
-              </span>
-            )}
-          </h4>
-          {result.signal_ids.length === 0 ? (
-            <p style={{ fontSize: 13, color: theme.textMuted }}>No signals were created.</p>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-              {result.signal_ids.map((id) => (
-                <code key={id} style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, border: `1px solid ${theme.border}`, color: theme.textMuted }}>
-                  {id}
-                </code>
-              ))}
-            </div>
-          )}
-
-          <button onClick={reset}>Ingest another file</button>
+          <div className="ingestion-signal-list">
+            {result.signal_ids.map((id) => <code key={id}>{id}</code>)}
+          </div>
         </section>
       )}
-    </div>
-  );
-}
-
-function Stat({ label, value, theme }: { label: string; value: number; theme: { textMuted: string } }) {
-  return (
-    <div>
-      <div style={{ fontSize: 24, fontWeight: 600 }}>{value}</div>
-      <div style={{ fontSize: 11, color: theme.textMuted, textTransform: 'uppercase' }}>{label}</div>
     </div>
   );
 }
