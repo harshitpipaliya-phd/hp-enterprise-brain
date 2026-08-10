@@ -273,6 +273,103 @@
   font-size: 12px;
 }
 
+.ingestion-analysis {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ingestion-schema-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.ingestion-schema-summary div,
+.ingestion-schema-block,
+.ingestion-column-list article {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+}
+
+.ingestion-schema-summary div,
+.ingestion-schema-block {
+  padding: var(--space-3);
+}
+
+.ingestion-schema-summary span,
+.ingestion-schema-block > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--content-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ingestion-schema-summary strong {
+  display: block;
+  overflow: hidden;
+  color: var(--content-primary);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ingestion-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ingestion-chip-row code {
+  padding: 4px 7px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-card);
+  color: var(--content-secondary);
+  font-size: 11px;
+}
+
+.ingestion-column-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ingestion-column-list article {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+}
+
+.ingestion-column-list article div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ingestion-column-list strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ingestion-column-list span {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: var(--radius-xs);
+  background: var(--color-gold-100);
+  color: var(--color-gold-800);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ingestion-column-list small {
+  color: var(--content-tertiary);
+  font-size: 12px;
+}
+
 .ingestion-mapping-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -391,7 +488,8 @@
   .ingestion-pipeline,
   .ingestion-form-grid,
   .ingestion-mapping-grid,
-  .ingestion-profile {
+  .ingestion-profile,
+  .ingestion-schema-summary {
     grid-template-columns: 1fr;
   }
 }

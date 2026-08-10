@@ -164,6 +164,11 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
     };
   }, [map, preview]);
 
+  const schemaColumns = useMemo(() => {
+    if (!preview?.schema?.columns) return [];
+    return Object.entries(preview.schema.columns).slice(0, 8);
+  }, [preview]);
+
   const reset = () => {
     setFile(null);
     setPhase('idle');
@@ -219,7 +224,7 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
       const data = await ingestionApi.commit(tenantId, jobId, payload, saveMap);
       setResult(data);
       setPhase('committed');
-      showToast('success', `Committed ${data.committed} signals.`);
+      showToast('success', data.status === 'queued' ? `Queued ${data.total_rows ?? preview?.row_count ?? 0} rows for commit.` : `Committed ${data.committed} signals.`);
     } catch (e: any) {
       setPhase('previewed');
       showToast('error', describeStageFailure(e, 'ingestion'));
@@ -334,11 +339,55 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
               <p>The pipeline will show schema, duplicate header checks, mapping quality, and sample rows after upload.</p>
             </div>
           ) : (
-            <div className="ingestion-profile">
-              <div><strong>{preview.row_count}</strong><span>Rows detected</span></div>
-              <div><strong>{preview.headers.length}</strong><span>Fields detected</span></div>
-              <div><strong>{profile?.quality ?? 0}%</strong><span>Auto-map coverage</span></div>
-              <div><strong>{profile?.duplicateHeaders ?? 0}</strong><span>Duplicate headers</span></div>
+            <div className="ingestion-analysis">
+              <div className="ingestion-profile">
+                <div><strong>{preview.row_count}</strong><span>Rows detected</span></div>
+                <div><strong>{preview.headers.length}</strong><span>Fields detected</span></div>
+                <div><strong>{profile?.quality ?? 0}%</strong><span>Auto-map coverage</span></div>
+                <div><strong>{profile?.duplicateHeaders ?? 0}</strong><span>Duplicate headers</span></div>
+              </div>
+
+              {preview.schema && (
+                <>
+                  <div className="ingestion-schema-summary">
+                    <div>
+                      <span>Dataset</span>
+                      <strong>{preview.schema.dataset_type}</strong>
+                    </div>
+                    <div>
+                      <span>Domain</span>
+                      <strong>{preview.schema.domain}</strong>
+                    </div>
+                    <div>
+                      <span>Confidence</span>
+                      <strong>{Math.round(preview.schema.confidence * 100)}%</strong>
+                    </div>
+                  </div>
+
+                  {preview.schema.primary_key_candidates.length > 0 && (
+                    <div className="ingestion-schema-block">
+                      <span>Primary key candidates</span>
+                      <div className="ingestion-chip-row">
+                        {preview.schema.primary_key_candidates.map((candidate) => <code key={candidate}>{candidate}</code>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {schemaColumns.length > 0 && (
+                    <div className="ingestion-column-list">
+                      {schemaColumns.map(([name, column]) => (
+                        <article key={name}>
+                          <div>
+                            <strong>{name}</strong>
+                            <span>{column.inferred_type}</span>
+                          </div>
+                          <small>{column.unique_count} unique, {Math.round(column.null_fraction * 100)}% empty</small>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </section>
@@ -419,12 +468,12 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
       {result && (
         <section className="ingestion-card ingestion-result">
           <div>
-            <span>Completed</span>
-            <h2>{result.committed} committed, {result.errors} errors, {result.skipped} skipped</h2>
-            <p>Job {jobId}. Created signal ids are shown for traceability.</p>
+            <span>{result.status === 'queued' ? 'Queued' : 'Completed'}</span>
+            <h2>{result.status === 'queued' ? `${result.total_rows ?? 0} rows queued` : `${result.committed} committed, ${result.errors} errors, ${result.skipped} skipped`}</h2>
+            <p>{result.status === 'queued' ? result.message ?? 'Track this import job from the import center.' : `Job ${jobId}. Created signal ids are shown for traceability.`}</p>
           </div>
           <div className="ingestion-signal-list">
-            {result.signal_ids.map((id) => <code key={id}>{id}</code>)}
+            {result.signal_ids.length > 0 ? result.signal_ids.map((id) => <code key={id}>{id}</code>) : <span>No signal ids returned yet.</span>}
           </div>
         </section>
       )}

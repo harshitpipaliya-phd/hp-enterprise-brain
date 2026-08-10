@@ -47,6 +47,25 @@ export interface IngestionPreview {
   sample_rows: Record<string, unknown>[];
   sync_type: string;
   fetched_at: string;
+  schema?: {
+    dataset_type: string;
+    domain: string;
+    confidence: number;
+    primary_key_candidates: string[];
+    relationships: Array<{
+      type: string;
+      source_column: string;
+      target_entity: string;
+      confidence: string;
+    }>;
+    columns: Record<string, {
+      inferred_type: string;
+      null_fraction: number;
+      unique_count: number;
+      max_length: number;
+      sample_values: string[];
+    }>;
+  };
 }
 
 export interface UploadResponse {
@@ -63,6 +82,9 @@ export interface CommitResponse {
   signal_ids: string[];
   /** 'committed' | 'completed_with_errors' | 'failed' */
   status: string;
+  total_rows?: number;
+  poll?: string;
+  message?: string;
 }
 
 /**
@@ -172,5 +194,12 @@ export const ingestionApi = {
     request(`/ingestion/${tenantId}/${jobId}/commit`, {
       method: 'POST',
       body: JSON.stringify({ field_map: fieldMap, save_map: saveMap }),
-    }),
+    }).then((data) => ({
+      ...data,
+      committed: Number(data?.committed ?? data?.success_count ?? 0),
+      errors: Number(data?.errors ?? data?.error_count ?? 0),
+      skipped: Number(data?.skipped ?? data?.duplicate_count ?? 0),
+      signal_ids: Array.isArray(data?.signal_ids) ? data.signal_ids : [],
+      total_rows: data?.total_rows === undefined ? undefined : Number(data.total_rows),
+    })),
 };
