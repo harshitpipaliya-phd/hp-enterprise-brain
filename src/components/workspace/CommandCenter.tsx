@@ -18,6 +18,7 @@ import {
   RefreshCw,
   ShieldAlert,
   Sparkles,
+  Target,
   UserX,
   Users,
   Workflow,
@@ -27,14 +28,19 @@ import { reasoningEngineApi } from '../../api/reasoning-engine';
 import { notificationApi } from '../../api/notification';
 import { aiApi } from '../../api/ai';
 import { taskApi } from '../../api/task';
+import { api as organizationApi } from '../../api/organization';
+import { api as capabilityApi } from '../../api/capability';
 import { LoadingState, ErrorState } from '../shared/States';
-import type { View } from '../../App';
+import type { Organization, View } from '../../App';
 import './CommandCenter.css';
 
 interface CommandCenterProps {
   tenantId: string;
   organizationName?: string;
+  organization?: Organization;
   onNavigate: (view: View) => void;
+  onEdit?: () => void;
+  onArchive?: () => void;
 }
 
 type Health = 'good' | 'warn' | 'crit';
@@ -68,7 +74,9 @@ interface HomeMetrics {
   };
 }
 
-export default function CommandCenter({ tenantId, organizationName, onNavigate }: CommandCenterProps) {
+type RecordPanel = 'profile' | 'structure' | 'quality' | 'audit';
+
+export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onEdit, onArchive }: CommandCenterProps) {
   const [summary, setSummary] = useState<any>(null);
   const [missingEvidence, setMissingEvidence] = useState(0);
   const [duplicates, setDuplicates] = useState(0);
@@ -77,6 +85,11 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
   const [providers, setProviders] = useState<any[]>([]);
   const [taskCount, setTaskCount] = useState(0);
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics | null>(null);
+  const [capabilityCount, setCapabilityCount] = useState(0);
+  const [recordPanel, setRecordPanel] = useState<RecordPanel>('profile');
+  const [recordData, setRecordData] = useState<any>(null);
+  const [recordLoading, setRecordLoading] = useState(false);
+  const [recordError, setRecordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +100,7 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
     setError(null);
 
     try {
-      const [summaryRes, homeRes, missingRes, dupRes, unreadRes, execRes, providerRes, tasksRes] = await Promise.all([
+      const [summaryRes, homeRes, missingRes, dupRes, unreadRes, execRes, providerRes, tasksRes, capabilitiesRes] = await Promise.all([
         decisionIntelligenceApi.getExecutiveSummary(tenantId),
         api.getHomeMetrics(tenantId),
         reasoningEngineApi.missingEvidence(tenantId),
@@ -96,6 +109,7 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
         aiApi.executions(tenantId),
         aiApi.providers(),
         taskApi.listRegistry(),
+        capabilityApi.listCapabilities(tenantId, organization?.id),
       ]);
 
       setSummary({
@@ -110,6 +124,7 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
       setAiExecutions(asArray(execRes).slice(0, 7));
       setProviders(asArray(providerRes?.providers));
       setTaskCount(asArray(tasksRes).length);
+      setCapabilityCount(asArray(capabilitiesRes).length);
       setHomeMetrics(homeRes as HomeMetrics);
     } catch (e: any) {
       setError(e.message);
@@ -117,7 +132,7 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
       setLoading(false);
       setRefreshing(false);
     }
-  }, [tenantId]);
+  }, [tenantId, organization?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +141,30 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
     });
     return () => { cancelled = true; };
   }, [load]);
+
+  useEffect(() => {
+    if (!organization || recordPanel === 'profile') {
+      setRecordData(null);
+      setRecordError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setRecordLoading(true);
+    setRecordError(null);
+    const loader = recordPanel === 'structure'
+      ? organizationApi.getStructure(tenantId, organization.id)
+      : recordPanel === 'quality'
+        ? organizationApi.getDataQuality(tenantId, organization.id)
+        : organizationApi.getAuditLogs(tenantId, organization.id);
+
+    loader
+      .then((data) => { if (!cancelled) setRecordData(data); })
+      .catch((e: any) => { if (!cancelled) setRecordError(e.message || 'Unable to load organization record.'); })
+      .finally(() => { if (!cancelled) setRecordLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [organization, recordPanel, tenantId]);
 
   if (loading) return <LoadingState label="Loading command center..." />;
   if (error) return <ErrorState message={error} />;
@@ -282,6 +321,7 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
             <button type="button" className="eb-pill-btn" onClick={() => load('refresh')} disabled={refreshing}>
               <RefreshCw size={15} className={refreshing ? 'cc-spin' : ''} /> Refresh
             </button>
+            {onEdit && <button type="button" className="eb-pill-btn" onClick={onEdit}>Edit organization</button>}
           </div>
         </div>
 
@@ -328,6 +368,7 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
         <PulseCard icon={<ShieldAlert />} label="Critical Risks" value={riskCount} hint="Highest priority" tone={riskCount > 0 ? 'crit' : 'good'} onClick={() => onNavigate('executive')} />
         <PulseCard icon={<DatabaseZap />} label="Data Quality" value={qualityAlerts} hint={`${missingEvidence} gaps / ${duplicates} duplicates`} tone={qualityAlerts > 0 ? 'warn' : 'good'} onClick={() => onNavigate('evidence')} />
         <PulseCard icon={<Bot />} label="AI Providers" value={`${configuredProviders}/${providerTotal}`} hint={configuredProviders > 0 ? 'Available' : 'Needs setup'} tone={configuredProviders > 0 ? 'good' : 'warn'} onClick={() => onNavigate('aiworkspace')} />
+        <PulseCard icon={<Target />} label="Capabilities" value={capabilityCount} hint="Organization capability map" tone="good" onClick={() => onNavigate('capabilities')} />
         <PulseCard icon={<Bell />} label="Notifications" value={unreadNotifications} hint="Unread alerts" tone={unreadNotifications > 0 ? 'warn' : 'good'} />
       </section>
 
@@ -475,6 +516,33 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
         </div>
       </section>
 
+      {organization && (
+        <section className="cc-record cc-panel" aria-label="Organization record">
+          <div className="cc-section-head cc-record__head">
+            <div>
+              <span className="cc-kicker">Organization record</span>
+              <h2>Profile, structure, quality, and audit</h2>
+            </div>
+            <div className="cc-record__actions">
+              {onArchive && <button type="button" className="eb-link-btn cc-danger-link" onClick={onArchive}>Archive</button>}
+            </div>
+          </div>
+          <div className="cc-tabs" role="tablist" aria-label="Organization record sections">
+            {([
+              ['profile', 'Profile'], ['structure', 'Structure'], ['quality', 'Data quality'], ['audit', 'Audit'],
+            ] as Array<[RecordPanel, string]>).map(([key, label]) => (
+              <button key={key} type="button" role="tab" aria-selected={recordPanel === key} className={recordPanel === key ? 'is-active' : ''} onClick={() => setRecordPanel(key)}>{label}</button>
+            ))}
+          </div>
+          {recordPanel === 'profile' && <OrganizationProfile organization={organization} />}
+          {recordLoading && <p className="cc-empty">Loading {recordPanel === 'quality' ? 'data quality' : recordPanel}…</p>}
+          {recordError && <p className="cc-record__error">{recordError}</p>}
+          {!recordLoading && !recordError && recordPanel === 'structure' && <StructurePanel data={recordData} />}
+          {!recordLoading && !recordError && recordPanel === 'quality' && <QualityPanel data={recordData} />}
+          {!recordLoading && !recordError && recordPanel === 'audit' && <AuditPanel data={recordData} />}
+        </section>
+      )}
+
       <p className="cc-hint">
         Press <kbd>Ctrl</kbd> + <kbd>K</kbd> anywhere to jump straight to any screen.
       </p>
@@ -486,6 +554,85 @@ function asArray(value: unknown): any[] {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return Object.values(value);
   return [];
+}
+
+function OrganizationProfile({ organization }: { organization: Organization }) {
+  const fields: Array<[string, string | null | undefined]> = [
+    ['Legal name', organization.legalName],
+    ['Organization code', organization.orgCode],
+    ['Industry', organization.industry],
+    ['Country', organization.country],
+    ['Timezone', organization.timezone],
+    ['Currency', organization.currency],
+    ['Status', organization.status],
+    ['Created', formatDate(organization.createdDate)],
+    ['Last updated', formatDate(organization.updatedDate)],
+  ];
+
+  return (
+    <dl className="cc-profile-grid">
+      {fields.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value || 'Not recorded'}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function StructurePanel({ data }: { data: any }) {
+  const departments = asArray(data?.departments);
+  if (!data || departments.length === 0) return <p className="cc-empty">No active departments are available in the source system.</p>;
+
+  return (
+    <div className="cc-table-wrap">
+      <table className="cc-table">
+        <thead><tr><th>Department</th><th>People</th><th>Parent unit</th><th>Status</th></tr></thead>
+        <tbody>{departments.map((department: any) => (
+          <tr key={department.id}>
+            <td>{department.name || 'Unnamed department'}</td>
+            <td>{Number(data.peopleByDepartment?.[department.id] ?? 0)}</td>
+            <td>{department.parentId && department.parentId !== '0' ? (data.heads?.[department.parentId] || department.parentId) : 'Top level'}</td>
+            <td><span className="eb-badge eb-badge-info">{department.status || 'unknown'}</span></td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function QualityPanel({ data }: { data: any }) {
+  if (!data) return <p className="cc-empty">No data-quality result is available yet.</p>;
+  const issues = asArray(data.issues);
+  return (
+    <div className="cc-quality">
+      <div className="cc-quality__score">
+        <strong>{formatNumber(data.score)}%</strong>
+        <span>Source-data quality score</span>
+        <small>{Number(data.totalPeople ?? 0)} people · {Number(data.totalDepartments ?? 0)} departments assessed</small>
+      </div>
+      {issues.length === 0 ? <p className="cc-empty"><CheckCircle2 size={16} /> No completeness issues were returned.</p> : (
+        <div className="cc-table-wrap"><table className="cc-table"><thead><tr><th>Source field</th><th>Affected records</th><th>Severity</th></tr></thead><tbody>
+          {issues.map((issue: any, index: number) => <tr key={`${issue.field}-${index}`}><td>{issue.field}</td><td>{Number(issue.count ?? 0)}</td><td><span className={`eb-badge eb-badge-${issue.severity === 'high' ? 'danger' : issue.severity === 'medium' ? 'warning' : 'info'}`}>{issue.severity || 'unknown'}</span></td></tr>)}
+        </tbody></table></div>
+      )}
+    </div>
+  );
+}
+
+function AuditPanel({ data }: { data: any }) {
+  const records = asArray(data);
+  if (records.length === 0) return <p className="cc-empty">No organization audit events are available.</p>;
+  return <ul className="cc-audit-list">{records.slice(0, 20).map((record: any, index: number) => (
+    <li key={record.id ?? index}><strong>{record.action || 'Recorded change'}</strong><span>{record.actorName || record.actorId || record.actor_id || 'System'} · {formatDate(record.createdAt || record.createdDate || record.created_at)}</span></li>
+  ))}</ul>;
+}
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 function healthOf(score: number): Health {

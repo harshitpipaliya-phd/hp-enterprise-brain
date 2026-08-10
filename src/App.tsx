@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import OrganizationList from './components/organization/OrganizationList';
 import OrganizationCreate from './components/organization/OrganizationCreate';
 import OrganizationEdit from './components/organization/OrganizationEdit';
-import OrganizationDetails from './components/organization/OrganizationDetails';
 import OrganizationArchiveConfirm from './components/organization/OrganizationArchiveConfirm';
 import DepartmentApp from './components/department/DepartmentApp';
 import PersonApp from './components/person/PersonApp';
@@ -347,7 +346,10 @@ function AuthenticatedApp() {
               <CommandCenter
                 tenantId={selected.tenantId}
                 organizationName={selected.name}
+                organization={selected}
                 onNavigate={(v) => navigate(v, selected)}
+                onEdit={() => navigate('edit', selected)}
+                onArchive={() => navigate('archive', selected)}
               />
             )}
             {view === 'list' && (
@@ -379,25 +381,13 @@ function AuthenticatedApp() {
               />
             )}
             {view === 'details' && selected && (
-              <OrganizationDetails
+              <CommandCenter
+                tenantId={selected.tenantId}
+                organizationName={selected.name}
                 organization={selected}
+                onNavigate={(v) => navigate(v, selected)}
                 onEdit={() => navigate('edit', selected)}
                 onArchive={() => navigate('archive', selected)}
-                onBack={() => navigate('list')}
-                onViewDepartments={() => navigate('departments', selected)}
-                onViewPeople={() => navigate('people', selected)}
-                onViewCapabilities={() => navigate('capabilities', selected)}
-                onViewSignals={() => navigate('signals', selected)}
-                onViewWorkspace={() => navigate('workspace', selected)}
-                onViewAnalytics={() => navigate('analytics', selected)}
-                onViewExecutive={() => navigate('executive', selected)}
-                onViewGraph={() => navigate('graph', selected)}
-                onViewAgents={() => navigate('agents', selected)}
-                onViewEvidence={() => navigate('evidence', selected)}
-                onViewCopilot={() => navigate('copilot', selected)}
-                onViewDecisionIntel={() => navigate('decisionintel', selected)}
-                onViewTasks={() => navigate('tasks', selected)}
-                onViewDeliberation={() => navigate('deliberation', selected)}
               />
             )}
             {view === 'departments' && selected && (

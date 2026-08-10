@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import type { Organization } from '../../App';
 import DepartmentList from './DepartmentList';
