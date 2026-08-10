@@ -9,6 +9,7 @@
 const API_ORIGIN: string = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const API_BASE = `${API_ORIGIN.replace(/\/+$/, '')}/api/v1`;
+import { globalLoading } from '../ui/globalLoading';
 
 export { API_ORIGIN, API_BASE };
 
@@ -123,6 +124,8 @@ export function onSessionExpired(callback: () => void): void {
 }
 
 export async function request(path: string, options: RequestInit = {}, _isRetry = false): Promise<any> {
+  globalLoading.requestStarted();
+  try {
   const isFormData = options.body instanceof FormData;
   const url = `${API_BASE}${path}`;
   const method = options.method || 'GET';
@@ -196,4 +199,7 @@ export async function request(path: string, options: RequestInit = {}, _isRetry 
   }
 
   return text ? addCamelAliases(JSON.parse(text)) : null;
+  } finally {
+    globalLoading.requestFinished();
+  }
 }

@@ -118,6 +118,7 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
         <PersonCreate
           tenantId={organization.tenantId}
           orgId={organization.id}
+          organizationName={organization.name}
           onCreated={(person: any) => {
             navigate('list');
             load();

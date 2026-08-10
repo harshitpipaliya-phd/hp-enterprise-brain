@@ -51,7 +51,7 @@ export const VIEW_META: Record<View, ViewMeta> = {
   // resolves. Hidden, because Command Center already has a nav entry as 'home'.
   commandcenter:    { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, hidden: true },
 
-  list:             { label: 'Organizations', section: 'Foundation', icon: Building2, requiresOrg: false, description: 'Every organization the Brain is configured for.' },
+  list:             { label: 'Organizations', section: 'Foundation', icon: Building2, requiresOrg: false, hidden: true, description: 'Every organization the Brain is configured for.' },
   create:           { label: 'New Organization', section: 'Foundation', icon: Building2, requiresOrg: false, hidden: true, parent: 'list' },
   edit:             { label: 'Edit Organization', section: 'Foundation', icon: Building2, requiresOrg: true, hidden: true, parent: 'list' },
   details:          { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, hidden: true },

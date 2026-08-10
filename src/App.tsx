@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import OrganizationList from './components/organization/OrganizationList';
 import OrganizationCreate from './components/organization/OrganizationCreate';
-import OrganizationEdit from './components/organization/OrganizationEdit';
 import OrganizationArchiveConfirm from './components/organization/OrganizationArchiveConfirm';
 import DepartmentApp from './components/department/DepartmentApp';
 import PersonApp from './components/person/PersonApp';
@@ -58,6 +57,7 @@ import { onSessionExpired } from './api/client';
 import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
 import { loadSession, saveSession, clearSession } from './utils/session';
 import { LazyView } from './ui';
+import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
 
 export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion';
@@ -67,6 +67,7 @@ export type Organization = OrganizationRow;
 export default function App() {
   return (
     <ToastProvider>
+      <GlobalLoader />
       <AuthenticatedApp />
     </ToastProvider>
   );
@@ -102,7 +103,12 @@ function AuthenticatedApp() {
   // Carried from signup to login so a new administrator types their address
   // once. Not persisted: it is a hand-off within one visit, not a preference.
   const [signupEmail, setSignupEmail] = useState('');
-  const [view, setView] = useState<View>((restored.view as View) || HOME_VIEW);
+  // Inline editing replaced the former standalone `edit` screen. Redirect a
+  // session persisted while that screen was open to the unified organization
+  // page rather than restoring it to a route with no content.
+  const [view, setView] = useState<View>(
+    restored.view === 'edit' ? 'details' : ((restored.view as View) || HOME_VIEW),
+  );
   const [tenantId, setTenantId] = useState(getAuthTenantId());
   const [selected, setSelected] = useState<Organization | null>(restored.organization);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -348,7 +354,7 @@ function AuthenticatedApp() {
                 organizationName={selected.name}
                 organization={selected}
                 onNavigate={(v) => navigate(v, selected)}
-                onEdit={() => navigate('edit', selected)}
+                onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
                 onArchive={() => navigate('archive', selected)}
               />
             )}
@@ -373,20 +379,13 @@ function AuthenticatedApp() {
                 onCancel={() => navigate('list')}
               />
             )}
-            {view === 'edit' && selected && (
-              <OrganizationEdit
-                organization={selected}
-                onUpdated={(org) => { navigate('details', org); reloadAfter('Organization updated'); }}
-                onCancel={() => navigate('details', selected)}
-              />
-            )}
             {view === 'details' && selected && (
               <CommandCenter
                 tenantId={selected.tenantId}
                 organizationName={selected.name}
                 organization={selected}
                 onNavigate={(v) => navigate(v, selected)}
-                onEdit={() => navigate('edit', selected)}
+                onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
                 onArchive={() => navigate('archive', selected)}
               />
             )}

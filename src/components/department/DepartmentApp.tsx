@@ -98,6 +98,7 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
         <DepartmentCreate
           tenantId={organization.tenantId}
           orgId={organization.id}
+          organizationName={organization.name}
           onCreated={() => { navigate('list'); load(); }}
           onCancel={() => navigate('list')}
         />
