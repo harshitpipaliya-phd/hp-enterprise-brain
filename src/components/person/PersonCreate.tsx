@@ -1,132 +1,82 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { BriefcaseBusiness, Building2, Contact, ShieldCheck, UserRound } from 'lucide-react';
 import type { Person } from './PersonApp';
 import { api } from '../../api/person';
 import { api as departmentApi } from '../../api/department';
+import { api as capabilityApi } from '../../api/capability';
+import './PersonList.css';
 
-interface Props {
-  tenantId: string;
-  orgId: string;
-  onCreated: (person: Person) => void;
-  onCancel: () => void;
-}
+interface Props { tenantId: string; orgId: string; organizationName: string; onCreated: (person: Person) => void; onCancel: () => void; }
 
-export default function PersonCreate({ tenantId, orgId, onCreated, onCancel }: Props) {
-  const [form, setForm] = useState({
-    employeeId: '',
-    firstName: '',
-    lastName: '',
-    displayName: '',
-    email: '',
-    phone: '',
-    profilePhoto: '',
-    gender: '',
-    dateOfBirth: '',
-    employmentType: 'full_time' as 'full_time' | 'part_time' | 'contract' | 'intern',
-    employmentStatus: 'active' as 'active' | 'on_leave' | 'terminated' | 'resigned',
-    joiningDate: '',
-    departmentId: '',
-    managerId: '',
-    designation: '',
-    location: '',
-    reportingManagerId: '',
-  });
+export default function PersonCreate({ tenantId, orgId, organizationName, onCreated, onCancel }: Props) {
+  const [form, setForm] = useState({ employeeId: '', firstName: '', lastName: '', displayName: '', email: '', phone: '', gender: '', dateOfBirth: '', departmentId: '', designation: '', employmentType: 'full_time', reportingManagerId: '', joiningDate: '', location: '', employmentStatus: 'active', profile: '', skills: [] as string[] });
   const [departments, setDepartments] = useState<any[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [capabilities, setCapabilities] = useState<any[]>([]);
+  const [loadingReferences, setLoadingReferences] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Department is an ERP id, so the options come from the departments endpoint
-  // for this organization rather than from a number typed by hand.
   useEffect(() => {
-    departmentApi.listDepartments(tenantId, orgId).then(setDepartments).catch(() => setDepartments([]));
+    let cancelled = false;
+    Promise.all([
+      departmentApi.listDepartments(tenantId, orgId),
+      api.listPeople(tenantId, orgId),
+      capabilityApi.listCapabilities(tenantId, orgId),
+    ]).then(([departmentRows, personRows, capabilityRows]) => {
+      if (cancelled) return;
+      setDepartments(departmentRows); setPeople(personRows); setCapabilities(capabilityRows);
+    }).catch(() => { if (!cancelled) { setDepartments([]); setPeople([]); setCapabilities([]); } })
+      .finally(() => { if (!cancelled) setLoadingReferences(false); });
+    return () => { cancelled = true; };
   }, [tenantId, orgId]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSaving(true);
+  const update = (patch: Partial<typeof form>) => setForm((current) => ({ ...current, ...patch }));
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); setError(null); setSaving(true);
     try {
-      // PersonController::store() validates exactly these seven fields and
-      // writes tbluser. The rest of this form — displayName, employmentType,
-      // joiningDate, designation, location, manager — has no column in tbluser
-      // and is not sent; created_by comes from the bearer token.
       const person = await api.createPerson(tenantId, {
-        employeeId: form.employeeId,
-        firstName: form.firstName,
-        lastName: form.lastName,
-        email: form.email,
-        orgId: Number(orgId),
-        phone: form.phone || null,
-        gender: form.gender || null,
+        employeeId: form.employeeId.trim(), firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), phone: form.phone.trim() || null, gender: form.gender || null,
+        departmentId: form.departmentId || null, joiningDate: form.joiningDate || null,
       });
       onCreated(person);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
-    }
+    } catch (e: any) { setError(e.message || 'Unable to create this person.'); } finally { setSaving(false); }
   };
 
-  return (
-    <div>
-      <h2>Create Person</h2>
-      {error && <div style={{ color: 'red' }}>{error}</div>}
-      <form onSubmit={submit} style={{ display: 'grid', gap: 12, maxWidth: 600 }}>
-        <label>
-          Employee ID <input required value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} />
-        </label>
-        <label>
-          First Name <input required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-        </label>
-        <label>
-          Last Name <input required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-        </label>
-        <label>
-          Display Name <input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} />
-        </label>
-        <label>
-          Email <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        </label>
-        <label>
-          Phone <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        </label>
-        <label>
-          Gender <input value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} />
-        </label>
-        <label>
-          Date of Birth <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
-        </label>
-        <label>
-          Employment Type
-          <select value={form.employmentType} onChange={(e) => setForm({ ...form, employmentType: e.target.value as any })}>
-            <option value="full_time">Full Time</option>
-            <option value="part_time">Part Time</option>
-            <option value="contract">Contract</option>
-            <option value="intern">Intern</option>
-          </select>
-        </label>
-        <label>
-          Joining Date <input type="date" value={form.joiningDate} onChange={(e) => setForm({ ...form, joiningDate: e.target.value })} />
-        </label>
-        <label>
-          Department
-          <select value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
-            <option value="">Unassigned</option>
-            {departments.map((d: any) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Designation <input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-        </label>
-        <label>
-          Location <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
-        </label>
-        <div>
-          <button type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create'}</button>
-          <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
-        </div>
-      </form>
-    </div>
-  );
+  return <main className="people-create">
+    <header className="people-create__hero"><span className="people-eyebrow">Workforce setup</span><h2>Create a person</h2><p>Establish an accurate employee record for <strong>{organizationName}</strong>, including contact, assignment, and profile context.</p></header>
+    <form className="people-create__layout" onSubmit={submit}>
+      <div className="people-create__form">
+        <Section icon={<Contact size={18} />} title="Identity and contact" description="Core details used to identify and contact this person.">
+          <Field label="Employee ID" required><input required value={form.employeeId} onChange={(e) => update({ employeeId: e.target.value })} placeholder="e.g. EMP-1042" /></Field>
+          <Field label="Display name"><input value={form.displayName} onChange={(e) => update({ displayName: e.target.value })} placeholder="Name shown across the workspace" /></Field>
+          <Field label="First name" required><input required value={form.firstName} onChange={(e) => update({ firstName: e.target.value })} /></Field>
+          <Field label="Last name" required><input required value={form.lastName} onChange={(e) => update({ lastName: e.target.value })} /></Field>
+          <Field label="Work email" required><input required type="email" value={form.email} onChange={(e) => update({ email: e.target.value })} /></Field>
+          <Field label="Phone"><input type="tel" value={form.phone} onChange={(e) => update({ phone: e.target.value })} /></Field>
+          <Field label="Gender"><select value={form.gender} onChange={(e) => update({ gender: e.target.value })}><option value="">Not specified</option><option value="female">Female</option><option value="male">Male</option><option value="non_binary">Non-binary</option><option value="prefer_not_to_say">Prefer not to say</option></select></Field>
+          <Field label="Date of birth"><input type="date" value={form.dateOfBirth} onChange={(e) => update({ dateOfBirth: e.target.value })} /></Field>
+        </Section>
+        <Section icon={<BriefcaseBusiness size={18} />} title="Employment and reporting" description="Place the person in the organization and establish their working context.">
+          <Field label="Department"><select value={form.departmentId} disabled={loadingReferences} onChange={(e) => update({ departmentId: e.target.value })}><option value="">Unassigned</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></Field>
+          <Field label="Role / job title"><input value={form.designation} onChange={(e) => update({ designation: e.target.value })} placeholder="e.g. Operations Manager" /></Field>
+          <Field label="Employee type"><select value={form.employmentType} onChange={(e) => update({ employmentType: e.target.value })}><option value="full_time">Full time</option><option value="part_time">Part time</option><option value="contract">Contract</option><option value="intern">Intern</option></select></Field>
+          <Field label="Reporting manager"><select value={form.reportingManagerId} disabled={loadingReferences} onChange={(e) => update({ reportingManagerId: e.target.value })}><option value="">No manager assigned</option>{people.map((person) => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}</select></Field>
+          <Field label="Joining date"><input type="date" value={form.joiningDate} onChange={(e) => update({ joiningDate: e.target.value })} /></Field>
+          <Field label="Location / site"><input value={form.location} onChange={(e) => update({ location: e.target.value })} placeholder="Office, city, or site" /></Field>
+          <Field label="Employment status"><select value={form.employmentStatus} onChange={(e) => update({ employmentStatus: e.target.value })}><option value="active">Active</option><option value="on_leave">On leave</option><option value="inactive">Inactive</option></select></Field>
+          <Field label="Profile information"><input value={form.profile} onChange={(e) => update({ profile: e.target.value })} placeholder="Employee profile or notes" /></Field>
+        </Section>
+        <Section icon={<UserRound size={18} />} title="Skills and capabilities" description="Select the capabilities most relevant to this person’s work.">
+          <div className="people-create__capabilities">{capabilities.length === 0 ? <p>No capabilities are available for this organization yet.</p> : capabilities.map((capability) => <label key={capability.id}><input type="checkbox" checked={form.skills.includes(capability.id)} onChange={(e) => update({ skills: e.target.checked ? [...form.skills, capability.id] : form.skills.filter((id) => id !== capability.id) })} />{capability.name}</label>)}</div>
+        </Section>
+        {error && <div className="people-alert" role="alert">{error}</div>}
+        <footer className="people-create__footer"><button type="submit" disabled={saving || !form.employeeId.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.email.trim()}>{saving ? 'Saving…' : 'Save person'}</button><button type="button" className="eb-pill-btn" disabled={saving} onClick={onCancel}>Cancel</button></footer>
+      </div>
+      <aside className="people-create__aside"><section><Building2 size={18} /><div><h3>Organization-scoped</h3><p>This person is created directly under {organizationName}.</p></div></section><section><ShieldCheck size={18} /><div><h3>Secure creation</h3><p>Identity, active status, creator, and audit timestamps are assigned by the authenticated backend.</p></div></section></aside>
+    </form>
+  </main>;
 }
+
+function Section({ icon, title, description, children }: { icon: React.ReactNode; title: string; description: string; children: React.ReactNode }) { return <section className="people-create__section"><header><span>{icon}</span><div><h3>{title}</h3><p>{description}</p></div></header><div className="people-create__fields">{children}</div></section>; }
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) { return <label className="people-create__field"><span>{label}{required && <b>Required</b>}</span>{children}</label>; }

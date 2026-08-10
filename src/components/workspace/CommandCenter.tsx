@@ -30,6 +30,7 @@ import { aiApi } from '../../api/ai';
 import { taskApi } from '../../api/task';
 import { api as organizationApi } from '../../api/organization';
 import { api as capabilityApi } from '../../api/capability';
+import { api as departmentApi } from '../../api/department';
 import { LoadingState, ErrorState } from '../shared/States';
 import type { Organization, View } from '../../App';
 import './CommandCenter.css';
@@ -39,7 +40,7 @@ interface CommandCenterProps {
   organizationName?: string;
   organization?: Organization;
   onNavigate: (view: View) => void;
-  onEdit?: () => void;
+  onUpdated?: (organization: Organization) => void;
   onArchive?: () => void;
 }
 
@@ -75,8 +76,9 @@ interface HomeMetrics {
 }
 
 type RecordPanel = 'profile' | 'structure' | 'quality' | 'audit';
+type OrganizationProfileDraft = Pick<Organization, 'name' | 'orgCode' | 'industry'>;
 
-export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onEdit, onArchive }: CommandCenterProps) {
+export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive }: CommandCenterProps) {
   const [summary, setSummary] = useState<any>(null);
   const [missingEvidence, setMissingEvidence] = useState(0);
   const [duplicates, setDuplicates] = useState(0);
@@ -86,10 +88,15 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const [taskCount, setTaskCount] = useState(0);
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics | null>(null);
   const [capabilityCount, setCapabilityCount] = useState(0);
+  const [activeDepartmentCount, setActiveDepartmentCount] = useState<number | null>(null);
   const [recordPanel, setRecordPanel] = useState<RecordPanel>('profile');
   const [recordData, setRecordData] = useState<any>(null);
   const [recordLoading, setRecordLoading] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState<OrganizationProfileDraft | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +107,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
     setError(null);
 
     try {
-      const [summaryRes, homeRes, missingRes, dupRes, unreadRes, execRes, providerRes, tasksRes, capabilitiesRes] = await Promise.all([
+      const [summaryRes, homeRes, missingRes, dupRes, unreadRes, execRes, providerRes, tasksRes, capabilitiesRes, departmentsRes] = await Promise.all([
         decisionIntelligenceApi.getExecutiveSummary(tenantId),
         api.getHomeMetrics(tenantId),
         reasoningEngineApi.missingEvidence(tenantId),
@@ -110,6 +117,10 @@ export default function CommandCenter({ tenantId, organizationName, organization
         aiApi.providers(),
         taskApi.listRegistry(),
         capabilityApi.listCapabilities(tenantId, organization?.id),
+        // This is the same tenant-and-organization-scoped collection the
+        // Departments screen renders. Deriving the card from it prevents an
+        // aggregate from ever counting a department owned by another org.
+        departmentApi.listDepartments(tenantId, organization?.id),
       ]);
 
       setSummary({
@@ -125,6 +136,9 @@ export default function CommandCenter({ tenantId, organizationName, organization
       setProviders(asArray(providerRes?.providers));
       setTaskCount(asArray(tasksRes).length);
       setCapabilityCount(asArray(capabilitiesRes).length);
+      setActiveDepartmentCount(
+        asArray(departmentsRes).filter((department) => String(department.status || '').toLowerCase() === 'active').length,
+      );
       setHomeMetrics(homeRes as HomeMetrics);
     } catch (e: any) {
       setError(e.message);
@@ -153,7 +167,20 @@ export default function CommandCenter({ tenantId, organizationName, organization
     setRecordLoading(true);
     setRecordError(null);
     const loader = recordPanel === 'structure'
-      ? organizationApi.getStructure(tenantId, organization.id)
+      ? Promise.all([
+        organizationApi.getStructure(tenantId, organization.id),
+        departmentApi.listDepartments(tenantId, organization.id),
+      ]).then(([structure, departments]) => {
+        // The Department API is the authoritative logged-in-organization
+        // collection. Structure data is an aggregate, so intersecting it with
+        // that collection prevents any cross-organization or stale extra rows
+        // from reaching this screen.
+        const allowedIds = new Set(asArray(departments).map((department) => String(department.id)));
+        return {
+          ...structure,
+          departments: asArray(structure?.departments).filter((department) => allowedIds.has(String(department.id))),
+        };
+      })
       : recordPanel === 'quality'
         ? organizationApi.getDataQuality(tenantId, organization.id)
         : organizationApi.getAuditLogs(tenantId, organization.id);
@@ -165,6 +192,40 @@ export default function CommandCenter({ tenantId, organizationName, organization
 
     return () => { cancelled = true; };
   }, [organization, recordPanel, tenantId]);
+
+  useEffect(() => {
+    if (!organization) return;
+    setProfileForm({ name: organization.name, orgCode: organization.orgCode, industry: organization.industry });
+    setEditingProfile(false);
+    setProfileError(null);
+  }, [organization?.id]);
+
+  const beginProfileEdit = () => {
+    if (!organization) return;
+    setRecordPanel('profile');
+    setProfileForm({ name: organization.name, orgCode: organization.orgCode, industry: organization.industry });
+    setProfileError(null);
+    setEditingProfile(true);
+  };
+
+  const saveProfile = async () => {
+    if (!organization || !profileForm) return;
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      const updated = await organizationApi.updateOrganization(organization.tenantId, organization.id, {
+        name: profileForm.name,
+        orgCode: profileForm.orgCode || null,
+        industry: profileForm.industry || null,
+      });
+      onUpdated?.(updated);
+      setEditingProfile(false);
+    } catch (e: any) {
+      setProfileError(e.message || 'Unable to save organization details.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   if (loading) return <LoadingState label="Loading command center..." />;
   if (error) return <ErrorState message={error} />;
@@ -185,6 +246,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
     departmentsWithoutManager: 0,
     peopleWithoutProfile: 0,
   };
+  const activeDepartments = activeDepartmentCount ?? erp.activeDepartments;
   const orgAttention = asArray(homeMetrics?.attention).filter((item) => item.id !== 'all-clear');
   const profileCompleteness = erp.activePeople > 0
     ? Math.round(((erp.activePeople - erp.peopleWithoutProfile) / erp.activePeople) * 100)
@@ -192,8 +254,8 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const departmentAssignment = erp.activePeople > 0
     ? Math.round(((erp.activePeople - erp.peopleWithoutDepartment) / erp.activePeople) * 100)
     : 0;
-  const leadershipCoverage = erp.activeDepartments > 0
-    ? Math.round(((erp.activeDepartments - erp.departmentsWithoutManager) / erp.activeDepartments) * 100)
+  const leadershipCoverage = activeDepartments > 0
+    ? Math.round(((activeDepartments - erp.departmentsWithoutManager) / activeDepartments) * 100)
     : 0;
   const derivedSignalLoad = riskCount + qualityAlerts + pendingCount;
   const systemStatus = statusModel({
@@ -206,7 +268,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
   });
 
   const flow = [
-    { label: 'Organization', value: erp.activeDepartments, health: erp.departmentsWithoutManager > 0 ? 'warn' : 'good', icon: <Building2 size={17} /> },
+    { label: 'Organization', value: activeDepartments, health: erp.departmentsWithoutManager > 0 ? 'warn' : 'good', icon: <Building2 size={17} /> },
     { label: 'Signals', value: derivedSignalLoad, health: riskCount > 0 ? 'warn' : 'good', icon: <Activity size={17} /> },
     { label: 'Evidence', value: missingEvidence, health: missingEvidence > 0 ? 'crit' : 'good', icon: <FileSearch size={17} /> },
     { label: 'Reasoning', value: pendingCount, health: pendingCount > 0 ? 'warn' : 'good', icon: <BrainCircuit size={17} /> },
@@ -321,7 +383,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
             <button type="button" className="eb-pill-btn" onClick={() => load('refresh')} disabled={refreshing}>
               <RefreshCw size={15} className={refreshing ? 'cc-spin' : ''} /> Refresh
             </button>
-            {onEdit && <button type="button" className="eb-pill-btn" onClick={onEdit}>Edit organization</button>}
+            {/* {organization && <button type="button" className="eb-pill-btn" onClick={beginProfileEdit}>Edit</button>} */}
           </div>
         </div>
 
@@ -355,7 +417,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
         </div>
 
         <div className="cc-org-grid">
-          <OrgMetric icon={<Building2 />} label="Active Departments" value={erp.activeDepartments} detail={`${leadershipCoverage}% leadership coverage`} tone={erp.departmentsWithoutManager > 0 ? 'warn' : 'good'} />
+          <OrgMetric icon={<Building2 />} label="Active Departments" value={activeDepartments} detail={`${leadershipCoverage}% leadership coverage`} tone={erp.departmentsWithoutManager > 0 ? 'warn' : 'good'} />
           <OrgMetric icon={<Users />} label="Active People" value={erp.activePeople} detail={`${departmentAssignment}% assigned to departments`} tone={erp.peopleWithoutDepartment > 0 ? 'warn' : 'good'} />
           <OrgMetric icon={<UserX />} label="Missing Department" value={erp.peopleWithoutDepartment} detail="Outside org rollups" tone={erp.peopleWithoutDepartment > 0 ? 'crit' : 'good'} />
           <OrgMetric icon={<IdCard />} label="Missing Profiles" value={erp.peopleWithoutProfile} detail={`${profileCompleteness}% profile completeness`} tone={erp.peopleWithoutProfile > 0 ? 'warn' : 'good'} />
@@ -534,7 +596,19 @@ export default function CommandCenter({ tenantId, organizationName, organization
               <button key={key} type="button" role="tab" aria-selected={recordPanel === key} className={recordPanel === key ? 'is-active' : ''} onClick={() => setRecordPanel(key)}>{label}</button>
             ))}
           </div>
-          {recordPanel === 'profile' && <OrganizationProfile organization={organization} />}
+          {recordPanel === 'profile' && (
+            <OrganizationProfile
+              organization={organization}
+              editing={editingProfile}
+              form={profileForm}
+              saving={profileSaving}
+              error={profileError}
+              onChange={setProfileForm}
+              onSave={saveProfile}
+              onCancel={() => { setEditingProfile(false); setProfileError(null); setProfileForm({ name: organization.name, orgCode: organization.orgCode, industry: organization.industry }); }}
+              onEdit={beginProfileEdit}
+            />
+          )}
           {recordLoading && <p className="cc-empty">Loading {recordPanel === 'quality' ? 'data quality' : recordPanel}…</p>}
           {recordError && <p className="cc-record__error">{recordError}</p>}
           {!recordLoading && !recordError && recordPanel === 'structure' && <StructurePanel data={recordData} />}
@@ -556,7 +630,19 @@ function asArray(value: unknown): any[] {
   return [];
 }
 
-function OrganizationProfile({ organization }: { organization: Organization }) {
+function OrganizationProfile({
+  organization, editing, form, saving, error, onChange, onSave, onCancel, onEdit,
+}: {
+  organization: Organization;
+  editing: boolean;
+  form: OrganizationProfileDraft | null;
+  saving: boolean;
+  error: string | null;
+  onChange: (form: OrganizationProfileDraft) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onEdit: () => void;
+}) {
   const fields: Array<[string, string | null | undefined]> = [
     ['Legal name', organization.legalName],
     ['Organization code', organization.orgCode],
@@ -569,16 +655,25 @@ function OrganizationProfile({ organization }: { organization: Organization }) {
     ['Last updated', formatDate(organization.updatedDate)],
   ];
 
-  return (
-    <dl className="cc-profile-grid">
-      {fields.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value || 'Not recorded'}</dd>
+  if (editing && form) {
+    return (
+      <form className="cc-profile-editor" onSubmit={(event) => { event.preventDefault(); onSave(); }}>
+        <label>Name<input required value={form.name} onChange={(event) => onChange({ ...form, name: event.target.value })} /></label>
+        <label>Organization code<input value={form.orgCode} onChange={(event) => onChange({ ...form, orgCode: event.target.value })} /></label>
+        <label>Industry<input value={form.industry || ''} onChange={(event) => onChange({ ...form, industry: event.target.value || null })} /></label>
+        <p className="cc-profile-editor__note">Legal name, logo, location, timezone, currency, and status are managed by the connected source system.</p>
+        {error && <p className="cc-record__error">{error}</p>}
+        <div className="cc-profile-editor__actions">
+          <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
+          <button type="button" className="eb-pill-btn" disabled={saving} onClick={onCancel}>Cancel</button>
         </div>
-      ))}
-    </dl>
-  );
+      </form>
+    );
+  }
+
+  return <><dl className="cc-profile-grid">
+    {fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Not recorded'}</dd></div>)}
+  </dl><div className="cc-profile-actions"><button type="button" className="eb-pill-btn" onClick={onEdit}>Edit organization</button></div></>;
 }
 
 function StructurePanel({ data }: { data: any }) {
