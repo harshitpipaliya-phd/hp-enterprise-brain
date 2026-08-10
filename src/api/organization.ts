@@ -86,4 +86,16 @@ export const api = {
     const tenant = scopedTenant(tenantId);
     return request(`/organizations/${tenant}/${tenant}/audit`);
   },
+
+  /** Organization hierarchy and department headcount, scoped by the API. */
+  getStructure: (tenantId: string, _id: string) => {
+    const tenant = scopedTenant(tenantId);
+    return request(`/organizations/${tenant}/${tenant}/structure`);
+  },
+
+  /** Source-system completeness findings for the selected organization. */
+  getDataQuality: (tenantId: string, _id: string) => {
+    const tenant = scopedTenant(tenantId);
+    return request(`/organizations/${tenant}/${tenant}/data-quality`);
+  },
 };

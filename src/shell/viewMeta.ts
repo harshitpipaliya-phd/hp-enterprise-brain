@@ -46,15 +46,15 @@ export const SECTIONS: SectionId[] = [
 
 /** Every one of the 31 View values, exhaustively — the Record type enforces it. */
 export const VIEW_META: Record<View, ViewMeta> = {
-  home:             { label: 'Command Center', section: 'Overview', icon: CircleGauge, requiresOrg: true, description: 'Every signal, decision and risk in one view.' },
+  home:             { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, description: 'Organization health, structure, intelligence, quality, and audit in one view.' },
   // Retained as an alias so a session persisted by an earlier build still
   // resolves. Hidden, because Command Center already has a nav entry as 'home'.
-  commandcenter:    { label: 'Command Center', section: 'Overview', icon: CircleGauge, requiresOrg: true, hidden: true },
+  commandcenter:    { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, hidden: true },
 
   list:             { label: 'Organizations', section: 'Foundation', icon: Building2, requiresOrg: false, description: 'Every organization the Brain is configured for.' },
   create:           { label: 'New Organization', section: 'Foundation', icon: Building2, requiresOrg: false, hidden: true, parent: 'list' },
   edit:             { label: 'Edit Organization', section: 'Foundation', icon: Building2, requiresOrg: true, hidden: true, parent: 'list' },
-  details:          { label: 'Organization Details', section: 'Foundation', icon: Building2, requiresOrg: true, hidden: true, parent: 'list' },
+  details:          { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, hidden: true },
   archive:          { label: 'Archive Organization', section: 'Foundation', icon: Building2, requiresOrg: true, hidden: true, parent: 'list' },
   departments:      { label: 'Departments', section: 'Foundation', icon: FolderTree, requiresOrg: true, description: 'Organizational units and their reporting structure.' },
   people:           { label: 'People', section: 'Foundation', icon: Users, requiresOrg: true, description: 'Everyone recorded in this organization.' },
