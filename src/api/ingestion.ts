@@ -1,4 +1,4 @@
-import { request } from './client.js';
+import { ApiError, request } from './client.js';
 
 /**
  * Ingestion — external CSV upload, previewed then committed.
@@ -70,6 +70,37 @@ export interface DataSourceRow {
   source_type: string;
 }
 
+function describeUploadFailure(error: unknown, body: FormData, file: File): void {
+  if (!import.meta.env.DEV) return;
+
+  const formFields = Array.from(body.keys());
+  const apiError = error instanceof ApiError ? error : null;
+
+  console.error('Ingestion upload failed', {
+    request: apiError
+      ? { url: apiError.url, method: apiError.method, status: apiError.status, statusText: apiError.statusText }
+      : { method: 'POST' },
+    requestHeaders: {
+      accept: 'application/json',
+      authorization: 'Bearer [redacted]',
+      contentType: 'browser-generated multipart/form-data boundary',
+    },
+    formData: {
+      fields: formFields,
+      fileField: formFields.includes('file') ? 'file' : null,
+      sourceIdField: formFields.includes('source_id') ? 'source_id' : null,
+    },
+    file: {
+      name: file.name,
+      type: file.type || '(browser did not provide a MIME type)',
+      size: file.size,
+    },
+    response: apiError
+      ? { bodyText: apiError.responseText, bodyJson: apiError.responseJson }
+      : { error },
+  });
+}
+
 export const ingestionApi = {
   listSources: (tenantId: string): Promise<DataSourceRow[]> =>
     request(`/ingestion/sources/${tenantId}`),
@@ -85,7 +116,10 @@ export const ingestionApi = {
     body.append('source_id', sourceId);
     if (orgId) body.append('org_id', orgId);
 
-    return request('/ingestion/upload', { method: 'POST', body });
+    return request('/ingestion/upload', { method: 'POST', body }).catch((error) => {
+      describeUploadFailure(error, body, file);
+      throw error;
+    });
   },
 
   commit: (

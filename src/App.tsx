@@ -47,6 +47,8 @@ import KasbaExplorer from './components/workspace/KasbaExplorer';
 // left in place rather than deleted — it is a complete screen, and nothing here
 // establishes that it should be thrown away rather than given its own nav entry.
 import Login from './components/auth/Login';
+import Signup from './components/auth/Signup';
+import type { AuthSession } from './components/auth/session';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { AppShell } from './shell/AppShell';
 import { NotificationBell } from './components/NotificationBell';
@@ -94,6 +96,13 @@ function AuthenticatedApp() {
   const restored = loadSession();
 
   const [authenticated, setAuthenticated] = useState(initialAuthState);
+  // Which of the two auth screens is showing while unauthenticated. Local state
+  // rather than a route because this app has no router — the whole shell is
+  // driven by `view`, and the auth screens sit outside it.
+  const [authScreen, setAuthScreen] = useState<'login' | 'signup'>('login');
+  // Carried from signup to login so a new administrator types their address
+  // once. Not persisted: it is a hand-off within one visit, not a preference.
+  const [signupEmail, setSignupEmail] = useState('');
   const [view, setView] = useState<View>((restored.view as View) || HOME_VIEW);
   const [tenantId, setTenantId] = useState(getAuthTenantId());
   const [selected, setSelected] = useState<Organization | null>(restored.organization);
@@ -163,50 +172,70 @@ function AuthenticatedApp() {
   }, [authenticated, tenantId]);
 
   if (!authenticated) {
+    // ONE WAY INTO THE WORKSPACE: a completed login. Signup ends at its own
+    // success state and hands the new administrator's email here, so the
+    // credential they just chose is exercised once while it is fresh. Login
+    // has already persisted the tokens by the time this runs.
+    const establishSession = (session: AuthSession) => {
+      if (!session?.organizationId) {
+        setAuthenticated(false);
+        return;
+      }
+
+      const org: Organization = {
+        id: session.organizationId,
+        tenantId: session.organizationId,
+        name: session.organizationName || session.organizationId,
+        legalName: null,
+        orgCode: '',
+        industry: null,
+        country: null,
+        timezone: null,
+        currency: null,
+        logo: session.organizationLogo ?? null,
+        status: 'active',
+        createdBy: '',
+        createdDate: '',
+        updatedDate: '',
+      };
+
+      setSelectedOrgId(session.organizationId);
+      setSelected(org);
+      setTenantId(session.organizationId);
+      setUserRole(session.role || null);
+      setUserName(session.name || null);
+      setView(HOME_VIEW);
+      setAuthenticated(true);
+
+      // Written here, not in the auth screens, because this is where the app
+      // decides what the session IS. The role in particular has to survive a
+      // refresh: without it the sidebar cannot tell an admin from a member and
+      // shows the member menu to everyone.
+      saveSession({
+        role: session.role || null,
+        userName: session.name || null,
+        organization: org,
+        view: HOME_VIEW,
+      });
+    };
+
+    if (authScreen === 'signup') {
+      return (
+        <Signup
+          onCreated={(email) => {
+            setSignupEmail(email);
+            setAuthScreen('login');
+          }}
+          onSwitchToLogin={() => setAuthScreen('login')}
+        />
+      );
+    }
+
     return (
       <Login
-        onLogin={(userData) => {
-          if (!userData?.organizationId) {
-            setAuthenticated(false);
-            return;
-          }
-
-          const org: Organization = {
-            id: userData.organizationId,
-            tenantId: userData.organizationId,
-            name: userData.organizationName || userData.organizationId,
-            legalName: null,
-            orgCode: '',
-            industry: null,
-            country: null,
-            timezone: null,
-            currency: null,
-            logo: userData.organizationLogo ?? null,
-            status: 'active',
-            createdBy: '',
-            createdDate: '',
-            updatedDate: '',
-          };
-
-          setSelectedOrgId(userData.organizationId);
-          setSelected(org);
-          setTenantId(userData.organizationId);
-          setUserRole(userData.role || null);
-          setUserName(userData.name || null);
-          setView(HOME_VIEW);
-          setAuthenticated(true);
-
-          // Written here, not in Login.tsx, because this is where the app
-          // decides what the session IS. The role in particular has to survive
-          // a refresh: without it the sidebar cannot tell an admin from a
-          // member and shows the member menu to everyone.
-          saveSession({
-            role: userData.role || null,
-            userName: userData.name || null,
-            organization: org,
-            view: HOME_VIEW,
-          });
-        }}
+        onLogin={establishSession}
+        onSwitchToSignup={() => setAuthScreen('signup')}
+        initialEmail={signupEmail}
       />
     );
   }

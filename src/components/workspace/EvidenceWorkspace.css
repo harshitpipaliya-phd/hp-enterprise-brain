@@ -3,8 +3,161 @@
   padding: 28px;
   color: var(--content-primary);
   background:
+    radial-gradient(circle at 92% 6%, rgba(224, 174, 71, 0.10), transparent 260px),
     linear-gradient(180deg, rgba(122, 104, 180, 0.08), transparent 280px),
     var(--surface-ground);
+}
+
+.evidence-intel__hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.36fr);
+  gap: var(--space-5);
+  align-items: center;
+  min-height: 250px;
+  margin-bottom: 20px;
+  padding: clamp(28px, 4vw, 46px);
+  border: 1px solid rgba(237, 242, 251, 0.12);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 82% 18%, rgba(224, 174, 71, 0.28), transparent 34%),
+    radial-gradient(circle at 18% 82%, rgba(63, 135, 152, 0.20), transparent 38%),
+    linear-gradient(132deg, #071426 0%, #11243a 52%, #202632 100%);
+  box-shadow: 0 26px 64px -36px rgba(5, 8, 15, 0.82);
+}
+
+.evidence-intel__hero::before,
+.evidence-intel__hero::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.evidence-intel__hero::before {
+  inset: -42% auto -42% 36%;
+  width: 520px;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.09), transparent);
+  transform: rotate(16deg);
+  animation: evidence-scan 9s ease-in-out infinite;
+}
+
+.evidence-intel__hero::after {
+  right: -130px;
+  top: -130px;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  border: 1px solid rgba(224, 174, 71, 0.17);
+  box-shadow: inset 0 0 0 36px rgba(224, 174, 71, 0.04);
+}
+
+@keyframes evidence-scan {
+  0%, 52% { transform: translateX(-220px) rotate(16deg); opacity: 0; }
+  70% { opacity: 1; }
+  100% { transform: translateX(300px) rotate(16deg); opacity: 0; }
+}
+
+.evidence-intel__hero-copy,
+.evidence-intel__hero-score {
+  position: relative;
+  z-index: 1;
+}
+
+.evidence-intel__hero .evidence-intel__eyebrow {
+  color: rgba(237, 242, 251, 0.68);
+}
+
+.evidence-intel__hero h1 {
+  margin: 0 0 12px;
+  color: #fff;
+  font-size: clamp(36px, 5vw, 62px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.evidence-intel__hero p {
+  max-width: 70ch;
+  margin: 0;
+  color: rgba(237, 242, 251, 0.78);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.evidence-intel__hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.evidence-intel__hero-actions .evidence-intel__refresh {
+  color: rgba(237, 242, 251, 0.88);
+  border-color: rgba(237, 242, 251, 0.24);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.evidence-intel__hero-score {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid rgba(237, 242, 251, 0.14);
+  border-radius: 18px;
+  background: rgba(5, 8, 15, 0.30);
+  backdrop-filter: blur(12px);
+}
+
+.evidence-intel__score-ring {
+  width: 116px;
+  height: 116px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, rgba(7, 20, 38, 0.94) 0 58%, transparent 59%),
+    conic-gradient(var(--color-gold-500) calc(var(--evidence-health, 0) * 1%), rgba(237,242,251,0.16) 0);
+  box-shadow: 0 18px 38px rgba(0,0,0,0.26), 0 0 0 8px rgba(255,255,255,0.04);
+}
+
+.evidence-intel__score-ring strong {
+  color: var(--color-gold-300);
+  font-family: var(--mono);
+  font-size: 38px;
+  line-height: 1;
+}
+
+.evidence-intel__score-ring span,
+.evidence-intel__hero-score > div > span,
+.evidence-intel__hero-score em {
+  color: rgba(237,242,251,0.66);
+}
+
+.evidence-intel__hero-score > div > span {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+.evidence-intel__hero-score > div > strong {
+  display: block;
+  margin-top: 8px;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.evidence-intel__hero-score em {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-style: normal;
 }
 
 .evidence-intel__header {
@@ -52,6 +205,76 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.evidence-intel__proof-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.evidence-intel__proof-metric {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 124px;
+  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface-card) 94%, white);
+  box-shadow: var(--shadow);
+}
+
+.evidence-intel__proof-metric::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--color-green-600);
+}
+
+.evidence-intel__proof-metric[data-tone='warn']::before { background: #a8892f; }
+.evidence-intel__proof-metric[data-tone='crit']::before { background: #bd2f68; }
+
+.evidence-intel__proof-metric > span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+  color: var(--color-gold-700);
+}
+
+.evidence-intel__proof-metric strong {
+  display: block;
+  font-family: var(--mono);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.evidence-intel__proof-metric em {
+  display: block;
+  margin-top: 7px;
+  color: var(--content-secondary);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+.evidence-intel__proof-metric small {
+  display: block;
+  margin-top: 7px;
+  color: var(--content-tertiary);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .evidence-intel__refresh,
@@ -437,6 +660,62 @@
   gap: 16px;
 }
 
+.evidence-intel__priority {
+  overflow: hidden;
+  margin-top: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
+}
+
+.evidence-intel__priority-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.evidence-intel__priority-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+}
+
+.evidence-intel__priority-card > div,
+.evidence-intel__priority-card footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.evidence-intel__priority-card strong {
+  color: var(--content-primary);
+  font-size: 13px;
+}
+
+.evidence-intel__priority-card p {
+  display: -webkit-box;
+  overflow: hidden;
+  min-height: 58px;
+  margin: 0;
+  color: var(--content-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.evidence-intel__priority-card footer {
+  color: var(--content-tertiary);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
 .evidence-intel__review-main,
 .evidence-intel__risk-panel {
   overflow: hidden;
@@ -544,6 +823,10 @@
 }
 
 @media (max-width: 1320px) {
+  .evidence-intel__proof-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .evidence-intel__kpis {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -557,8 +840,13 @@
 
   .evidence-intel__grid--wide-left,
   .evidence-intel__grid--two,
-  .evidence-intel__review {
+  .evidence-intel__review,
+  .evidence-intel__hero {
     grid-template-columns: 1fr;
+  }
+
+  .evidence-intel__priority-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -571,9 +859,21 @@
     flex-direction: column;
   }
 
+  .evidence-intel__hero {
+    min-height: auto;
+    padding: 22px;
+  }
+
+  .evidence-intel__hero-score {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .evidence-intel__proof-strip,
   .evidence-intel__kpis,
   .evidence-intel__summary,
-  .evidence-intel__grid--thirds {
+  .evidence-intel__grid--thirds,
+  .evidence-intel__priority-grid {
     grid-template-columns: 1fr;
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Bot, CheckCircle2, Database, FileArchive, FileCode2, FileImage, FileJson, FileSpreadsheet, FileText, GitBranch, Layers3, RefreshCw, SearchCheck, Sparkles, UploadCloud, Wand2 } from 'lucide-react';
 import { CANONICAL_FIELDS, REQUIRED_FIELDS, ingestionApi } from '../../api/ingestion';
 import type { CanonicalField, CommitResponse, DataSourceRow, IngestionPreview } from '../../api/ingestion';
+import { ApiError } from '../../api/client';
 import { useToast } from '../Toast';
 import './IngestionWorkspace.css';
 
@@ -125,7 +126,8 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
       showToast('info', `Previewed ${data.preview.row_count} row${data.preview.row_count === 1 ? '' : 's'}.`);
     } catch (e: any) {
       setPhase('idle');
-      showToast('error', e?.message ?? 'Upload failed.');
+      const prefix = e instanceof ApiError ? `Upload failed (${e.status})` : 'Upload failed';
+      showToast('error', `${prefix}: ${e?.message ?? 'The file could not be uploaded.'}`);
     }
   };
 

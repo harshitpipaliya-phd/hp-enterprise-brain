@@ -12,6 +12,33 @@ const API_BASE = `${API_ORIGIN.replace(/\/+$/, '')}/api/v1`;
 
 export { API_ORIGIN, API_BASE };
 
+export class ApiError extends Error {
+  readonly status: number;
+  readonly statusText: string;
+  readonly url: string;
+  readonly method: string;
+  readonly responseText: string;
+  readonly responseJson: unknown;
+
+  constructor(message: string, details: {
+    status: number;
+    statusText: string;
+    url: string;
+    method: string;
+    responseText: string;
+    responseJson: unknown;
+  }) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = details.status;
+    this.statusText = details.statusText;
+    this.url = details.url;
+    this.method = details.method;
+    this.responseText = details.responseText;
+    this.responseJson = details.responseJson;
+  }
+}
+
 export function authToken(): string {
   return localStorage.getItem('accessToken') || '';
 }
@@ -37,6 +64,22 @@ function addCamelAliases(value: any, depth = 0): any {
     if (camel !== k && !(camel in out)) out[camel] = v;
   }
   return out;
+}
+
+function parseResponseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const objectStart = text.indexOf('{');
+    if (objectStart >= 0) {
+      try {
+        return JSON.parse(text.slice(objectStart));
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }
 
 let refreshInFlight: Promise<boolean> | null = null;
@@ -81,6 +124,8 @@ export function onSessionExpired(callback: () => void): void {
 
 export async function request(path: string, options: RequestInit = {}, _isRetry = false): Promise<any> {
   const isFormData = options.body instanceof FormData;
+  const url = `${API_BASE}${path}`;
+  const method = options.method || 'GET';
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -91,7 +136,7 @@ export async function request(path: string, options: RequestInit = {}, _isRetry 
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    res = await fetch(url, { ...options, headers });
   } catch {
     // fetch() only rejects on network-layer failure, which for this app means
     // the Laravel server is not running. Surfacing that as-is beats the
@@ -117,7 +162,8 @@ export async function request(path: string, options: RequestInit = {}, _isRetry 
     // for validation/500s. Unwrap either so error banners show the reason
     // rather than a wall of HTML or JSON.
     try {
-      const body = JSON.parse(text);
+      const body = parseResponseJson(text) as Record<string, any> | null;
+      if (!body || typeof body !== 'object') throw new SyntaxError('Response body is not JSON');
       // A 422 carries the useful detail in `errors`, keyed by field name —
       // "The source id field is required." names what to fix, where the
       // status line alone ("Unprocessable Content") names only that something
@@ -126,9 +172,25 @@ export async function request(path: string, options: RequestInit = {}, _isRetry 
         body.errors && typeof body.errors === 'object'
           ? (Object.values(body.errors as Record<string, string[]>).flat()[0] as string | undefined)
           : undefined;
-      throw new Error(fieldError || body.error || body.message || res.statusText);
+      throw new ApiError(fieldError || body.error || body.message || res.statusText, {
+        status: res.status,
+        statusText: res.statusText,
+        url,
+        method,
+        responseText: text,
+        responseJson: body,
+      });
     } catch (e: any) {
-      if (e instanceof SyntaxError) throw new Error(res.statusText || `HTTP ${res.status}`);
+      if (e instanceof SyntaxError) {
+        throw new ApiError(res.statusText || `HTTP ${res.status}`, {
+          status: res.status,
+          statusText: res.statusText,
+          url,
+          method,
+          responseText: text,
+          responseJson: null,
+        });
+      }
       throw e;
     }
   }

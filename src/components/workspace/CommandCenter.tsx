@@ -219,6 +219,51 @@ export default function CommandCenter({ tenantId, organizationName, onNavigate }
     })),
   ].slice(0, 7);
 
+  const isEmpty = derivedSignalLoad === 0
+    && openDecisions === 0
+    && missingEvidence === 0
+    && taskCount === 0
+    && aiExecutions.length === 0;
+
+  if (isEmpty) {
+    return (
+      <div className="cc-page eb-fade-in">
+        <header className="cc-hero">
+          <div className="cc-hero__copy">
+            <span className="cc-kicker">
+              {new Date().toLocaleDateString(undefined, {
+                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+              })}
+            </span>
+            <h1>{organizationName || 'Command Center'}</h1>
+            <p>Live executive cockpit for signals, evidence, decisions, execution, and AI system health.</p>
+          </div>
+          <div className="cc-score" role="group" aria-label="Organizational intelligence score">
+            <div className="cc-score__ring" data-health="good" style={{ ['--score-fill' as any]: 0 }}>
+              <span>0</span>
+              <small>/ 100</small>
+            </div>
+            <div className="cc-score__meta">
+              <span>Intelligence Score</span>
+              <strong>No data yet</strong>
+              <em className="eb-badge eb-badge-info">Onboarding</em>
+            </div>
+          </div>
+        </header>
+        <section className="cc-onboarding" aria-label="Onboarding">
+          <div className="cc-onboarding__card">
+            <h2>Welcome to Enterprise Brain</h2>
+            <p>No organizational intelligence has been generated yet.</p>
+            <p>Upload your first dataset to begin AI analysis.</p>
+            <button type="button" className="eb-pill-btn" onClick={() => onNavigate('ingestion')}>
+              Open Ingestion Engine <ArrowRight size={15} />
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="cc-page eb-fade-in">
       <header className="cc-hero">
