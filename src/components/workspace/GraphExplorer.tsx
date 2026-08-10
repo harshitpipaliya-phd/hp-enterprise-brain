@@ -17,9 +17,9 @@ interface HistoryEntry {
 }
 
 const LABEL_COLOR: Record<string, string> = {
-  Case: '#8b5cf6', Hypothesis: '#8b5cf6', Signal: '#3b82f6', Evidence: '#3b82f6',
-  Recommendation: '#f59e0b', Decision: '#f59e0b', Risk: '#ef4444', Policy: '#ef4444',
-  Organization: '#22c55e', Department: '#22c55e', Person: '#22c55e', Capability: '#22c55e',
+  Case: 'var(--chart-5)', Hypothesis: 'var(--chart-5)', Signal: 'var(--chart-1)', Evidence: 'var(--chart-1)',
+  Recommendation: 'var(--status-warn)', Decision: 'var(--status-warn)', Risk: 'var(--status-crit)', Policy: 'var(--status-crit)',
+  Organization: 'var(--status-good)', Department: 'var(--status-good)', Person: 'var(--status-good)', Capability: 'var(--status-good)',
 };
 
 function nodeLabel(node: GraphNode): string {
@@ -101,7 +101,7 @@ export default function GraphExplorer({ tenantId }: { tenantId: string }) {
         {history.length > 0 && <button onClick={goBack}>← Back</button>}
       </div>
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>{error}</div>}
       {loading && <div style={{ color: theme.textMuted, marginBottom: 16 }}>Loading...</div>}
 
       {searchResults.length > 0 && (

@@ -42,7 +42,7 @@ export default function CapabilityList({ capabilities, loading, onSelect, onEdit
         <button onClick={doSearch} disabled={searching}>{searching ? 'Searching...' : 'Search'}</button>
         <button onClick={() => { setSearch(''); setResults([]); setSearchError(null); }}>Clear</button>
       </div>
-      {searchError && <div style={{ color: '#ef4444', marginBottom: 12 }}>Search failed: {searchError}</div>}
+      {searchError && <div style={{ color: 'var(--status-crit)', marginBottom: 12 }}>Search failed: {searchError}</div>}
       {loading && <div>Loading...</div>}
       {!loading && (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>

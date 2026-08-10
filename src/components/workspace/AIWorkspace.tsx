@@ -16,7 +16,7 @@ interface AIExecution {
 }
 interface ProviderStatus { name: string; available: boolean }
 
-const STATUS_COLOR: Record<string, string> = { success: '#22c55e', failed: '#ef4444', not_configured: '#f59e0b' };
+const STATUS_COLOR: Record<string, string> = { success: 'var(--status-good)', failed: 'var(--status-crit)', not_configured: 'var(--status-warn)' };
 
 /**
  * AI Workspace. Real, previously zero UI despite both endpoints existing.
@@ -62,14 +62,14 @@ export default function AIWorkspace({ tenantId }: { tenantId: string }) {
         Active provider: <strong style={{ color: theme.text }}>{activeProvider}</strong>. Switch via the AI_PROVIDER environment variable.
       </p>
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>{error}</div>}
 
       <h3>Provider Status</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 24 }}>
         {providers.map((p) => (
-          <div key={p.name} style={{ padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${p.available ? '#22c55e' : theme.border}` }}>
+          <div key={p.name} style={{ padding: 10, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${p.available ? 'var(--status-good)' : theme.border}` }}>
             <div style={{ fontWeight: 'bold', fontSize: 13 }}>{p.name}</div>
-            <div style={{ fontSize: 11, color: p.available ? '#22c55e' : theme.textMuted }}>{p.available ? 'Configured' : 'Not configured'}</div>
+            <div style={{ fontSize: 11, color: p.available ? 'var(--status-good)' : theme.textMuted }}>{p.available ? 'Configured' : 'Not configured'}</div>
           </div>
         ))}
       </div>
@@ -93,7 +93,7 @@ export default function AIWorkspace({ tenantId }: { tenantId: string }) {
                 <span><strong>{e.serviceName}</strong> <span style={{ color: theme.textMuted }}>via {e.provider}{e.model ? ` (${e.model})` : ''}</span></span>
                 <span style={{ fontSize: 11, color: STATUS_COLOR[e.status] }}>{e.status}</span>
               </div>
-              {e.error && <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{e.error}</div>}
+              {e.error && <div style={{ fontSize: 11, color: 'var(--status-crit)', marginTop: 4 }}>{e.error}</div>}
               <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 4 }}>
                 {e.inputTokens != null && `${e.inputTokens + (e.outputTokens ?? 0)} tokens · `}{e.latencyMs != null && `${e.latencyMs}ms · `}{new Date(e.createdDate).toLocaleString()}
               </div>

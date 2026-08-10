@@ -12,7 +12,7 @@ import { StatusBadge, type BadgeTone } from './primitives';
  * read them, and status hues come from the design tokens rather than hex.
  *
  * WHY THE HUES ARE TOKENS AND NOT LITERALS. CommandCenter's header records that
- * its previous version hardcoded '#22c55e', '#f59e0b' and '#ef4444', which made
+ * its previous version hardcoded 'var(--status-good)', 'var(--status-warn)' and 'var(--status-crit)', which made
  * that screen ignore the theme it was mounted in and drift from every other
  * screen. ExecutiveDashboard.tsx:119-127 still does exactly that. Reading
  * var(--status-*) instead is what keeps this component following a palette
@@ -60,10 +60,10 @@ interface StatusSpec {
  *     carries both.
  */
 const STATUS: Record<IntelligenceStatus, StatusSpec> = {
-  critical:  { label: 'CRITICAL', accent: 'var(--status-crit, #E5484D)',          tone: 'danger'  },
-  'at-risk': { label: 'AT RISK',  accent: 'var(--status-warn, #EBB454)',          tone: 'warning' },
-  watch:     { label: 'WATCH',    accent: 'var(--accent-evidence, #F2CC82)',      tone: 'gold'    },
-  healthy:   { label: 'HEALTHY',  accent: 'var(--accent-intelligence, #33D6C6)',  tone: 'success' },
+  critical:  { label: 'CRITICAL', accent: 'var(--status-crit)',           tone: 'danger'  },
+  'at-risk': { label: 'AT RISK',  accent: 'var(--status-warn)',           tone: 'warning' },
+  watch:     { label: 'WATCH',    accent: 'var(--accent-evidence)',       tone: 'gold'    },
+  healthy:   { label: 'HEALTHY',  accent: 'var(--accent-intelligence)',   tone: 'success' },
 };
 
 export interface IntelligenceCardProps {

@@ -9,7 +9,7 @@ interface Hypothesis {
 }
 
 const ROOT_CAUSE_FAMILIES = ['Capability', 'Capacity', 'Process', 'Information', 'Motivation', 'Coordination', 'External', 'Policy'];
-const STATUS_COLOR: Record<string, string> = { proposed: '#3b82f6', supported: '#22c55e', rejected: '#ef4444', confirmed: '#8b5cf6' };
+const STATUS_COLOR: Record<string, string> = { proposed: 'var(--chart-1)', supported: 'var(--status-good)', rejected: 'var(--status-crit)', confirmed: 'var(--chart-5)' };
 
 /**
  * Deliberation Workspace (EPIC-004). The Hypothesis Ledger, visible — every
@@ -90,7 +90,7 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
         Every hypothesis considered for a case, in order — including what was rejected and why. Nothing here is ever overwritten.
       </p>
 
-      {error && <div style={{ padding: 10, borderRadius: 6, backgroundColor: '#ef444420', color: '#ef4444', marginBottom: 16, fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ padding: 10, borderRadius: 6, backgroundColor: 'var(--status-crit)20', color: 'var(--status-crit)', marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24 }}>
         <div>

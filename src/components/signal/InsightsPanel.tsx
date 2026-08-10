@@ -13,9 +13,9 @@ interface InsightsPanelProps {
 }
 
 const SEVERITY_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  low: { bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.25)', text: '#16a34a' },
-  medium: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', text: '#d97706' },
-  high: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)', text: '#dc2626' },
+  low: { bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.25)', text: 'var(--status-good)' },
+  medium: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', text: 'var(--status-warn)' },
+  high: { bg: 'var(--feedback-error-surface)', border: 'var(--feedback-error-border)', text: 'var(--feedback-error-content)' },
 };
 
 export default function InsightsPanel({ insights }: InsightsPanelProps) {

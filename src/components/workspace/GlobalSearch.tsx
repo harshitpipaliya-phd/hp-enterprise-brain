@@ -74,7 +74,7 @@ export default function GlobalSearch({ tenantId }: { tenantId: string }) {
         <button onClick={search}>Search</button>
       </div>
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>{error}</div>}
       {loading && <div style={{ color: theme.textMuted }}>Searching...</div>}
       {!loading && results.length === 0 && query && <p style={{ color: theme.textMuted }}>No results.</p>}
 

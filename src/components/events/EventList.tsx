@@ -69,7 +69,7 @@ export default function EventList() {
         </select>
       </div>
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>Error: {error}</div>}
+      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>Error: {error}</div>}
 
       {loading ? <div>Loading...</div> : (
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -92,7 +92,7 @@ export default function EventList() {
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
                   <span style={{
                     display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                    backgroundColor: e.status === 'completed' ? '#22c55e' : e.status === 'failed' ? '#ef4444' : e.status === 'processing' ? '#3b82f6' : '#f59e0b',
+                    backgroundColor: e.status === 'completed' ? 'var(--status-good)' : e.status === 'failed' ? 'var(--status-crit)' : e.status === 'processing' ? 'var(--chart-1)' : 'var(--status-warn)',
                     marginRight: 8
                   }} />
                   {e.status}

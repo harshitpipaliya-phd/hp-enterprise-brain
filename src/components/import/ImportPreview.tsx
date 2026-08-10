@@ -15,13 +15,13 @@ export default function ImportPreview({ previewData, onConfirm, onCancel }: Impo
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'valid':
-        return { bg: '#dcfce7', text: '#166534' };
+        return { bg: 'var(--feedback-success-surface)', text: 'var(--feedback-success-content)' };
       case 'invalid':
-        return { bg: '#fee2e2', text: '#991b1b' };
+        return { bg: 'var(--feedback-error-surface)', text: 'var(--feedback-error-content)' };
       case 'duplicate':
-        return { bg: '#fef9c3', text: '#854d0e' };
+        return { bg: 'var(--feedback-warning-surface)', text: 'var(--feedback-warning-content)' };
       default:
-        return { bg: '#f3f4f6', text: '#374151' };
+        return { bg: 'var(--surface-inset)', text: 'var(--content-primary)' };
     }
   };
 
@@ -30,16 +30,16 @@ export default function ImportPreview({ previewData, onConfirm, onCancel }: Impo
       <h3 style={{ marginBottom: 12 }}>Preview</h3>
 
       <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-        <div style={{ padding: 8, background: '#f9fafb', borderRadius: 4 }}>
+        <div style={{ padding: 8, background: 'var(--surface-inset)', borderRadius: 4 }}>
           <strong>Total:</strong> {rows.length}
         </div>
-        <div style={{ padding: 8, background: '#dcfce7', borderRadius: 4, color: '#166534' }}>
+        <div style={{ padding: 8, background: 'var(--feedback-success-surface)', borderRadius: 4, color: 'var(--feedback-success-content)' }}>
           <strong>Valid:</strong> {validCount}
         </div>
-        <div style={{ padding: 8, background: '#fee2e2', borderRadius: 4, color: '#991b1b' }}>
+        <div style={{ padding: 8, background: 'var(--feedback-error-surface)', borderRadius: 4, color: 'var(--feedback-error-content)' }}>
           <strong>Invalid:</strong> {invalidCount}
         </div>
-        <div style={{ padding: 8, background: '#fef9c3', borderRadius: 4, color: '#854d0e' }}>
+        <div style={{ padding: 8, background: 'var(--feedback-warning-surface)', borderRadius: 4, color: 'var(--feedback-warning-content)' }}>
           <strong>Duplicates:</strong> {duplicateCount}
         </div>
       </div>
@@ -65,7 +65,7 @@ export default function ImportPreview({ previewData, onConfirm, onCancel }: Impo
                   <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
                     <div>{JSON.stringify(row.data || row)}</div>
                     {row.errorMessage && (
-                      <div style={{ color: '#b91c1c', fontSize: 12, marginTop: 2 }}>{row.errorMessage}</div>
+                      <div style={{ color: 'var(--feedback-error-content)', fontSize: 12, marginTop: 2 }}>{row.errorMessage}</div>
                     )}
                   </td>
                   <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
@@ -93,8 +93,8 @@ export default function ImportPreview({ previewData, onConfirm, onCancel }: Impo
           onClick={onCancel}
           style={{
             padding: '8px 16px',
-            background: '#f3f4f6',
-            border: '1px solid #d1d5db',
+            background: 'var(--surface-inset)',
+            border: '1px solid var(--border-strong)',
             borderRadius: 4,
             cursor: 'pointer',
           }}
@@ -105,7 +105,7 @@ export default function ImportPreview({ previewData, onConfirm, onCancel }: Impo
           onClick={onConfirm}
           style={{
             padding: '8px 16px',
-            background: '#2563eb',
+            background: 'var(--chart-1)',
             color: '#fff',
             border: 'none',
             borderRadius: 4,

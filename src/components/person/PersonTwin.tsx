@@ -69,7 +69,7 @@ export default function PersonTwin({ tenantId, personId, onBack }: { tenantId: s
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 11, color: theme.textMuted }}>Individual Intelligence Score</div>
           {twin.individualScore.score != null ? (
-            <div style={{ fontSize: 32, fontWeight: 'bold', color: twin.individualScore.score >= 70 ? '#22c55e' : twin.individualScore.score >= 40 ? '#f59e0b' : '#ef4444' }}>
+            <div style={{ fontSize: 32, fontWeight: 'bold', color: twin.individualScore.score >= 70 ? 'var(--status-good)' : twin.individualScore.score >= 40 ? 'var(--status-warn)' : 'var(--status-crit)' }}>
               {twin.individualScore.score}
             </div>
           ) : (
@@ -108,7 +108,7 @@ export default function PersonTwin({ tenantId, personId, onBack }: { tenantId: s
               {c.gaps.length > 0 && (
                 <div style={{ marginTop: 6, fontSize: 11 }}>
                   {c.gaps.map((g, i) => (
-                    <div key={i} style={{ color: '#f59e0b' }}>{g.dimension}: gap of {g.gap} (current {g.currentLevel ?? 'unassessed'}, target {g.targetLevel})</div>
+                    <div key={i} style={{ color: 'var(--status-warn)' }}>{g.dimension}: gap of {g.gap} (current {g.currentLevel ?? 'unassessed'}, target {g.targetLevel})</div>
                   ))}
                 </div>
               )}

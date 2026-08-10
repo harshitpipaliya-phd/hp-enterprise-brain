@@ -9,17 +9,17 @@ export default function ImportLog({ logs }: ImportLogProps) {
   const getActionColor = (action: string) => {
     switch (action?.toLowerCase()) {
       case 'created':
-        return '#dcfce7';
+        return 'var(--feedback-success-surface)';
       case 'updated':
-        return '#dbeafe';
+        return 'var(--action-subtle)';
       case 'skipped':
-        return '#f3f4f6';
+        return 'var(--surface-inset)';
       case 'error':
-        return '#fee2e2';
+        return 'var(--feedback-error-surface)';
       case 'duplicate':
-        return '#fef9c3';
+        return 'var(--feedback-warning-surface)';
       default:
-        return '#f3f4f6';
+        return 'var(--surface-inset)';
     }
   };
 

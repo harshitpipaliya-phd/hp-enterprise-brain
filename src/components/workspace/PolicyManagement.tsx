@@ -122,7 +122,7 @@ export default function PolicyManagement({ tenantId }: { tenantId: string }) {
         </form>
       )}
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>{error}</div>}
       {loading ? (
         <div>Loading policies...</div>
       ) : policies.length === 0 ? (
@@ -130,7 +130,7 @@ export default function PolicyManagement({ tenantId }: { tenantId: string }) {
       ) : (
         <div style={{ display: 'grid', gap: 8 }}>
           {policies.map((p) => (
-            <div key={p.id} style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${p.policyType === 'executor_autonomy' ? '#f59e0b' : '#3b82f6'}` }}>
+            <div key={p.id} style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${p.policyType === 'executor_autonomy' ? 'var(--status-warn)' : 'var(--chart-1)'}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <strong>{p.name}</strong>
                 <span style={{ fontSize: 11, color: theme.textMuted }}>{p.policyType} · v{p.version} · scope: {p.scope}</span>

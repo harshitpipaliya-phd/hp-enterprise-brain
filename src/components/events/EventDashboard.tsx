@@ -45,11 +45,11 @@ export default function EventDashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16, marginBottom: 32 }}>
         <StatCard label="Total Events" value={stats.total} color="#333" />
-        <StatCard label="Pending" value={stats.pending} color="#f59e0b" />
-        <StatCard label="Processing" value={stats.processing} color="#3b82f6" />
-        <StatCard label="Completed" value={stats.completed} color="#22c55e" />
-        <StatCard label="Failed" value={stats.failed} color="#ef4444" />
-        <StatCard label="Dead Letter" value={stats.deadLetterCount} color="#ef4444" />
+        <StatCard label="Pending" value={stats.pending} color="var(--status-warn)" />
+        <StatCard label="Processing" value={stats.processing} color="var(--chart-1)" />
+        <StatCard label="Completed" value={stats.completed} color="var(--status-good)" />
+        <StatCard label="Failed" value={stats.failed} color="var(--status-crit)" />
+        <StatCard label="Dead Letter" value={stats.deadLetterCount} color="var(--status-crit)" />
       </div>
 
       <h2 style={{ marginBottom: 16 }}>Consumers</h2>
@@ -68,7 +68,7 @@ export default function EventDashboard() {
               <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
                 <span style={{
                   display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-                  backgroundColor: cs.status === 'active' ? '#22c55e' : '#ef4444', marginRight: 8
+                  backgroundColor: cs.status === 'active' ? 'var(--status-good)' : 'var(--status-crit)', marginRight: 8
                 }} />
                 {cs.status}
               </td>
@@ -86,7 +86,7 @@ export default function EventDashboard() {
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div style={{
-      padding: 16, borderRadius: 8, backgroundColor: '#f9fafb',
+      padding: 16, borderRadius: 8, backgroundColor: 'var(--surface-inset)',
       border: `1px solid ${color}20`, borderLeft: `4px solid ${color}`
     }}>
       <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>{label}</div>

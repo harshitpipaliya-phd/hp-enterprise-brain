@@ -45,7 +45,7 @@ export default function AuditDashboard() {
         <button onClick={load}>Refresh</button>
       </header>
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>Error: {error}</div>}
+      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>Error: {error}</div>}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input placeholder="Search..." value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} style={{ padding: 8, flex: 1 }} />
@@ -87,7 +87,7 @@ export default function AuditDashboard() {
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{log.actorName}</td>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{log.source}</td>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-                  <span style={{ color: log.status === 'success' ? '#22c55e' : '#ef4444' }}>{log.status}</span>
+                  <span style={{ color: log.status === 'success' ? 'var(--status-good)' : 'var(--status-crit)' }}>{log.status}</span>
                 </td>
               </tr>
             ))}

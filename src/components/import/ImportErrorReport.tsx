@@ -22,7 +22,7 @@ export default function ImportErrorReport({ errors }: ImportErrorReportProps) {
           <tbody>
             {validErrors.map((err, idx) => (
               <tr key={idx}>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee', color: '#991b1b' }}>{err.rowNumber ?? idx + 1}</td>
+                <td style={{ padding: 8, borderBottom: '1px solid #eee', color: 'var(--feedback-error-content)' }}>{err.rowNumber ?? idx + 1}</td>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{err.message || JSON.stringify(err)}</td>
               </tr>
             ))}

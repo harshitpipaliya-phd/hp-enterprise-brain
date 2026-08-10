@@ -14,7 +14,7 @@ interface EsoExecution {
   createdDate: string;
 }
 
-const STATUS_COLOR: Record<string, string> = { queued: '#f59e0b', running: '#3b82f6', completed: '#22c55e', failed: '#ef4444', rolled_back: '#8b5cf6' };
+const STATUS_COLOR: Record<string, string> = { queued: 'var(--status-warn)', running: 'var(--chart-1)', completed: 'var(--status-good)', failed: 'var(--status-crit)', rolled_back: 'var(--chart-5)' };
 
 /**
  * Execution Center (EPIC-008). The last named workflow gap — real backend
@@ -69,8 +69,8 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
             onClick={() => setStatusFilter(s)}
             style={{
               padding: '4px 10px', borderRadius: 6, border: `1px solid ${theme.border}`,
-              backgroundColor: statusFilter === s ? '#3b82f620' : 'transparent',
-              color: statusFilter === s ? '#3b82f6' : theme.text, fontSize: 12,
+              backgroundColor: statusFilter === s ? 'var(--chart-1)20' : 'transparent',
+              color: statusFilter === s ? 'var(--chart-1)' : theme.text, fontSize: 12,
             }}
           >
             {s || 'All'}
@@ -78,7 +78,7 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
         ))}
       </div>
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>{error}</div>}
       {loading ? (
         <div>Loading executions...</div>
       ) : executions.length === 0 ? (
@@ -93,7 +93,7 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
                 <span><strong>{e.esoId}</strong> <span style={{ fontSize: 11, color: theme.textMuted }}>via {e.executorType}</span></span>
                 <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, backgroundColor: `${STATUS_COLOR[e.status]}20`, color: STATUS_COLOR[e.status] }}>{e.status}</span>
               </div>
-              {e.error && <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{e.error}</div>}
+              {e.error && <div style={{ fontSize: 12, color: 'var(--status-crit)', marginTop: 4 }}>{e.error}</div>}
               {e.output && <pre style={{ fontSize: 11, marginTop: 4, color: theme.textMuted, whiteSpace: 'pre-wrap' }}>{JSON.stringify(e.output, null, 2)}</pre>}
               <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 6 }}>{new Date(e.createdDate).toLocaleString()}</div>
               {e.status === 'completed' && (

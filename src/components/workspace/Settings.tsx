@@ -87,8 +87,8 @@ export default function Settings({ tenantId }: { tenantId: string }) {
               onClick={() => changeTheme(opt)}
               style={{
                 padding: '6px 12px', borderRadius: 6, border: `1px solid ${theme.border}`,
-                backgroundColor: override === opt ? '#3b82f620' : 'transparent',
-                color: override === opt ? '#3b82f6' : theme.text,
+                backgroundColor: override === opt ? 'var(--chart-1)20' : 'transparent',
+                color: override === opt ? 'var(--chart-1)' : theme.text,
               }}
             >
               {opt === 'light' ? 'Light' : opt === 'dark' ? 'Dark' : 'Follow System'}
@@ -100,7 +100,7 @@ export default function Settings({ tenantId }: { tenantId: string }) {
       <section>
         <h3>Notification Preferences</h3>
         {loading && <div style={{ color: theme.textMuted, fontSize: 12, marginTop: 8 }}>Loading preferences…</div>}
-        {prefsError && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 8 }}>Error: {prefsError}</div>}
+        {prefsError && <div style={{ color: 'var(--status-crit)', fontSize: 12, marginTop: 8 }}>Error: {prefsError}</div>}
         <label style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
           <input type="checkbox" checked={notifyOnRecommendation} onChange={(e) => setNotifyOnRecommendation(e.target.checked)} style={{ marginRight: 8 }} />
           Notify me when a new Recommendation is generated
@@ -115,8 +115,8 @@ export default function Settings({ tenantId }: { tenantId: string }) {
       <section style={{ marginTop: 32 }}>
         <h3>Change Password</h3>
         <form onSubmit={changePassword} style={{ marginTop: 8, display: 'grid', gap: 8, maxWidth: 300 }}>
-          {passwordError && <div style={{ color: '#ef4444', fontSize: 12 }}>{passwordError}</div>}
-          {passwordSuccess && <div style={{ color: '#22c55e', fontSize: 12 }}>Password changed successfully.</div>}
+          {passwordError && <div style={{ color: 'var(--status-crit)', fontSize: 12 }}>{passwordError}</div>}
+          {passwordSuccess && <div style={{ color: 'var(--status-good)', fontSize: 12 }}>Password changed successfully.</div>}
           <input
             type="password" placeholder="Current password" value={currentPassword} required
             onChange={(e) => setCurrentPassword(e.target.value)}

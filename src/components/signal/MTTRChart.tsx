@@ -30,7 +30,7 @@ export default function MTTRChart({ data, title = 'Resolution Trend' }: MTTRChar
             labelFormatter={(v: any) => new Date(String(v) + 'T00:00:00').toLocaleDateString()}
             formatter={(value: any) => [value, 'Resolved']}
           />
-          <Bar dataKey="hours" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="hours" fill="var(--status-warn)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

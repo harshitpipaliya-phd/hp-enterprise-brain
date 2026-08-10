@@ -61,7 +61,7 @@ export default function DeadLetterQueue() {
         <button onClick={load}>Refresh</button>
       </header>
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>Error: {error}</div>}
+      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>Error: {error}</div>}
 
       {loading ? <div>Loading...</div> : error ? null : entries.length === 0 ? (
         <p>No dead letter entries.</p>
@@ -82,12 +82,12 @@ export default function DeadLetterQueue() {
               <tr key={e.id}>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{e.eventId}</td>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{e.consumerName}</td>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee', color: '#ef4444', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.errorMessage}</td>
+                <td style={{ padding: 8, borderBottom: '1px solid #eee', color: 'var(--status-crit)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.errorMessage}</td>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{e.retryCount}/{e.maxRetries}</td>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{new Date(e.createdAt).toLocaleString()}</td>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
                   <button onClick={() => handleRetry(e.id)}>Retry</button>
-                  <button onClick={() => handleDelete(e.id)} style={{ marginLeft: 8, color: '#ef4444' }}>Discard</button>
+                  <button onClick={() => handleDelete(e.id)} style={{ marginLeft: 8, color: 'var(--status-crit)' }}>Discard</button>
                 </td>
               </tr>
             ))}

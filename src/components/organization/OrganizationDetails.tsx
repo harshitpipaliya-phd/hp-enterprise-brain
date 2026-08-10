@@ -111,10 +111,10 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
             onClick={() => setTab(t.key)}
             style={{
               padding: '6px 14px',
-              border: '1px solid #e5e7eb',
+              border: '1px solid var(--border-default)',
               borderRadius: 6,
-              background: tab === t.key ? '#1e3a5f' : '#fff',
-              color: tab === t.key ? '#fff' : '#374151',
+              background: tab === t.key ? 'var(--action-primary)' : 'var(--surface-card)',
+              color: tab === t.key ? '#fff' : 'var(--content-primary)',
               cursor: 'pointer',
             }}
           >
@@ -158,7 +158,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
         <div>
           <h3>Organization Structure</h3>
           {structureLoading ? <p>Loading structure…</p>
-            : structureError ? <p style={{ color: '#ef4444' }}>Error: {structureError}</p>
+            : structureError ? <p style={{ color: 'var(--status-crit)' }}>Error: {structureError}</p>
             : structure ? (
               <>
                 <div style={{ marginBottom: 16 }}>
@@ -170,9 +170,9 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        <th style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb', padding: 8 }}>Department</th>
-                        <th style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb', padding: 8 }}>People</th>
-                        <th style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb', padding: 8 }}>Manager</th>
+                        <th style={{ textAlign: 'left', borderBottom: '1px solid var(--border-default)', padding: 8 }}>Department</th>
+                        <th style={{ textAlign: 'left', borderBottom: '1px solid var(--border-default)', padding: 8 }}>People</th>
+                        <th style={{ textAlign: 'left', borderBottom: '1px solid var(--border-default)', padding: 8 }}>Manager</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -197,7 +197,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
         <div>
           <h3>Data Quality</h3>
           {qualityLoading ? <p>Loading data quality…</p>
-            : qualityError ? <p style={{ color: '#ef4444' }}>Error: {qualityError}</p>
+            : qualityError ? <p style={{ color: 'var(--status-crit)' }}>Error: {qualityError}</p>
             : quality ? (
               <>
                 <div style={{ marginBottom: 16 }}>
@@ -207,14 +207,14 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
                   <span>{quality.totalPeople} people · {quality.totalDepartments} departments</span>
                 </div>
                 {quality.issues?.length === 0 ? (
-                  <p style={{ color: '#22c55e' }}>No data quality issues found.</p>
+                  <p style={{ color: 'var(--status-good)' }}>No data quality issues found.</p>
                 ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        <th style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb', padding: 8 }}>Field</th>
-                        <th style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb', padding: 8 }}>Count</th>
-                        <th style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb', padding: 8 }}>Severity</th>
+                        <th style={{ textAlign: 'left', borderBottom: '1px solid var(--border-default)', padding: 8 }}>Field</th>
+                        <th style={{ textAlign: 'left', borderBottom: '1px solid var(--border-default)', padding: 8 }}>Count</th>
+                        <th style={{ textAlign: 'left', borderBottom: '1px solid var(--border-default)', padding: 8 }}>Severity</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -243,7 +243,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
         <div>
           <h3>Audit Log</h3>
           {auditLoading ? <p>Loading audit log…</p>
-            : auditError ? <p style={{ color: '#ef4444' }}>Error loading audit log: {auditError}</p>
+            : auditError ? <p style={{ color: 'var(--status-crit)' }}>Error loading audit log: {auditError}</p>
             : auditLogs.length === 0 ? <p>No audit logs.</p> : (
             <ul>
               {auditLogs.map((log: any) => (

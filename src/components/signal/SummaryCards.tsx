@@ -12,10 +12,10 @@ interface SummaryCardsProps {
 }
 
 const TONE_COLORS: Record<string, { bg: string; text: string }> = {
-  default: { bg: 'rgba(59,130,246,0.08)', text: '#2563eb' },
-  good: { bg: 'rgba(34,197,94,0.08)', text: '#16a34a' },
-  warning: { bg: 'rgba(245,158,11,0.08)', text: '#d97706' },
-  danger: { bg: 'rgba(239,68,68,0.08)', text: '#dc2626' },
+  default: { bg: 'rgba(59,130,246,0.08)', text: 'var(--chart-1)' },
+  good: { bg: 'rgba(34,197,94,0.08)', text: 'var(--status-good)' },
+  warning: { bg: 'rgba(245,158,11,0.08)', text: 'var(--status-warn)' },
+  danger: { bg: 'var(--feedback-error-surface)', text: 'var(--feedback-error-content)' },
 };
 
 export default function SummaryCards({ items }: SummaryCardsProps) {

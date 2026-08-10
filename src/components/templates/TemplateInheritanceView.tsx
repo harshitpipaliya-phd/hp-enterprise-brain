@@ -59,7 +59,7 @@ export default function TemplateInheritanceView({ templateType, templateKey, org
               alignItems: 'center',
               gap: 16,
               padding: 14,
-              border: '1px solid #e5e7eb',
+              border: '1px solid var(--border-default)',
               borderRadius: 8,
               backgroundColor: '#fff',
               position: 'relative',
@@ -73,7 +73,7 @@ export default function TemplateInheritanceView({ templateType, templateKey, org
                   top: '100%',
                   width: 2,
                   height: 12,
-                  backgroundColor: '#d1d5db',
+                  backgroundColor: 'var(--border-strong)',
                 }}
               />
             )}
@@ -82,7 +82,7 @@ export default function TemplateInheritanceView({ templateType, templateKey, org
                 width: 12,
                 height: 12,
                 borderRadius: '50%',
-                backgroundColor: level.overridden ? '#3b82f6' : '#9ca3af',
+                backgroundColor: level.overridden ? 'var(--chart-1)' : 'var(--content-tertiary)',
                 flexShrink: 0,
               }}
             />
@@ -98,8 +98,8 @@ export default function TemplateInheritanceView({ templateType, templateKey, org
                   fontSize: 11,
                   padding: '2px 8px',
                   borderRadius: 999,
-                  backgroundColor: '#dbeafe',
-                  color: '#1e40af',
+                  backgroundColor: 'var(--action-subtle)',
+                  color: 'var(--accent-intelligence-deep)',
                 }}
               >
                 Overridden

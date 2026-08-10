@@ -18,7 +18,7 @@ interface ExecutiveSummary {
   intelligenceScore: { score: number; breakdown: Record<string, number> };
 }
 
-const CATEGORY_COLOR: Record<string, string> = { risk: '#ef4444', opportunity: '#3b82f6', watch: '#f59e0b', compliance: '#8b5cf6' };
+const CATEGORY_COLOR: Record<string, string> = { risk: 'var(--status-crit)', opportunity: 'var(--chart-1)', watch: 'var(--status-warn)', compliance: 'var(--chart-5)' };
 
 /**
  * Executive Dashboard (Sprint 10, scoped). Answers the questions an
@@ -55,7 +55,7 @@ export default function ExecutiveDashboard({ tenantId }: { tenantId: string }) {
   useEffect(() => { load(); }, [tenantId]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading executive summary...</div>;
-  if (error) return <div style={{ padding: 24, color: '#ef4444' }}>Error: {error}</div>;
+  if (error) return <div style={{ padding: 24, color: 'var(--status-crit)' }}>Error: {error}</div>;
   if (!data) return <div style={{ padding: 24 }}>No data yet — nothing has moved through the loop for this tenant.</div>;
 
   const { statistics, topRisks, organizationalKnowledge, pendingRecommendations, openDecisionsCount, intelligenceScore } = data;
@@ -67,7 +67,7 @@ export default function ExecutiveDashboard({ tenantId }: { tenantId: string }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 11, color: theme.textMuted }}>Organizational Intelligence Score</div>
-            <div style={{ fontSize: 28, fontWeight: 'bold', color: intelligenceScore.score >= 70 ? '#22c55e' : intelligenceScore.score >= 40 ? '#f59e0b' : '#ef4444' }}>
+            <div style={{ fontSize: 28, fontWeight: 'bold', color: intelligenceScore.score >= 70 ? 'var(--status-good)' : intelligenceScore.score >= 40 ? 'var(--status-warn)' : 'var(--status-crit)' }}>
               {intelligenceScore.score}
             </div>
           </div>
@@ -116,15 +116,15 @@ export default function ExecutiveDashboard({ tenantId }: { tenantId: string }) {
       <h2 style={{ marginBottom: 12 }}>Data Quality Alerts</h2>
       <p style={{ color: theme.textMuted, fontSize: 12, marginBottom: 12 }}>Deterministic checks — not AI-generated, algorithmic detection over real data.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 32 }}>
-        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${missingEvidenceCount > 0 ? '#f59e0b' : '#22c55e'}` }}>
+        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${missingEvidenceCount > 0 ? 'var(--status-warn)' : 'var(--status-good)'}` }}>
           <div style={{ fontSize: 12, color: theme.textMuted }}>Signals Missing Evidence (3+ days old)</div>
           <div style={{ fontSize: 20, fontWeight: 'bold' }}>{missingEvidenceCount}</div>
         </div>
-        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${duplicateCount > 0 ? '#f59e0b' : '#22c55e'}` }}>
+        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${duplicateCount > 0 ? 'var(--status-warn)' : 'var(--status-good)'}` }}>
           <div style={{ fontSize: 12, color: theme.textMuted }}>Likely Duplicate Signal Clusters</div>
           <div style={{ fontSize: 20, fontWeight: 'bold' }}>{duplicateCount}</div>
         </div>
-        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${earlyWarningCount > 0 ? '#ef4444' : '#22c55e'}` }}>
+        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${earlyWarningCount > 0 ? 'var(--status-crit)' : 'var(--status-good)'}` }}>
           <div style={{ fontSize: 12, color: theme.textMuted }}>Early Warnings (high/critical, unaddressed)</div>
           <div style={{ fontSize: 20, fontWeight: 'bold' }}>{earlyWarningCount}</div>
         </div>

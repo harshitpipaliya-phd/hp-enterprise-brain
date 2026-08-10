@@ -32,7 +32,7 @@ export default function MentalModelBrowser({ tenantId }: { tenantId: string }) {
   }, [tenantId]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading organizational knowledge...</div>;
-  if (error) return <div style={{ padding: 24, color: '#ef4444' }}>Error: {error}</div>;
+  if (error) return <div style={{ padding: 24, color: 'var(--status-crit)' }}>Error: {error}</div>;
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 900, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>

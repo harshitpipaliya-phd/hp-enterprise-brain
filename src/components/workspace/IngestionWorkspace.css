@@ -14,27 +14,28 @@
   padding: clamp(24px, 4vw, 42px);
   margin-bottom: var(--space-5);
   border-radius: 20px;
-  color: var(--color-ink-0);
+  color: var(--content-primary);
+  border: 1px solid var(--border-default);
   background:
-    radial-gradient(circle at 82% 24%, rgba(224,174,71,0.3), transparent 42%),
-    radial-gradient(circle at 20% 90%, rgba(237,242,251,0.1), transparent 36%),
-    linear-gradient(120deg, var(--color-ink-900), var(--color-ink-760));
-  box-shadow: 0 20px 50px -28px rgba(5,8,15,0.72);
+    radial-gradient(circle at 82% 20%, rgba(201, 162, 77, 0.16), transparent 42%),
+    radial-gradient(circle at 18% 94%, rgba(227, 200, 117, 0.10), transparent 36%),
+    linear-gradient(120deg, var(--eb-white), var(--eb-cream-100));
+  box-shadow: var(--shadow-sm);
 }
 
 .ingestion-hero::after {
   content: '';
   position: absolute;
   inset: -40%;
-  background: conic-gradient(from 120deg, transparent, rgba(224,174,71,0.16), transparent, rgba(237,242,251,0.08), transparent);
+  background: conic-gradient(from 120deg, transparent, rgba(201, 162, 77, 0.10), transparent, rgba(227, 200, 117, 0.06), transparent);
   animation: ingestion-spin 18s linear infinite;
 }
 
 @keyframes ingestion-spin { to { transform: rotate(360deg); } }
 
 .ingestion-hero > * { position: relative; z-index: 1; }
-.ingestion-hero h1 { max-width: 760px; color: var(--color-ink-0); font-size: clamp(30px, 5vw, 54px); }
-.ingestion-hero p { max-width: 62ch; color: rgba(237,242,251,0.72); }
+.ingestion-hero h1 { max-width: 760px; color: var(--content-primary); font-size: clamp(30px, 5vw, 54px); }
+.ingestion-hero p { max-width: 62ch; color: var(--content-secondary); }
 
 .ingestion-eyebrow,
 .ingestion-card-head span,
@@ -48,7 +49,7 @@
   color: var(--content-secondary);
 }
 
-.ingestion-eyebrow { color: rgba(237,242,251,0.62); margin-bottom: 10px; }
+.ingestion-eyebrow { color: var(--content-tertiary); margin-bottom: 10px; }
 
 .ingestion-ai-chip {
   align-self: flex-start;
@@ -59,7 +60,7 @@
   border: 1px solid rgba(255,255,255,0.18);
   border-radius: 999px;
   background: rgba(255,255,255,0.08);
-  color: rgba(237,242,251,0.86);
+  color: var(--content-secondary);
   font-size: 12px;
   white-space: nowrap;
 }

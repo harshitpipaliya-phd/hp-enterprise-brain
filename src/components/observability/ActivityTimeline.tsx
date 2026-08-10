@@ -40,13 +40,13 @@ export default function ActivityTimeline() {
         <button onClick={load}>Refresh</button>
       </header>
 
-      {error ? <p style={{ color: '#ef4444' }}>Error: {error}</p>
+      {error ? <p style={{ color: 'var(--status-crit)' }}>Error: {error}</p>
         : activities.length === 0 ? <p>No activity recorded.</p> : (
         <div style={{ position: 'relative', paddingLeft: 24 }}>
-          <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, width: 2, backgroundColor: '#e5e7eb' }} />
+          <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, width: 2, backgroundColor: 'var(--border-default)' }} />
           {activities.map((activity) => (
             <div key={activity.id} style={{ position: 'relative', marginBottom: 24, paddingLeft: 16 }}>
-              <div style={{ position: 'absolute', left: -20, top: 4, width: 12, height: 12, borderRadius: '50%', backgroundColor: '#3b82f6' }} />
+              <div style={{ position: 'absolute', left: -20, top: 4, width: 12, height: 12, borderRadius: '50%', backgroundColor: 'var(--chart-1)' }} />
               <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>{new Date(activity.createdAt).toLocaleString()}</div>
               <div style={{ fontWeight: 'bold' }}>{activity.action}</div>
               <div style={{ fontSize: 14, color: '#666' }}>

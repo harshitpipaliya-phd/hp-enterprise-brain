@@ -49,7 +49,7 @@ export default function TaskMonitor({ tenantId }: { tenantId: string }) {
         Deterministic tasks wrapping existing services — not AI reasoning agents. Select tasks, run them in sequence, watch each step's real result.
       </p>
 
-      {error && <div style={{ color: '#ef4444', marginBottom: 16 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>{error}</div>}
 
       <h3>Task Registry</h3>
       <div style={{ display: 'grid', gap: 8, marginBottom: 24 }}>
@@ -71,7 +71,7 @@ export default function TaskMonitor({ tenantId }: { tenantId: string }) {
           <h3>Execution Results — {result.allSucceeded ? '✅ All succeeded' : '⚠️ Some failed'}</h3>
           <div style={{ display: 'grid', gap: 8 }}>
             {result.steps.map((s, i) => (
-              <div key={i} style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${s.status === 'completed' ? '#22c55e' : '#ef4444'}` }}>
+              <div key={i} style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${s.status === 'completed' ? 'var(--status-good)' : 'var(--status-crit)'}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontWeight: 'bold' }}>{s.taskName}</span>
                   <span style={{ fontSize: 12, color: theme.textMuted }}>{s.attempts} attempt(s)</span>
@@ -79,7 +79,7 @@ export default function TaskMonitor({ tenantId }: { tenantId: string }) {
                 {s.status === 'completed' ? (
                   <pre style={{ fontSize: 11, marginTop: 4, whiteSpace: 'pre-wrap' }}>{JSON.stringify(s.output, null, 2)}</pre>
                 ) : (
-                  <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{s.error}</div>
+                  <div style={{ fontSize: 12, color: 'var(--status-crit)', marginTop: 4 }}>{s.error}</div>
                 )}
               </div>
             ))}

@@ -61,8 +61,49 @@ export interface CommitResponse {
   skipped: number;
   /** Capped at 20 by the server, however many were actually written. */
   signal_ids: string[];
+  /** 'committed' | 'completed_with_errors' | 'failed' */
   status: string;
 }
+
+/**
+ * What commit returns for a LARGE file: 202, not 201.
+ *
+ * Above the server's row threshold the commit is handed to a queue worker
+ * rather than run inside the request, because 176,595 rows is minutes of work
+ * and no browser should hold a connection open for it. The client polls
+ * `poll` for progress instead.
+ */
+export interface QueuedCommitResponse {
+  job_id: string;
+  status: 'queued';
+  total_rows: number;
+  poll: string;
+  message: string;
+}
+
+export function isQueued(r: CommitResponse | QueuedCommitResponse): r is QueuedCommitResponse {
+  return (r as QueuedCommitResponse).status === 'queued';
+}
+
+/** Live counters for a running or finished ingestion. */
+export interface ImportJobStatus {
+  id: string;
+  status: string;
+  total_rows: number;
+  processed_rows: number;
+  success_count: number;
+  error_count: number;
+  duplicate_count: number;
+}
+
+/** Percentage complete, or 0 when the total is not yet known. */
+export function progressOf(job: ImportJobStatus): number {
+  if (!job.total_rows) return 0;
+  return Math.min(100, Math.round((job.processed_rows / job.total_rows) * 1000) / 10);
+}
+
+/** Statuses after which polling should stop. */
+export const TERMINAL_STATUSES = ['completed', 'completed_with_errors', 'failed', 'cancelled'];
 
 export interface DataSourceRow {
   source_key: string;

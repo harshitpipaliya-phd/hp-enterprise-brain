@@ -29,7 +29,7 @@ export default function SystemHealth() {
   useEffect(() => { load(); const interval = setInterval(load, 30000); return () => clearInterval(interval); }, []);
 
   if (loading) return <div>Loading health status...</div>;
-  if (!health) return <div style={{ padding: 24, color: '#ef4444' }}>Unable to fetch health status{error ? `: ${error}` : ''}</div>;
+  if (!health) return <div style={{ padding: 24, color: 'var(--status-crit)' }}>Unable to fetch health status{error ? `: ${error}` : ''}</div>;
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 800, margin: '0 auto', padding: 24 }}>
@@ -38,14 +38,14 @@ export default function SystemHealth() {
         <button onClick={load}>Refresh</button>
       </header>
 
-      <div style={{ padding: 16, borderRadius: 8, backgroundColor: health.status === 'healthy' ? '#dcfce7' : health.status === 'degraded' ? '#fef3c7' : '#fee2e2', marginBottom: 24 }}>
+      <div style={{ padding: 16, borderRadius: 8, backgroundColor: health.status === 'healthy' ? 'var(--feedback-success-surface)' : health.status === 'degraded' ? 'var(--feedback-warning-surface)' : 'var(--feedback-error-surface)', marginBottom: 24 }}>
         <h2 style={{ margin: 0 }}>{health.status.toUpperCase()}</h2>
         <p style={{ margin: 4, fontSize: 12, color: '#666' }}>Last checked: {new Date(health.timestamp).toLocaleString()}</p>
       </div>
 
       <div style={{ display: 'grid', gap: 12 }}>
         {Object.entries(health.checks).map(([name, check]) => (
-          <div key={name} style={{ padding: 16, border: '1px solid #e5e7eb', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div key={name} style={{ padding: 16, border: '1px solid var(--border-default)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h3 style={{ margin: 0, fontSize: 16 }}>{name}</h3>
               <p style={{ margin: 4, fontSize: 12, color: '#666' }}>
@@ -55,8 +55,8 @@ export default function SystemHealth() {
             <div style={{ textAlign: 'right' }}>
               <span style={{
                 display: 'inline-block', padding: '4px 12px', borderRadius: 16, fontSize: 12, fontWeight: 'bold',
-                backgroundColor: check.status === 'healthy' ? '#dcfce7' : check.status === 'degraded' ? '#fef3c7' : '#fee2e2',
-                color: check.status === 'healthy' ? '#166534' : check.status === 'degraded' ? '#92400e' : '#991b1b',
+                backgroundColor: check.status === 'healthy' ? 'var(--feedback-success-surface)' : check.status === 'degraded' ? 'var(--feedback-warning-surface)' : 'var(--feedback-error-surface)',
+                color: check.status === 'healthy' ? 'var(--feedback-success-content)' : check.status === 'degraded' ? 'var(--feedback-warning-content)' : 'var(--feedback-error-content)',
               }}>
                 {check.status}
               </span>

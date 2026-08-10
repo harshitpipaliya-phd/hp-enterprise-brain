@@ -108,7 +108,7 @@ export default function ImportCenter({ entityType, orgId }: ImportCenterProps) {
           disabled={!file || loading}
           style={{
             padding: '8px 16px',
-            background: '#2563eb',
+            background: 'var(--chart-1)',
             color: '#fff',
             border: 'none',
             borderRadius: 4,
@@ -120,7 +120,7 @@ export default function ImportCenter({ entityType, orgId }: ImportCenterProps) {
       </div>
 
       {error && (
-        <div style={{ padding: 12, marginBottom: 16, background: '#fee2e2', color: '#b91c1c', borderRadius: 4 }}>
+        <div style={{ padding: 12, marginBottom: 16, background: 'var(--feedback-error-surface)', color: 'var(--feedback-error-content)', borderRadius: 4 }}>
           {error}
         </div>
       )}

@@ -11,10 +11,10 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const TYPE_STYLE: Record<ToastType, { color: string; icon: string }> = {
-  success: { color: '#22c55e', icon: '✓' },
-  error: { color: '#ef4444', icon: '✕' },
-  warning: { color: '#f59e0b', icon: '⚠' },
-  info: { color: '#3b82f6', icon: 'ℹ' },
+  success: { color: 'var(--status-good)', icon: '✓' },
+  error: { color: 'var(--status-crit)', icon: '✕' },
+  warning: { color: 'var(--status-warn)', icon: '⚠' },
+  info: { color: 'var(--chart-1)', icon: 'ℹ' },
 };
 
 /**

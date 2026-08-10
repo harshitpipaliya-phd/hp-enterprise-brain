@@ -81,7 +81,7 @@ export default function PersonDetails({ person, onEdit, onArchive, onBack, onVie
       </div>
       <h3 style={{ marginTop: 24 }}>Audit Log</h3>
       {auditLoading ? <p>Loading audit log…</p>
-        : auditError ? <p style={{ color: '#ef4444' }}>Error loading audit log: {auditError}</p>
+        : auditError ? <p style={{ color: 'var(--status-crit)' }}>Error loading audit log: {auditError}</p>
         : auditLogs.length === 0 ? <p>No audit logs.</p> : (
         <ul>
           {auditLogs.map((log: any) => (

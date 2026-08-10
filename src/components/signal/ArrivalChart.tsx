@@ -29,7 +29,7 @@ export default function ArrivalChart({ data, title = 'Signal Arrival Trend' }: A
             contentStyle={{ backgroundColor: theme.surface, border: `1px solid ${theme.border}`, color: theme.text, borderRadius: 8 }}
             labelFormatter={(v: any) => new Date(String(v) + 'T00:00:00').toLocaleDateString()}
           />
-          <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+          <Line type="monotone" dataKey="count" stroke="var(--chart-1)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>

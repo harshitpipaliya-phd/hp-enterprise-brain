@@ -15,10 +15,10 @@ interface WorkspaceData {
 }
 
 const CATEGORY_COLOR: Record<string, string> = {
-  risk: '#ef4444',
-  opportunity: '#3b82f6',
-  watch: '#f59e0b',
-  compliance: '#8b5cf6',
+  risk: 'var(--status-crit)',
+  opportunity: 'var(--chart-1)',
+  watch: 'var(--status-warn)',
+  compliance: 'var(--chart-5)',
 };
 
 export default function IntelligenceWorkspace({ tenantId }: { tenantId: string }) {
@@ -80,7 +80,7 @@ export default function IntelligenceWorkspace({ tenantId }: { tenantId: string }
       ) : (
         <div style={{ display: 'grid', gap: 12, marginBottom: 32 }}>
           {data.pendingRecommendations.map((r) => (
-            <div key={r.id} style={{ padding: 16, border: '1px solid #e5e7eb', borderRadius: 8, borderLeft: `4px solid ${CATEGORY_COLOR[r.category] ?? '#666'}` }}>
+            <div key={r.id} style={{ padding: 16, border: '1px solid var(--border-default)', borderRadius: 8, borderLeft: `4px solid ${CATEGORY_COLOR[r.category] ?? '#666'}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <span style={{ fontSize: 12, textTransform: 'uppercase', color: CATEGORY_COLOR[r.category] ?? '#666', fontWeight: 'bold' }}>{r.category}</span>

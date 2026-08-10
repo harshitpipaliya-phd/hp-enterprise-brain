@@ -18,6 +18,7 @@ import { api as deptApi } from '../../api/department';
 import { api as personApi } from '../../api/person';
 import type { Department } from './DepartmentApp';
 import './DepartmentList.css';
+import { CHART_PALETTE, STATUS_COLOR } from '../../ui/palette';
 
 interface Props {
   organization: Organization;
@@ -56,13 +57,9 @@ type EnrichedDepartment = Department & {
   decisionApprovalRate: number | null;
 };
 
-const PALETTE = ['#2f7f93', '#a8892f', '#bd2f68', '#7b68b4', '#5aa8ba', '#596780', '#8b6f2f'];
-const STATUS_COLORS: Record<string, string> = {
-  active: '#2f7f93',
-  inactive: '#a8892f',
-  archived: '#7c8496',
-  unknown: '#7c8496',
-};
+/* Shared with Signals and every other screen — see ui/palette. */
+const PALETTE = CHART_PALETTE;
+const STATUS_COLORS = STATUS_COLOR;
 
 function normalized(value: unknown, fallback: string): string {
   const text = String(value ?? '').trim();
@@ -402,13 +399,13 @@ export default function DepartmentList({ organization, departments, loading, onS
         <ChartCard title="Department Size Comparison" meta="people by department" footer={model.avgTeamSize === null ? 'People counts are unavailable in the current API response.' : `Average team size is ${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} people.`}>
           {model.sizeRows.length > 0 ? <HorizontalBars rows={model.sizeRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} /> : <EmptyChart />}
         </ChartCard>
-        <PieCard title="Head Assignment Status" rows={model.leadershipRows} colorFor={(name) => name === 'assigned' ? '#2f7f93' : '#bd2f68'} />
+        <PieCard title="Head Assignment Status" rows={model.leadershipRows} colorFor={(name) => name === 'assigned' ? 'var(--chart-1)' : 'var(--chart-3)'} />
       </section>
 
       <section className="dept-intel__grid dept-intel__grid--thirds">
         <PieCard title="Active vs Archived" rows={model.statusRows} colorFor={(name) => STATUS_COLORS[name] ?? STATUS_COLORS.unknown} />
         <DistributionCard title="Department Distribution" rows={model.typeRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} />
-        <DistributionCard title="Capability Coverage Distribution" rows={model.coverageRows} colorFor={(name) => name === 'high' ? '#2f7f93' : name === 'medium' ? '#a8892f' : name === 'low' ? '#bd2f68' : '#7c8496'} />
+        <DistributionCard title="Capability Coverage Distribution" rows={model.coverageRows} colorFor={(name) => name === 'high' ? 'var(--chart-1)' : name === 'medium' ? 'var(--chart-4)' : name === 'low' ? 'var(--chart-3)' : 'var(--content-tertiary)'} />
       </section>
 
       <section className="dept-intel__grid dept-intel__grid--two">
@@ -420,7 +417,7 @@ export default function DepartmentList({ organization, departments, loading, onS
                 <XAxis dataKey="label" tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
-                <Line type="monotone" dataKey="count" stroke="#bd2f68" strokeWidth={3} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="count" stroke="var(--chart-3)" strokeWidth={3} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : <EmptyChart />}

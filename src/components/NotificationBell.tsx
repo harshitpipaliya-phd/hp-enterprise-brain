@@ -44,7 +44,7 @@ export function NotificationBell({ tenantId }: { tenantId: string }) {
       <button onClick={() => setOpen((o) => !o)} style={{ position: 'relative' }}>
         🔔
         {unreadCount > 0 && (
-          <span style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#ef4444', color: 'white', borderRadius: 10, fontSize: 10, padding: '1px 5px' }}>
+          <span style={{ position: 'absolute', top: -4, right: -4, backgroundColor: 'var(--status-crit)', color: 'white', borderRadius: 10, fontSize: 10, padding: '1px 5px' }}>
             {unreadCount}
           </span>
         )}
@@ -61,7 +61,7 @@ export function NotificationBell({ tenantId }: { tenantId: string }) {
             <div
               key={n.id}
               onClick={() => !n.readDate && markRead(n.id)}
-              style={{ padding: 10, borderBottom: `1px solid ${theme.border}`, cursor: n.readDate ? 'default' : 'pointer', backgroundColor: n.readDate ? 'transparent' : '#3b82f610', fontSize: 12 }}
+              style={{ padding: 10, borderBottom: `1px solid ${theme.border}`, cursor: n.readDate ? 'default' : 'pointer', backgroundColor: n.readDate ? 'transparent' : 'var(--chart-1)10', fontSize: 12 }}
             >
               {n.title}
               <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 2 }}>{new Date(n.createdDate).toLocaleString()}</div>

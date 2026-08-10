@@ -44,20 +44,20 @@ export interface Theme {
  */
 const FALLBACK_LIGHT: Theme = {
   isDark: false,
-  bg: '#FAF7F0',
+  bg: '#FAF8F2',
   surface: '#FFFFFF',
-  border: 'rgba(34, 51, 79, 0.12)',
-  text: '#0B1220',
-  textMuted: '#5A6882',
+  border: '#E4DDCF',
+  text: '#4A4035',
+  textMuted: '#9A9286',
 };
 
 const FALLBACK_DARK: Theme = {
   isDark: true,
-  bg: '#0B1220',
-  surface: '#101A2B',
-  border: 'rgba(148, 170, 214, 0.12)',
-  text: '#EDF2FB',
-  textMuted: '#7D8CA8',
+  bg: '#221D18',
+  surface: '#2C2620',
+  border: 'rgba(228, 221, 207, 0.12)',
+  text: '#F5F1E8',
+  textMuted: '#A79D8D',
 };
 
 const OVERRIDE_KEY = 'hpbrain-theme-override'; // 'light' | 'dark' | null (null = follow OS)
@@ -107,11 +107,22 @@ function applyThemeAttribute(isDark: boolean): void {
 
 export function useTheme(): Theme {
   const [override, setOverride] = useState<'light' | 'dark' | null>(getThemeOverride());
-  const [osIsDark, setOsIsDark] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-  );
 
-  const isDark = override ? override === 'dark' : osIsDark;
+  /*
+    LIGHT IS THE PRODUCT, so the OS preference no longer decides.
+
+    This used to read prefers-color-scheme and hand a dark palette to anyone
+    whose laptop was set to dark mode. Enterprise Brain is a light instrument —
+    warm ivory ground, champagne accent — and half the userbase silently
+    receiving a different product because of an OS setting is the opposite of
+    the "one product" consistency this design system exists to produce.
+
+    Dark is retained as an EXPLICIT choice: Settings writes the override and
+    that is still honoured. What is gone is the implicit switch nobody asked
+    for. The media query is no longer read at all, which is why the listener
+    below went with it.
+  */
+  const isDark = override === 'dark';
 
   // Applied from an effect rather than the render body: setting an attribute on
   // <html> is a DOM mutation, and React is free to run a render body twice or
@@ -121,17 +132,10 @@ export function useTheme(): Theme {
   }, [isDark]);
 
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e: MediaQueryListEvent) => setOsIsDark(e.matches);
-    mq.addEventListener('change', handler);
-
     const overrideHandler = () => setOverride(getThemeOverride());
     window.addEventListener('hpbrain-theme-changed', overrideHandler);
 
-    return () => {
-      mq.removeEventListener('change', handler);
-      window.removeEventListener('hpbrain-theme-changed', overrideHandler);
-    };
+    return () => window.removeEventListener('hpbrain-theme-changed', overrideHandler);
   }, []);
 
   return readTheme(isDark);

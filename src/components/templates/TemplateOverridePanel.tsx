@@ -45,15 +45,15 @@ export default function TemplateOverridePanel({ orgId, templateType }: TemplateO
   return (
     <form onSubmit={submit} style={{ padding: 16, maxWidth: 520, display: 'grid', gap: 12 }}>
       <h3 style={{ marginBottom: 4 }}>Override: {templateType}</h3>
-      {error && <div style={{ color: '#ef4444', fontSize: 13 }}>{error}</div>}
-      {success && <div style={{ color: '#22c55e', fontSize: 13 }}>Override saved.</div>}
+      {error && <div style={{ color: 'var(--status-crit)', fontSize: 13 }}>{error}</div>}
+      {success && <div style={{ color: 'var(--status-good)', fontSize: 13 }}>Override saved.</div>}
 
       <label style={{ fontSize: 13 }}>
         Level
         <select
           value={level}
           onChange={(e) => setLevel(e.target.value as 'org' | 'role' | 'user')}
-          style={{ marginLeft: 8, padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', width: '100%', marginTop: 4 }}
+          style={{ marginLeft: 8, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border-strong)', width: '100%', marginTop: 4 }}
         >
           <option value="org">Organization</option>
           <option value="role">Role</option>
@@ -69,7 +69,7 @@ export default function TemplateOverridePanel({ orgId, templateType }: TemplateO
           onChange={(e) => setTemplateKey(e.target.value)}
           required
           placeholder="template.key"
-          style={{ marginLeft: 8, padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', width: '100%', marginTop: 4 }}
+          style={{ marginLeft: 8, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border-strong)', width: '100%', marginTop: 4 }}
         />
       </label>
 
@@ -81,7 +81,7 @@ export default function TemplateOverridePanel({ orgId, templateType }: TemplateO
           onChange={(e) => setValue(e.target.value)}
           required
           placeholder="new value"
-          style={{ marginLeft: 8, padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', width: '100%', marginTop: 4 }}
+          style={{ marginLeft: 8, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border-strong)', width: '100%', marginTop: 4 }}
         />
       </label>
 
@@ -92,7 +92,7 @@ export default function TemplateOverridePanel({ orgId, templateType }: TemplateO
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="optional"
-          style={{ marginLeft: 8, padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', width: '100%', marginTop: 4 }}
+          style={{ marginLeft: 8, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border-strong)', width: '100%', marginTop: 4 }}
         />
       </label>
 
@@ -102,8 +102,8 @@ export default function TemplateOverridePanel({ orgId, templateType }: TemplateO
         style={{
           padding: '8px 16px',
           borderRadius: 6,
-          border: '1px solid #3b82f6',
-          backgroundColor: '#3b82f6',
+          border: '1px solid var(--chart-1)',
+          backgroundColor: 'var(--chart-1)',
           color: '#fff',
           cursor: saving ? 'not-allowed' : 'pointer',
         }}

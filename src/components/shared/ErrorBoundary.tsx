@@ -48,8 +48,8 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div
         style={{
-          border: '1px solid var(--feedback-error-border, #ef4444)',
-          background: 'var(--feedback-error-surface, rgba(239,68,68,.08))',
+          border: '1px solid var(--feedback-error-border, var(--status-crit))',
+          background: 'var(--feedback-error-surface)',
           borderRadius: 12,
           padding: '18px 20px',
           maxWidth: 900,

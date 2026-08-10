@@ -1,109 +1,305 @@
 /* =============================================================================
    ENTERPRISE BRAIN — BRAND OVERLAY
-   Navy · Gold · Cream · White
+   Champagne Gold · Warm Ivory · Cream · Warm Espresso
 
    WHY THIS FILE EXISTS RATHER THAN AN EDIT TO colors.css.
    design-tokens/colors.css declares itself copied verbatim from the EB-DLS
    source of truth, "not re-derived, to guarantee fidelity". Editing it would
    break that guarantee and be silently reverted the next time it is synced.
-   This layer loads AFTER it and re-points the semantic roles, so the vendored
+   This layer loads AFTER it and re-points the roles, so the vendored
    primitives stay intact and the brand palette still wins.
 
    LOAD ORDER MATTERS: colors.css → brand.css → theme.css → dashboard.css.
    Later files consume these roles, so this must be resolved before them.
 
-   Only SEMANTIC roles and new system tokens are declared here. Nothing below
-   consumes a primitive directly — that is what the roles are for.
+   WHAT CHANGED, AND WHY IT IS MORE THAN THE SEMANTIC LAYER.
+   The previous overlay re-pointed only Tier-2 semantic roles, on the stated
+   assumption that "nothing below consumes a primitive directly". That is no
+   longer true and had not been true for some time: an audit of the app counts
+   roughly 480 direct reads of Tier-1 primitives — --color-ink-0 in eight
+   places, --color-red-600 in fifteen, --color-teal-*, --color-gold-*,
+   --color-green-*, --color-amber-*, --color-violet-* throughout the workspace
+   screens. Re-pointing only the semantic roles would therefore have left a
+   navy-and-teal application wearing an ivory shell, which is exactly the
+   "random colors on different pages" failure the redesign exists to remove.
+
+   So this file now re-points BOTH TIERS. The primitive ramps keep their names
+   and their lightness ordering — ink-0 is still the lightest, ink-1000 still
+   the darkest — so every existing rule keeps working and simply resolves to a
+   warm colour instead of a cool one. No consumer had to change to be retoned.
+
+   THE 70/15/10/5 RULE IS ENCODED IN WHICH ROLES GET WHICH VALUE, not left to
+   each screen: ivory and white own the page and card surfaces, cream owns the
+   secondary surfaces, champagne is confined to action/accent/focus roles, and
+   sage/rose/amber/burgundy appear only under the four semantic feedback roles
+   and the chart palette. A screen cannot accidentally become a gold screen
+   without naming a gold token explicitly.
    ============================================================================= */
 
 :root {
   /* ---- Tier 1 · brand primitives -------------------------------------- */
 
-  /* navy — the product's ground colour */
-  --eb-navy-900: #071426;
-  --eb-navy-800: #0A192D;
-  --eb-navy-700: #10243D;
-  --eb-navy-600: #16304F;
-  --eb-navy-500: #1E3D63;
-
-  /* gold — brand accent and primary action */
-  --eb-gold-600: #B8891F;
-  --eb-gold-500: #D5A32C;
-  --eb-gold-400: #E4B442;
-  --eb-gold-300: #F0C75E;
-  --eb-gold-100: #FBEDC9;
-  --eb-gold-50:  #FDF7E8;
+  /* champagne — the signature. Primary actions, active states, emphasis. */
+  --eb-gold-900: #5E4820;
+  --eb-gold-800: #7C602A;
+  --eb-gold-700: #9A7833;
+  --eb-gold-600: #B08A3D;   /* hover: richer than primary */
+  --eb-gold-500: #C9A24D;   /* PRIMARY — Champagne Gold */
+  --eb-gold-400: #D8B65F;
+  --eb-gold-300: #E3C875;   /* HIGHLIGHT — Light Gold */
+  --eb-gold-200: #EFDDA9;
+  --eb-gold-100: #F8EFD6;
+  --eb-gold-50:  #FDF9EF;
 
   /* warm neutrals — page ground and card surfaces */
-  --eb-cream-200: #F7F6F1;
-  --eb-cream-100: #FAF9F5;
-  --eb-white:     #FFFFFF;
+  --eb-ivory:     #FAF8F2;   /* MAIN BACKGROUND — Warm Ivory */
+  --eb-cream-200: #F3EEE2;   /* SECONDARY BACKGROUND — Cream */
+  --eb-cream-100: #F7F1E8;   /* ADDITIONAL CREAM */
+  --eb-white:     #FFFFFF;   /* CARD */
 
-  /* text ramp */
-  --eb-text-900: #0F172A;
-  --eb-text-700: #334155;
-  --eb-text-500: #64748B;
-  --eb-text-400: #94A3B8;
+  /* text ramp — warm, never blue-grey */
+  --eb-text-900: #4A4035;   /* HEADING — Warm Espresso */
+  --eb-text-700: #5F584D;
+  --eb-text-500: #71695E;   /* BODY TEXT — Warm Gray */
+  --eb-text-400: #9A9286;   /* placeholder */
+
+  --eb-border:   #E4DDCF;   /* BORDER — Soft Beige */
+
+  /*
+    ESPRESSO, NOT NAVY — and the name is kept deliberately.
+    --eb-navy-* is read in ten places for two DIFFERENT jobs: as a dark surface
+    (.u-btn-navy, .u-avatar) and as dark TEXT on a gold field (the sidebar
+    brandmark, .u-avatar-gold). Re-pointing it to a light cream would have made
+    the second set white-on-gold and unreadable, so it stays a dark ramp and is
+    simply re-hued from blue to espresso. The sidebar, which was the only place
+    genuinely wanting a dark SURFACE, now names light tokens directly in
+    shell.css instead. Renaming the token to --eb-espresso-* was rejected: it
+    would touch ten files to no visual effect and lose the git blame on each.
+  */
+  --eb-navy-900: #2C2620;
+  --eb-navy-800: #38312A;
+  --eb-navy-700: #4A4035;
+  --eb-navy-600: #5F584D;
+  --eb-navy-500: #71695E;
 
   /* status — reserved, never reused as a categorical hue */
-  --eb-success: #16A34A;
-  --eb-warning: #D97706;
-  --eb-danger:  #DC2626;
-  --eb-info:    #2563EB;
+  --eb-success: #719579;   /* Sage Green */
+  --eb-warning: #C58B3A;   /* Muted Amber */
+  --eb-danger:  #B65C5C;   /* Soft Burgundy */
+  --eb-info:    #795C72;   /* Plum — the one cool-leaning accent, kept muted */
 
-  --eb-success-surface: #ECFDF3;
-  --eb-warning-surface: #FEF6E7;
-  --eb-danger-surface:  #FEF0F0;
-  --eb-info-surface:    #EFF4FE;
+  --eb-rose:      #C58F8F;  /* ADDITIONAL ACCENT — Dusty Rose */
+  --eb-rose-soft: #E8CFC9;  /* LIGHT ACCENT — Soft Rose */
 
-  --eb-success-border: #A7E9C0;
-  --eb-warning-border: #F5CE95;
-  --eb-danger-border:  #F5AFAF;
-  --eb-info-border:    #B4CBF8;
+  --eb-success-surface: #EFF4F0;
+  --eb-warning-surface: #FAF2E7;
+  --eb-danger-surface:  #FAEDED;
+  --eb-info-surface:    #F4F0F3;
+
+  --eb-success-border: #C4D6C8;
+  --eb-warning-border: #E8CFA8;
+  --eb-danger-border:  #E7C4C4;
+  --eb-info-border:    #D9CCD5;
+
+  /* =========================================================================
+     Tier 1b · THE VENDORED RAMPS, RE-HUED.
+
+     Same names, same step count, same lightness ordering as colors.css — only
+     the hue moves. Every direct primitive read in the app lands here.
+     ========================================================================= */
+
+  /* ink → warm neutral. 0 is white, 1000 is the darkest espresso. */
+  --color-ink-0:    #FFFFFF;
+  --color-ink-50:   #FAF8F2;
+  --color-ink-100:  #F7F1E8;
+  --color-ink-200:  #F3EEE2;
+  --color-ink-300:  #E4DDCF;
+  --color-ink-400:  #CFC6B5;
+  --color-ink-500:  #9A9286;
+  --color-ink-600:  #71695E;
+  --color-ink-700:  #5F584D;
+  --color-ink-750:  #565046;
+  --color-ink-760:  #524C43;   /* read once in the app; absent from colors.css */
+  --color-ink-800:  #4A4035;
+  --color-ink-850:  #413931;
+  --color-ink-900:  #38312A;
+  --color-ink-950:  #2C2620;
+  --color-ink-1000: #221D18;
+
+  /* teal (intelligence/signal) → champagne. Intelligence IS the brand colour. */
+  --color-teal-50:  #FDF9EF;
+  --color-teal-100: #F8EFD6;
+  --color-teal-200: #EFDDA9;
+  --color-teal-300: #E3C875;
+  --color-teal-400: #D8B65F;
+  --color-teal-500: #C9A24D;
+  --color-teal-600: #B08A3D;
+  --color-teal-700: #9A7833;
+  --color-teal-800: #7C602A;
+  --color-teal-900: #5E4820;
+  --color-teal-950: #3A2C14;
+
+  /*
+    gold (evidence/provenance) → BRONZE, a deeper and less saturated champagne.
+    Deliberately NOT identical to the teal ramp above. The two were the design
+    system's way of telling intelligence apart from evidence, and several
+    screens still put them side by side; collapsing both to the same hex would
+    silently destroy that distinction while every test kept passing. Same
+    family, so the page still reads as one palette — a half-step apart, so the
+    encoding survives.
+  */
+  --color-gold-50:  #FBF7EF;
+  --color-gold-100: #F4EBDA;
+  --color-gold-200: #E9D8B9;
+  --color-gold-300: #DAC48D;
+  --color-gold-400: #C9AE73;
+  --color-gold-500: #B5985C;
+  --color-gold-600: #9E8149;
+  --color-gold-700: #856B3B;
+  --color-gold-800: #6A552E;
+  --color-gold-900: #4F3F22;
+  --color-gold-950: #302615;
+
+  /* green → sage */
+  --color-green-50:  #F1F6F2;
+  --color-green-100: #E1ECE3;
+  --color-green-200: #C4D6C8;
+  --color-green-300: #A3BFA9;
+  --color-green-400: #87A98E;
+  --color-green-500: #719579;
+  --color-green-600: #5E8066;
+  --color-green-700: #4D6B54;
+  --color-green-800: #3D5543;
+  --color-green-900: #2D3F32;
+  --color-green-950: #1B261E;
+
+  /* red → soft burgundy */
+  --color-red-50:  #FAEDED;
+  --color-red-100: #F4DADA;
+  --color-red-300: #E0AFAF;
+  --color-red-350: #D79E9E;
+  --color-red-400: #CB8181;
+  --color-red-500: #B65C5C;
+  --color-red-600: #A44E4E;
+  --color-red-700: #8B4141;
+  --color-red-800: #703434;
+  --color-red-900: #542727;
+  --color-red-950: #331717;
+
+  /* amber → muted amber */
+  --color-amber-50:  #FAF2E7;
+  --color-amber-100: #F4E4CB;
+  --color-amber-300: #E1BA84;
+  --color-amber-400: #D5A461;
+  --color-amber-500: #C58B3A;
+  --color-amber-600: #AE7830;
+  --color-amber-700: #926228;
+  --color-amber-800: #764E20;
+  --color-amber-900: #573A18;
+  --color-amber-950: #34220E;
+
+  /* violet → plum / dusty rose */
+  --color-violet-50:  #F6F1F4;
+  --color-violet-100: #EBDFE6;
+  --color-violet-200: #E8CFC9;
+  --color-violet-300: #D3AFB6;
+  --color-violet-400: #C58F8F;
+  --color-violet-500: #A87A8C;
+  --color-violet-600: #8F6579;
+  --color-violet-700: #795C72;
+  --color-violet-800: #614A5B;
+  --color-violet-900: #473643;
+  --color-violet-950: #2A2028;
+
+  /* navy → espresso (same reasoning as --eb-navy-*) */
+  --color-navy-50:  #F5F2ED;
+  --color-navy-100: #E9E3D9;
+  --color-navy-300: #C2B7A5;
+  --color-navy-500: #8A7F6F;
+  --color-navy-700: #5F584D;
+  --color-navy-800: #4A4035;
+  --color-navy-900: #38312A;
+  --color-navy-950: #2C2620;
+
+  /*
+    Declared here because theme.css reads it twice and NOTHING has ever defined
+    it — .eb-error and .eb-attention-high have been resolving to an invalid
+    value and inheriting their colour since the token was first used. Fixing it
+    in the overlay rather than in theme.css keeps the definition beside the
+    palette it belongs to.
+  */
+  --color-semantic-error: #B65C5C;
 
   /* ---- Tier 2 · semantic roles (override EB-DLS defaults) -------------- */
 
-  --surface-deep:    var(--eb-cream-200);
-  --surface-ground:  var(--eb-cream-200);
+  /* 70% of the interface is these two. */
+  --surface-deep:    var(--eb-ivory);
+  --surface-ground:  var(--eb-ivory);
   --surface-card:    var(--eb-white);
-  --surface-inset:   var(--eb-cream-100);
   --surface-raised:  var(--eb-white);
+  /* 15% is these. */
+  --surface-inset:   var(--eb-cream-100);
   --surface-hover:   var(--eb-cream-200);
-  --surface-overlay: rgba(7, 20, 38, 0.55);
+  --surface-overlay: rgba(74, 64, 53, 0.42);
 
   --content-primary:     var(--eb-text-900);
-  --content-secondary:   var(--eb-text-700);
-  --content-tertiary:    var(--eb-text-500);
+  --content-secondary:   var(--eb-text-500);
+  --content-tertiary:    var(--eb-text-400);
   --content-placeholder: var(--eb-text-400);
   --content-inverse:     var(--eb-white);
-  --content-link:        var(--eb-gold-600);
-  --content-link-hover:  var(--eb-navy-800);
-  --content-on-accent:   var(--eb-navy-900);
+  /* #8A6A2E, not --eb-gold-700 (#9A7833): links are body-sized text and must
+     clear 4.5:1 on BOTH the white card (5.02:1) and the ivory ground (4.73:1).
+     gold-700 managed only 4.11 / 3.87. */
+  --content-link:        #8A6A2E;
+  --content-link-hover:  var(--eb-text-900);
+  --content-on-accent:   var(--eb-white);
 
-  --border-subtle:  rgba(15, 23, 42, 0.08);
-  --border-default: rgba(15, 23, 42, 0.14);
-  --border-strong:  rgba(15, 23, 42, 0.22);
+  --border-subtle:  #EFE9DE;
+  --border-default: var(--eb-border);
+  --border-strong:  #D3C9B6;
   --border-focus:   var(--eb-gold-500);
 
-  --action-primary:        var(--eb-gold-500);
-  --action-primary-hover:  var(--eb-gold-400);
-  --action-primary-active: var(--eb-gold-600);
-  --action-content:        var(--eb-navy-900);
+  /*
+    PRIMARY BUTTON: CHAMPAGNE FILL, ESPRESSO LABEL — measured, not guessed.
+
+    The brief specifies a #C9A24D fill and leaves the label as "#FFFFFF or
+    #4A4035 depending on contrast validation". Validated, against white:
+
+        white     on #C9A24D  = 2.40:1   fail
+        espresso  on #C9A24D  = 4.22:1   fail (needs 4.5:1 for 13px label text)
+
+    Neither passes on the brand hex exactly. Darkening the fill until white
+    works lands around #8E6E2F, which is bronze rather than champagne and loses
+    the brand. Lightening it instead keeps the colour and fixes the ratio:
+    #CDA95A is a two-percent lightness nudge at the identical hue (41°) and
+    saturation, indistinguishable side by side, and carries espresso at 4.54:1.
+
+    Interaction LIGHTENS rather than darkens, which is the unusual part and is
+    forced by the same arithmetic: any darker champagne fails with espresso and
+    still fails with white. Hover #D8B65F is 5.19:1 and active #E3C875 is
+    6.16:1, so every state passes and the control warms under the cursor.
+
+    The pure brand #C9A24D is untouched and still used everywhere the 3:1
+    non-text threshold applies — rails, borders, icons, chart series, large
+    numerals — which is most of where the brand is actually seen.
+  */
+  --action-primary:        #CDA95A;
+  --action-primary-hover:  #D8B65F;
+  --action-primary-active: #E3C875;
+  --action-content:        var(--eb-text-900);
   --action-subtle:         var(--eb-gold-50);
   --action-subtle-hover:   var(--eb-gold-100);
 
   --accent-intelligence:      var(--eb-gold-500);
-  --accent-intelligence-deep: var(--eb-gold-600);
-  --accent-intelligence-glow: rgba(213, 163, 44, 0.18);
-  --accent-evidence:          var(--eb-navy-700);
-  --accent-evidence-deep:     var(--eb-navy-800);
+  --accent-intelligence-deep: var(--eb-gold-700);
+  --accent-intelligence-glow: rgba(201, 162, 77, 0.16);
+  --accent-evidence:          #9E8149;
+  --accent-evidence-deep:     #856B3B;
 
   /*
     STATUS ROLES ARE GENUINELY DISTINCT HERE.
-    EB-DLS's light theme maps --status-good to gold-600 (#9A7220) and
-    --status-warn to amber-600 (#B47E20) — the same brown to any reader, which
-    makes "healthy" and "needs attention" indistinguishable. Green/amber/red are
-    four distinct hues and each still ships with a word or icon beside it.
+    Four different hues, each still shipped with a word or an icon beside it —
+    colour is never the only carrier of the distinction.
   */
   --status-good: var(--eb-success);
   --status-warn: var(--eb-warning);
@@ -112,26 +308,55 @@
 
   --feedback-success-surface: var(--eb-success-surface);
   --feedback-success-border:  var(--eb-success-border);
-  --feedback-success-content: #0F7A38;
+  --feedback-success-content: #4D6B54;
   --feedback-success-solid:   var(--eb-success);
 
   --feedback-warning-surface: var(--eb-warning-surface);
   --feedback-warning-border:  var(--eb-warning-border);
-  --feedback-warning-content: #9A5406;
+  --feedback-warning-content: #926228;
   --feedback-warning-solid:   var(--eb-warning);
 
   --feedback-error-surface:   var(--eb-danger-surface);
   --feedback-error-border:    var(--eb-danger-border);
-  --feedback-error-content:   #A91B1B;
+  --feedback-error-content:   #8B4141;
   --feedback-error-solid:     var(--eb-danger);
 
   --feedback-info-surface:    var(--eb-info-surface);
   --feedback-info-border:     var(--eb-info-border);
-  --feedback-info-content:    #1B4FBF;
+  --feedback-info-content:    #614A5B;
   --feedback-info-solid:      var(--eb-info);
 
   --focus-ring:        var(--eb-gold-500);
   --focus-ring-offset: var(--eb-white);
+
+  /* =========================================================================
+     Tier 2b · DATA VISUALISATION
+
+     A five-colour categorical set, in a fixed order, so a series keeps its
+     colour between charts and between screens. ui/charts.tsx already reads
+     --chart-data with a --feedback-info-solid fallback; naming the whole set
+     here is what lets a chart stop borrowing feedback colours, which is worth
+     doing because a series rendered in the error colour reads as an alarm.
+
+     ONE HUE PER MAGNITUDE, still. The rule that a magnitude scale uses one hue
+     at varying opacity rather than red-amber-green is unchanged — these five
+     are for CATEGORIES, and charts.tsx keeps its own hatch for "never
+     measured". Absence is not a colour.
+     ========================================================================= */
+
+  --chart-1: #C9A24D;   /* champagne — the primary series */
+  --chart-2: #719579;   /* sage */
+  --chart-3: #C58F8F;   /* dusty rose */
+  --chart-4: #C58B3A;   /* muted amber */
+  --chart-5: #795C72;   /* plum */
+  --chart-6: #A88C6B;   /* warm taupe — a sixth only if a chart genuinely needs it */
+
+  --chart-data:      var(--chart-1);
+  --chart-data-soft: var(--eb-gold-300);
+  --chart-grid:      var(--eb-border);
+  --chart-axis:      var(--eb-text-500);
+  --chart-label:     var(--eb-text-900);
+  --chart-track:     var(--eb-cream-200);
 
   /* ---- Tier 3 · system tokens ----------------------------------------- */
 
@@ -149,11 +374,14 @@
   --radius-xl: 22px;
   --radius-pill: 999px;
 
-  /* Shadows. Tinted with the text navy rather than pure black: a black shadow
-     over a warm cream ground reads grey and slightly dirty. */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.07);
-  --shadow-lg: 0 18px 50px rgba(15, 23, 42, 0.10);
+  /*
+    Shadows, tinted with the espresso rather than black.
+    Lightened from the previous set: on a warm ivory ground a heavy shadow
+    reads as dirt rather than as elevation, and the brief asks for very subtle.
+  */
+  --shadow-sm: 0 1px 2px rgba(74, 64, 53, 0.05);
+  --shadow-md: 0 4px 14px rgba(74, 64, 53, 0.06);
+  --shadow-lg: 0 14px 38px rgba(74, 64, 53, 0.09);
 
   /* 8-point spacing. eb- prefixed so it cannot collide with EB-DLS's --space-*. */
   --eb-space-1: 4px;
@@ -217,61 +445,96 @@
 }
 
 /*
-  DARK THEME.
-  Only the roles that must invert are restated — anything absent deliberately
-  inherits from :root above, so a token added there is not silently missing in
-  dark. Navy becomes the surface rather than the accent; gold stays the action
-  colour in both, because it is the brand.
+  DARK THEME — RETAINED, RE-HUED, AND NO LONGER THE DEFAULT.
+
+  The product is a light instrument now; useTheme() defaults to light and no
+  longer follows the OS preference, so this block applies only when a user asks
+  for it explicitly in Settings. It is kept rather than deleted because the
+  toggle is real functionality and removing a working control is not a theme
+  change.
+
+  It is espresso, not navy. Only the roles that must invert are restated —
+  anything absent deliberately inherits from :root above, so a token added
+  there is not silently missing in dark. Champagne stays the action colour in
+  both, because it is the brand.
 */
 [data-theme='dark'] {
   color-scheme: dark;
 
-  --surface-deep:    var(--eb-navy-900);
-  --surface-ground:  var(--eb-navy-900);
-  --surface-card:    var(--eb-navy-800);
-  --surface-inset:   var(--eb-navy-700);
-  --surface-raised:  var(--eb-navy-700);
-  --surface-hover:   var(--eb-navy-600);
-  --surface-overlay: rgba(7, 20, 38, 0.72);
+  --surface-deep:    #1E1A16;
+  --surface-ground:  #221D18;
+  --surface-card:    #2C2620;
+  --surface-inset:   #332C25;
+  --surface-raised:  #38312A;
+  --surface-hover:   #413931;
+  --surface-overlay: rgba(20, 17, 14, 0.72);
 
-  --content-primary:     #F1F5F9;
-  --content-secondary:   #CBD5E1;
-  --content-tertiary:    var(--eb-text-400);
-  --content-placeholder: var(--eb-text-500);
-  --content-inverse:     var(--eb-navy-900);
+  --content-primary:     #F5F1E8;
+  --content-secondary:   #D8D0C2;
+  --content-tertiary:    #A79D8D;
+  --content-placeholder: #8A8071;
+  --content-inverse:     #221D18;
   --content-link:        var(--eb-gold-300);
   --content-link-hover:  var(--eb-white);
+  --content-on-accent:   #221D18;
 
-  --border-subtle:  rgba(148, 163, 184, 0.14);
-  --border-default: rgba(148, 163, 184, 0.24);
-  --border-strong:  rgba(148, 163, 184, 0.36);
+  --border-subtle:  rgba(228, 221, 207, 0.12);
+  --border-default: rgba(228, 221, 207, 0.20);
+  --border-strong:  rgba(228, 221, 207, 0.32);
 
-  --focus-ring-offset: var(--eb-navy-900);
+  /* On espresso the champagne carries dark text and needs no darkening. */
+  --action-primary:        var(--eb-gold-500);
+  --action-primary-hover:  var(--eb-gold-400);
+  --action-primary-active: var(--eb-gold-600);
+  --action-content:        #221D18;
+  --action-subtle:         rgba(201, 162, 77, 0.14);
+  --action-subtle-hover:   rgba(201, 162, 77, 0.22);
 
-  /* Status hues lightened for contrast against navy — same four meanings, the
-     dark instrument's own steps rather than an automatic flip of the light set. */
-  --status-good: #4ADE80;
-  --status-warn: #FBBF24;
-  --status-crit: #F87171;
-  --status-info: #60A5FA;
+  --focus-ring-offset: #221D18;
 
-  --feedback-success-surface: rgba(22, 163, 74, 0.14);
-  --feedback-success-border:  rgba(74, 222, 128, 0.34);
-  --feedback-success-content: #86EFAC;
+  /* Status hues lightened for contrast against espresso — the same four
+     meanings, the dark instrument's own steps rather than an automatic flip. */
+  --status-good: #9BBFA2;
+  --status-warn: #E0AE68;
+  --status-crit: #DC9292;
+  --status-info: #BFA3B6;
 
-  --feedback-warning-surface: rgba(217, 119, 6, 0.14);
-  --feedback-warning-border:  rgba(251, 191, 36, 0.34);
-  --feedback-warning-content: #FCD34D;
+  --feedback-success-surface: rgba(113, 149, 121, 0.16);
+  --feedback-success-border:  rgba(155, 191, 162, 0.34);
+  --feedback-success-content: #B5D3BB;
+  --feedback-success-solid:   #9BBFA2;
 
-  --feedback-error-surface:   rgba(220, 38, 38, 0.14);
-  --feedback-error-border:    rgba(248, 113, 113, 0.34);
-  --feedback-error-content:   #FCA5A5;
+  --feedback-warning-surface: rgba(197, 139, 58, 0.16);
+  --feedback-warning-border:  rgba(224, 174, 104, 0.34);
+  --feedback-warning-content: #EDC38A;
+  --feedback-warning-solid:   #E0AE68;
 
-  --feedback-info-surface:    rgba(37, 99, 235, 0.14);
-  --feedback-info-border:     rgba(96, 165, 250, 0.34);
-  --feedback-info-content:    #93C5FD;
+  --feedback-error-surface:   rgba(182, 92, 92, 0.16);
+  --feedback-error-border:    rgba(220, 146, 146, 0.34);
+  --feedback-error-content:   #ECB4B4;
+  --feedback-error-solid:     #DC9292;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
-  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.38);
-  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.48);
+  --feedback-info-surface:    rgba(121, 92, 114, 0.18);
+  --feedback-info-border:     rgba(191, 163, 182, 0.34);
+  --feedback-info-content:    #D6BFCE;
+  --feedback-info-solid:      #BFA3B6;
+
+  /* Chart series lift off the dark ground rather than sinking into it. */
+  --chart-1: #DCB868;
+  --chart-2: #9BBFA2;
+  --chart-3: #DCAAAA;
+  --chart-4: #E0AE68;
+  --chart-5: #BFA3B6;
+  --chart-6: #C4AC8B;
+
+  --chart-grid:   rgba(228, 221, 207, 0.16);
+  --chart-axis:   #A79D8D;
+  --chart-label:  #F5F1E8;
+  --chart-track:  #38312A;
+
+  /* Black on the dark instrument, not espresso: a warm shadow over an espresso
+     surface tints it rather than seating the card above it. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.34);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 14px 38px rgba(0, 0, 0, 0.50);
 }

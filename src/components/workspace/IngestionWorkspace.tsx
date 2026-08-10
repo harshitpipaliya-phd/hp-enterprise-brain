@@ -36,6 +36,78 @@ const FIELD_HELP: Record<CanonicalField, string> = {
 
 type Phase = 'idle' | 'uploading' | 'previewed' | 'committing' | 'committed';
 
+/**
+ * Name the STAGE that failed, not just the fact that something did.
+ *
+ * The engine has five places a file can die and they need different actions
+ * from the user: the browser never delivered it, the server refused it, the
+ * parser could not read it, the database rejected the rows, or the database was
+ * unreachable. Reporting all five as "Upload failed" — which is what this did —
+ * sent people to check their file when the actual fault was a PHP limit, and to
+ * check the server when the actual fault was a malformed row.
+ *
+ * The server already distinguishes these in its `error` code; this maps them to
+ * a stage the user can act on and otherwise passes the server's own sentence
+ * through unchanged, because it is more specific than anything invented here.
+ */
+function describeStageFailure(e: unknown, assumedStage: 'upload' | 'ingestion' = 'upload'): string {
+  const api = e instanceof ApiError ? e : null;
+  const body = (api?.responseJson ?? {}) as { error?: string; message?: string };
+  const code = body.error ?? '';
+  const detail = (e as { message?: string })?.message ?? 'No further detail was returned.';
+
+  // Server-side upload preconditions — the file never became readable.
+  const uploadCodes = [
+    'file_exceeds_php_limit',
+    'file_exceeds_form_limit',
+    'upload_incomplete',
+    'no_file_received',
+    'missing_temp_directory',
+    'temp_directory_not_writable',
+    'upload_blocked_by_extension',
+    'storage_failed',
+  ];
+
+  if (uploadCodes.includes(code)) return `Upload failed — ${detail}`;
+  if (code === 'unreadable_upload') return `Parsing failed — ${detail}`;
+  if (code === 'incomplete_field_map') return `Validation failed — ${detail}`;
+  if (code === 'database_unavailable') return `Database unavailable — ${detail}`;
+  if (code === 'source_unavailable') return `Ingestion failed — ${detail}`;
+  if (code === 'job_not_previewed') return `Ingestion failed — ${detail}`;
+
+  // A 422 with field errors is validation, whatever stage we thought we were in.
+  if (api?.status === 422) return `Validation failed — ${detail}`;
+  if (api?.status === 401 || api?.status === 403) return `Not authorised — ${detail}`;
+
+  const stage = assumedStage === 'ingestion' ? 'Ingestion failed' : 'Upload failed';
+
+  return api ? `${stage} (${api.status}) — ${detail}` : `${stage} — ${detail}`;
+}
+
+function asRecord(value: unknown): Record<string, any> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {};
+}
+
+function normalizePreview(value: unknown): IngestionPreview {
+  const raw = asRecord(value);
+  const sampleRows = Array.isArray(raw.sample_rows)
+    ? raw.sample_rows.map((row) => asRecord(row))
+    : Array.isArray(raw.sampleRows)
+      ? raw.sampleRows.map((row) => asRecord(row))
+      : [];
+
+  return {
+    row_count: Number(raw.row_count ?? raw.rowCount ?? 0),
+    headers: Array.isArray(raw.headers) ? raw.headers.map(String) : [],
+    suggested_map: asRecord(raw.suggested_map ?? raw.suggestedMap) as Partial<Record<CanonicalField, string>>,
+    unmapped_fields: Array.isArray(raw.unmapped_fields) ? raw.unmapped_fields.map(String) : [],
+    committable: Boolean(raw.committable),
+    sample_rows: sampleRows,
+    sync_type: String(raw.sync_type ?? raw.syncType ?? ''),
+    fetched_at: String(raw.fetched_at ?? raw.fetchedAt ?? ''),
+  };
+}
+
 export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
   const { showToast } = useToast();
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -117,17 +189,17 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
     setPhase('uploading');
     try {
       const data = await ingestionApi.upload(file, sourceId.trim());
+      const normalizedPreview = normalizePreview(data.preview);
       const seeded: Record<string, string> = {};
-      for (const field of CANONICAL_FIELDS) seeded[field] = data.preview.suggested_map?.[field] ?? NOT_MAPPED;
+      for (const field of CANONICAL_FIELDS) seeded[field] = normalizedPreview.suggested_map?.[field] ?? NOT_MAPPED;
       setJobId(data.job_id);
-      setPreview(data.preview);
+      setPreview(normalizedPreview);
       setMap(seeded);
       setPhase('previewed');
-      showToast('info', `Previewed ${data.preview.row_count} row${data.preview.row_count === 1 ? '' : 's'}.`);
+      showToast('info', `Previewed ${normalizedPreview.row_count} row${normalizedPreview.row_count === 1 ? '' : 's'}.`);
     } catch (e: any) {
       setPhase('idle');
-      const prefix = e instanceof ApiError ? `Upload failed (${e.status})` : 'Upload failed';
-      showToast('error', `${prefix}: ${e?.message ?? 'The file could not be uploaded.'}`);
+      showToast('error', describeStageFailure(e));
     }
   };
 
@@ -150,7 +222,7 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
       showToast('success', `Committed ${data.committed} signals.`);
     } catch (e: any) {
       setPhase('previewed');
-      showToast('error', e?.message ?? 'Commit failed.');
+      showToast('error', describeStageFailure(e, 'ingestion'));
     }
   };
 

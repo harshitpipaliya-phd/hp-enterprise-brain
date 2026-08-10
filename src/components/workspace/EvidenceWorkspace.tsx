@@ -52,18 +52,18 @@ type TrendRow = { label: string; date: string; count: number };
 const HALF_LIFE_DAYS = 90;
 const FRESHNESS_ORDER: FreshnessBand[] = ['Fresh', 'Recent', 'Aging', 'Stale'];
 const FRESHNESS_COLORS: Record<FreshnessBand, string> = {
-  Fresh: '#2f7f93',
-  Recent: '#3f8798',
-  Aging: '#a8892f',
-  Stale: '#bd2f68',
+  Fresh: 'var(--chart-1)',
+  Recent: 'var(--chart-1)',
+  Aging: 'var(--chart-4)',
+  Stale: 'var(--chart-3)',
 };
 const CONFIDENCE_COLORS: Record<string, string> = {
-  high: '#2f7f93',
-  medium: '#a8892f',
-  low: '#bd2f68',
-  unknown: '#7c8496',
+  high: 'var(--chart-1)',
+  medium: 'var(--chart-4)',
+  low: 'var(--chart-3)',
+  unknown: 'var(--content-tertiary)',
 };
-const PALETTE = ['#2f7f93', '#a8892f', '#bd2f68', '#7b68b4', '#5aa8ba', '#596780', '#8b6f2f'];
+const PALETTE = ['var(--chart-1)', 'var(--chart-4)', 'var(--chart-3)', 'var(--chart-5)', 'var(--chart-2)', 'var(--content-tertiary)', 'var(--chart-6)'];
 
 function parseDate(value: string | null | undefined): Date | null {
   if (!value) return null;
@@ -539,7 +539,7 @@ export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
             </ChartCard>
 
             <ChartCard title="Freshness Bands" meta={`${model.total.toLocaleString()} records`} footer={`${model.staleOrAging.length.toLocaleString()} records are aging or stale in the current view.`}>
-              <HorizontalBars rows={model.bandRows} colorFor={(name) => FRESHNESS_COLORS[name as FreshnessBand] ?? '#7c8496'} />
+              <HorizontalBars rows={model.bandRows} colorFor={(name) => FRESHNESS_COLORS[name as FreshnessBand] ?? 'var(--content-tertiary)'} />
             </ChartCard>
           </section>
 
@@ -558,7 +558,7 @@ export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
                     <XAxis dataKey="label" tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
-                    <Line type="monotone" dataKey="count" stroke="#bd2f68" strokeWidth={3} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="count" stroke="var(--chart-3)" strokeWidth={3} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : <EmptyChart />}
@@ -572,7 +572,7 @@ export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
                     <XAxis type="number" domain={[0, 1]} hide />
                     <YAxis type="category" dataKey="name" width={112} tickFormatter={displayLabel} tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} formatter={(value: unknown) => [formatPercent(Number(value ?? 0)), 'Quality']} labelFormatter={(value: unknown) => displayLabel(String(value ?? ''))} />
-                    <Bar dataKey="quality" radius={[0, 5, 5, 0]} fill="#2f7f93" />
+                    <Bar dataKey="quality" radius={[0, 5, 5, 0]} fill="var(--chart-1)" />
                   </BarChart>
                 </ResponsiveContainer>
               ) : <EmptyChart />}

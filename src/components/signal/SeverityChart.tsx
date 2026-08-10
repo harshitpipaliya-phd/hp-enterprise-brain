@@ -7,11 +7,11 @@ interface SeverityChartProps {
 }
 
 const COLORS: Record<string, string> = {
-  low: '#22c55e',
-  medium: '#f59e0b',
-  high: '#f97316',
-  critical: '#ef4444',
-  unknown: '#94a3b8',
+  low: 'var(--status-good)',
+  medium: 'var(--status-warn)',
+  high: 'var(--status-warn)',
+  critical: 'var(--status-crit)',
+  unknown: 'var(--content-tertiary)',
 };
 
 export default function SeverityChart({ data, title = 'Severity Distribution' }: SeverityChartProps) {
@@ -37,7 +37,7 @@ export default function SeverityChart({ data, title = 'Severity Distribution' }:
               labelLine={{ stroke: theme.textMuted }}
             >
               {chartData.map((entry) => (
-                <Cell key={entry.name} fill={COLORS[entry.name] || '#94a3b8'} />
+                <Cell key={entry.name} fill={COLORS[entry.name] || 'var(--content-tertiary)'} />
               ))}
             </Pie>
             <Tooltip

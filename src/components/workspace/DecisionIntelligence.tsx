@@ -11,7 +11,7 @@ interface DecisionIntelligenceData {
   categoryExecutorHeatmap: Record<string, Record<string, number>>;
 }
 
-const PIE_COLORS = ['#f59e0b', '#22c55e', '#ef4444'];
+const PIE_COLORS = ['var(--status-warn)', 'var(--status-good)', 'var(--status-crit)'];
 
 /**
  * Decision Intelligence (Sprint 10). First real interactive charts in this
@@ -62,7 +62,7 @@ export default function DecisionIntelligence({ tenantId }: { tenantId: string })
   };
 
   if (loading) return <div style={{ padding: 24 }}>Loading decision intelligence...</div>;
-  if (error) return <div style={{ padding: 24, color: '#ef4444' }}>Error: {error}</div>;
+  if (error) return <div style={{ padding: 24, color: 'var(--status-crit)' }}>Error: {error}</div>;
   if (!data) return null;
 
   const pipelineChartData = [
@@ -96,7 +96,7 @@ export default function DecisionIntelligence({ tenantId }: { tenantId: string })
               <XAxis dataKey="name" stroke={theme.textMuted} />
               <YAxis stroke={theme.textMuted} allowDecimals={false} />
               <Tooltip contentStyle={{ backgroundColor: theme.surface, border: `1px solid ${theme.border}`, color: theme.text }} />
-              <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

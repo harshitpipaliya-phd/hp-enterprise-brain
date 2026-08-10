@@ -49,9 +49,9 @@ export default function TemplateSelector({ industryCode, onSelect, selectedTempl
             onClick={() => onSelect(template)}
             style={{
               padding: 16,
-              border: `2px solid ${selectedTemplate?.id === template.id ? '#3b82f6' : '#e5e7eb'}`,
+              border: `2px solid ${selectedTemplate?.id === template.id ? 'var(--chart-1)' : 'var(--border-default)'}`,
               borderRadius: 8,
-              backgroundColor: selectedTemplate?.id === template.id ? '#eff6ff' : '#fff',
+              backgroundColor: selectedTemplate?.id === template.id ? 'var(--action-subtle)' : '#fff',
               cursor: 'pointer',
               boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             }}

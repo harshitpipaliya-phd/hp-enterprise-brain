@@ -107,7 +107,7 @@ export default function ConversationWorkspace({ tenantId }: { tenantId: string }
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <h1 style={{ marginBottom: 16 }}>Enterprise Copilot</h1>
       {error && (
-        <div style={{ padding: 10, borderRadius: 6, backgroundColor: '#f59e0b20', color: '#f59e0b', marginBottom: 16, fontSize: 13 }}>{error}</div>
+        <div style={{ padding: 10, borderRadius: 6, backgroundColor: 'var(--status-warn)20', color: 'var(--status-warn)', marginBottom: 16, fontSize: 13 }}>{error}</div>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24 }}>
@@ -171,7 +171,7 @@ export default function ConversationWorkspace({ tenantId }: { tenantId: string }
                   <div key={m.id} style={{
                     padding: 10, borderRadius: 8, maxWidth: '75%',
                     alignSelf: m.role === 'user' ? 'end' : 'start',
-                    backgroundColor: m.role === 'user' ? '#3b82f620' : theme.surface,
+                    backgroundColor: m.role === 'user' ? 'var(--chart-1)20' : theme.surface,
                     border: `1px solid ${theme.border}`,
                   }}>
                     <div style={{ fontSize: 10, color: theme.textMuted, textTransform: 'uppercase' }}>{m.role}</div>

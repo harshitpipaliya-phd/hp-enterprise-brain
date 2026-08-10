@@ -86,9 +86,9 @@ export default function KnowledgeLibrary({ tenantId }: { tenantId: string }) {
       )}
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button onClick={() => setCategoryFilter('')} style={{ fontSize: 11, backgroundColor: !categoryFilter ? '#3b82f620' : 'transparent' }}>All</button>
+        <button onClick={() => setCategoryFilter('')} style={{ fontSize: 11, backgroundColor: !categoryFilter ? 'var(--chart-1)20' : 'transparent' }}>All</button>
         {CATEGORIES.map((c) => (
-          <button key={c} onClick={() => setCategoryFilter(c)} style={{ fontSize: 11, backgroundColor: categoryFilter === c ? '#3b82f620' : 'transparent' }}>{c.replace('_', ' ')}</button>
+          <button key={c} onClick={() => setCategoryFilter(c)} style={{ fontSize: 11, backgroundColor: categoryFilter === c ? 'var(--chart-1)20' : 'transparent' }}>{c.replace('_', ' ')}</button>
         ))}
       </div>
 

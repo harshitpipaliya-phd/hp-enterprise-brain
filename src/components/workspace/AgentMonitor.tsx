@@ -14,7 +14,7 @@ interface Executor {
   status: string;
 }
 
-const TYPE_COLOR: Record<string, string> = { human: '#22c55e', ai_agent: '#3b82f6', software: '#8b5cf6', hybrid: '#f59e0b' };
+const TYPE_COLOR: Record<string, string> = { human: 'var(--status-good)', ai_agent: 'var(--chart-1)', software: 'var(--chart-5)', hybrid: 'var(--status-warn)' };
 
 /**
  * Multi-Agent Monitor — visualization only, as explicitly scoped. This is
@@ -43,7 +43,7 @@ export default function AgentMonitor({ tenantId }: { tenantId: string }) {
   useEffect(() => { load(); }, [tenantId]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading agent registry...</div>;
-  if (error) return <div style={{ padding: 24, color: '#ef4444' }}>Error: {error}</div>;
+  if (error) return <div style={{ padding: 24, color: 'var(--status-crit)' }}>Error: {error}</div>;
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
@@ -68,7 +68,7 @@ export default function AgentMonitor({ tenantId }: { tenantId: string }) {
                 </div>
                 <span style={{
                   padding: '2px 8px', borderRadius: 12, fontSize: 11,
-                  backgroundColor: e.available ? '#22c55e20' : '#66666620', color: e.available ? '#22c55e' : theme.textMuted,
+                  backgroundColor: e.available ? 'var(--feedback-success-surface)' : 'var(--surface-inset)', color: e.available ? 'var(--feedback-success-content)' : theme.textMuted,
                 }}>
                   {e.available ? 'Available' : 'Unavailable'}
                 </span>
@@ -77,7 +77,7 @@ export default function AgentMonitor({ tenantId }: { tenantId: string }) {
                 Workload: {e.currentWorkload}/{e.maxConcurrent}
               </div>
               <div style={{ marginTop: 4, height: 6, borderRadius: 3, backgroundColor: theme.border, overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, (e.currentWorkload / e.maxConcurrent) * 100)}%`, height: '100%', backgroundColor: e.currentWorkload >= e.maxConcurrent ? '#ef4444' : '#3b82f6' }} />
+                <div style={{ width: `${Math.min(100, (e.currentWorkload / e.maxConcurrent) * 100)}%`, height: '100%', backgroundColor: e.currentWorkload >= e.maxConcurrent ? 'var(--status-crit)' : 'var(--chart-1)' }} />
               </div>
               <div style={{ marginTop: 8, fontSize: 12, color: theme.textMuted }}>Trust level: {Math.round(e.trustLevel * 100)}%</div>
               {e.capabilityTags.length > 0 && (

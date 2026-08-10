@@ -8,19 +8,19 @@ interface RecentSignalsTableProps {
 }
 
 const SEVERITY_COLOR: Record<string, { bg: string; text: string }> = {
-  low: { bg: 'rgba(34,197,94,0.10)', text: '#16a34a' },
-  medium: { bg: 'rgba(245,158,11,0.10)', text: '#d97706' },
-  high: { bg: 'rgba(249,115,22,0.10)', text: '#ea580c' },
-  critical: { bg: 'rgba(239,68,68,0.10)', text: '#dc2626' },
+  low: { bg: 'rgba(34,197,94,0.10)', text: 'var(--status-good)' },
+  medium: { bg: 'rgba(245,158,11,0.10)', text: 'var(--status-warn)' },
+  high: { bg: 'var(--feedback-warning-surface)', text: 'var(--chart-3)' },
+  critical: { bg: 'var(--feedback-error-surface)', text: 'var(--feedback-error-content)' },
 };
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  new: { bg: 'rgba(59,130,246,0.10)', text: '#2563eb' },
-  triaged: { bg: 'rgba(99,102,241,0.10)', text: '#4f46e5' },
-  investigating: { bg: 'rgba(168,85,247,0.10)', text: '#9333ea' },
-  evidenced: { bg: 'rgba(14,165,233,0.10)', text: '#0284c7' },
-  resolved: { bg: 'rgba(34,197,94,0.10)', text: '#16a34a' },
-  dismissed: { bg: 'rgba(148,163,184,0.10)', text: '#64748b' },
+  new: { bg: 'rgba(59,130,246,0.10)', text: 'var(--chart-1)' },
+  triaged: { bg: 'var(--feedback-warning-surface)', text: 'var(--chart-4)' },
+  investigating: { bg: 'var(--feedback-info-surface)', text: 'var(--chart-5)' },
+  evidenced: { bg: 'var(--action-subtle)', text: 'var(--accent-intelligence-deep)' },
+  resolved: { bg: 'rgba(34,197,94,0.10)', text: 'var(--status-good)' },
+  dismissed: { bg: 'var(--surface-inset)', text: 'var(--content-secondary)' },
 };
 
 export default function RecentSignalsTable({ signals, onAdvance, loading }: RecentSignalsTableProps) {

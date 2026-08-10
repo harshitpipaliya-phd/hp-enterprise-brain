@@ -20,7 +20,7 @@ interface Risk {
   mitigation: string | null;
 }
 
-const IMPACT_COLOR: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#f97316', critical: '#ef4444' };
+const IMPACT_COLOR: Record<string, string> = { low: 'var(--status-good)', medium: 'var(--status-warn)', high: 'var(--status-warn)', critical: 'var(--status-crit)' };
 
 export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string }) {
   const theme = useTheme();
@@ -73,7 +73,7 @@ export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string 
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
           {risks.map((r) => (
-            <div key={r.id} style={{ padding: 16, border: '1px solid #e5e7eb', borderRadius: 8, borderLeft: `4px solid ${IMPACT_COLOR[r.impact] ?? '#666'}` }}>
+            <div key={r.id} style={{ padding: 16, border: '1px solid var(--border-default)', borderRadius: 8, borderLeft: `4px solid ${IMPACT_COLOR[r.impact] ?? '#666'}` }}>
               <div style={{ fontSize: 12, textTransform: 'uppercase', color: IMPACT_COLOR[r.impact] ?? '#666', fontWeight: 'bold' }}>{r.category}</div>
               <div style={{ fontSize: 20, fontWeight: 'bold', margin: '4px 0' }}>Score: {r.score}</div>
               <div style={{ fontSize: 12, color: '#666' }}>Impact: {r.impact} · Probability: {Math.round(r.probability * 100)}%</div>

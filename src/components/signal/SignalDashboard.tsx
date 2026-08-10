@@ -15,6 +15,7 @@ import {
 import { Activity, AlertTriangle, Clock3, RefreshCw, Signal as SignalIcon, Sparkles } from 'lucide-react';
 import { api } from '../../api/signal';
 import './SignalDashboard.css';
+import { CHART_PALETTE, SEVERITY_COLOR, STATUS_COLOR } from '../../ui/palette';
 
 export interface Signal {
   id: string;
@@ -40,23 +41,15 @@ const OPEN_STATUSES = new Set(['new', 'triaged', 'investigating', 'evidenced']);
 const CLOSED_STATUSES = new Set(['resolved', 'closed', 'dismissed']);
 const RESOLVED_STATUSES = new Set(['resolved', 'closed']);
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'unknown'];
-const PALETTE = ['#2f7f93', '#b88a22', '#bd2f68', '#7b68b4', '#5aa8ba', '#8b6f2f', '#596780', '#2f8f6d'];
-const SEVERITY_COLORS: Record<string, string> = {
-  critical: '#b91c1c',
-  high: '#bd2f68',
-  medium: '#a8892f',
-  low: '#2f7f93',
-  unknown: '#7c8496',
-};
-const STATUS_COLORS: Record<string, string> = {
-  new: '#2f7f93',
-  triaged: '#5aa8ba',
-  investigating: '#7b68b4',
-  evidenced: '#b88a22',
-  resolved: '#2f8f6d',
-  closed: '#596780',
-  dismissed: '#7c8496',
-};
+/*
+  Colours come from ui/palette, not from here. Three local maps used to live at
+  this spot and had already drifted from the ones on Departments — "critical"
+  was a different red on each screen. The shared module is the fix; these
+  aliases keep the call sites below unchanged.
+*/
+const PALETTE = CHART_PALETTE;
+const SEVERITY_COLORS = SEVERITY_COLOR;
+const STATUS_COLORS = STATUS_COLOR;
 
 function normalizeKey(value: unknown, fallback: string): string {
   const text = String(value ?? '').trim();
@@ -439,7 +432,7 @@ export default function SignalDashboard({ tenantId }: { tenantId: string }) {
                     <XAxis dataKey="label" tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
-                    <Line type="monotone" dataKey="total" stroke="#bd2f68" strokeWidth={3} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="total" stroke="var(--chart-3)" strokeWidth={3} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : <EmptyChart />}
@@ -485,7 +478,7 @@ export default function SignalDashboard({ tenantId }: { tenantId: string }) {
             </div>
             <DistributionCard title="Classification Intelligence" rows={model.classificationRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} />
             <PieCard title="Severity Mix" rows={model.severityRows} colorFor={(name) => SEVERITY_COLORS[name] ?? SEVERITY_COLORS.unknown} />
-            <PieCard title="Response State" rows={model.statusRows} colorFor={(name) => STATUS_COLORS[name] ?? '#7c8496'} />
+            <PieCard title="Response State" rows={model.statusRows} colorFor={(name) => STATUS_COLORS[name] ?? 'var(--content-tertiary)'} />
             <ChartCard title="Resolution Drag" meta="MTTR by classification" footer={model.mttrRows[0] ? `${displayLabel(model.mttrRows[0].name)} is slowest at ${formatHours(model.mttrRows[0].value)}.` : 'No resolved timestamps available.'}>
               {model.mttrRows.length > 0 ? (
                 <div className="signal-intel__mttr-list">
