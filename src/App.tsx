@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import OrganizationList from './components/organization/OrganizationList';
 import OrganizationCreate from './components/organization/OrganizationCreate';
 import OrganizationArchiveConfirm from './components/organization/OrganizationArchiveConfirm';
@@ -59,6 +59,7 @@ import { loadSession, saveSession, clearSession } from './utils/session';
 import { LazyView } from './ui';
 import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
+import { globalLoading } from './ui/globalLoading';
 
 export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion';
 
@@ -117,6 +118,7 @@ function AuthenticatedApp() {
   const [userRole, setUserRole] = useState<string | null>(restored.role);
   const [userName, setUserName] = useState<string | null>(restored.userName);
   const { showToast } = useToast();
+  const navigationFinishTimer = useRef<number | null>(null);
 
   useEffect(() => {
     onSessionExpired(() => {
@@ -246,6 +248,13 @@ function AuthenticatedApp() {
   }
 
   const navigate = (v: View, org?: Organization) => {
+    globalLoading.navigationStarted();
+    if (navigationFinishTimer.current !== null) window.clearTimeout(navigationFinishTimer.current);
+    navigationFinishTimer.current = window.setTimeout(() => {
+      globalLoading.navigationFinished();
+      navigationFinishTimer.current = null;
+    }, 0);
+
     // `org ?? null` used to clear the selection on every argument-less
     // navigate() — and the sidebar calls it with `selected ?? undefined`, so
     // any nav click while nothing was selected wiped it. Keeping the current

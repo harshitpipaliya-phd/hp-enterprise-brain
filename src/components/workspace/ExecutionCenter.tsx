@@ -1,110 +1,274 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { CheckCircle2, PlayCircle, RefreshCw, RotateCcw } from 'lucide-react';
+import { decisionIntelligenceApi } from '../../api/intelligence';
 import { esoApi } from '../../api/eso';
-import { useTheme } from '../../hooks/useTheme';
+import { LoadingState, ErrorState, EmptyState } from '../shared/States';
+import { badgeTone, formatDateTime, formatNumber, formatPercent } from './intelligenceShared';
+import './IntelligenceSuite.css';
 
-interface EsoExecution {
-  id: string;
-  esoId: string;
-  decisionId: string | null;
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'rolled_back';
-  executedBy: string;
-  executorType: string;
-  output: Record<string, unknown> | null;
-  error: string | null;
-  createdDate: string;
-}
+type ExecutionOverview = any;
 
-const STATUS_COLOR: Record<string, string> = { queued: 'var(--status-warn)', running: 'var(--chart-1)', completed: 'var(--status-good)', failed: 'var(--status-crit)', rolled_back: 'var(--chart-5)' };
-
-/**
- * Execution Center (EPIC-008). The last named workflow gap — real backend
- * (Sprint 2) had no tenant-wide list endpoint and no UI at all until this
- * pass. Status filter is real (server-side query param).
- */
 export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
-  const theme = useTheme();
-  const [executions, setExecutions] = useState<EsoExecution[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [data, setData] = useState<ExecutionOverview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rollingBack, setRollingBack] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('active');
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (filter = statusFilter, options?: { background?: boolean }) => {
+    const useBackgroundRefresh = Boolean(options?.background) || !!data;
+    if (useBackgroundRefresh && data) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
-      setExecutions(await esoApi.listAll(tenantId, statusFilter || undefined));
+      const overview = await decisionIntelligenceApi.getExecutionOverview(tenantId, 1, 12, filter);
+      setData(overview);
     } catch (e: any) {
-      setError(e.message);
+      setError(e?.message ?? 'Unable to load execution center.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  useEffect(() => { load(); }, [tenantId, statusFilter]);
+  useEffect(() => {
+    load(statusFilter);
+  }, [tenantId, statusFilter]);
 
-  const rollback = async (id: string) => {
-    setRollingBack(id);
-    try {
-      await esoApi.rollback(tenantId, id);
-      await load();
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setRollingBack(null);
-    }
+  const completeExecution = async (id: string) => {
+    await esoApi.transition(tenantId, id, 'completed');
+    await load(statusFilter);
   };
+
+  const rollbackExecution = async (id: string) => {
+    await esoApi.rollback(tenantId, id);
+    await load(statusFilter);
+  };
+
+  if (loading && !data) return <LoadingState label="Loading execution center..." />;
+  if (error && !data) return <ErrorState message={error} />;
+  if (!data) return null;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1000, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h1>Execution Center</h1>
-        <button onClick={load}>Refresh</button>
+    <div className="intel-page intel-execution">
+      <header className="intel-header">
+        <div>
+          <span className="intel-eyebrow"><PlayCircle size={14} /> Operations Control Room</span>
+          <h1>Execution Center</h1>
+          <p>Monitor whether approved decisions become real execution, whether execution stays healthy, and whether outcomes are measured before success is claimed.</p>
+          <div className="intel-meta">
+            <div className="intel-meta-card">
+              <span>Organization</span>
+              <strong>{data.organization?.name || 'Organization'}</strong>
+              <small>Current tenant scope</small>
+            </div>
+            <div className="intel-meta-card">
+              <span>Primary Bottleneck</span>
+              <strong>{data.bottlenecks?.primary?.label || 'Insufficient data'}</strong>
+              <small>{formatNumber(data.bottlenecks?.primary?.count)} affected</small>
+            </div>
+            <div className="intel-meta-card">
+              <span>Refresh</span>
+              <strong><button type="button" onClick={() => load(statusFilter, { background: true })}><RefreshCw size={15} /> Refresh</button></strong>
+              <small>{refreshing ? 'Resyncing live execution state…' : 'Refresh only execution intelligence'}</small>
+            </div>
+          </div>
+        </div>
+
+        <div className="intel-score-card">
+          <span className="intel-subtle">Execution Success Rate</span>
+          <strong>{data.summary?.successRate != null ? `${Math.round(data.summary.successRate * 100)}` : 'NA'}</strong>
+          <p>{data.summary?.outcomeMeasurementRate != null ? `${formatPercent(data.summary.outcomeMeasurementRate)} of completed runs have measured outcomes` : 'Outcome measurement rate is not available yet.'}</p>
+          {refreshing && <div className="intel-refresh-chip" data-variant="execution">Refreshing execution pipeline…</div>}
+        </div>
       </header>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        {['', 'queued', 'running', 'completed', 'failed', 'rolled_back'].map((s) => (
-          <button
-            key={s || 'all'}
-            onClick={() => setStatusFilter(s)}
-            style={{
-              padding: '4px 10px', borderRadius: 6, border: `1px solid ${theme.border}`,
-              backgroundColor: statusFilter === s ? 'var(--chart-1)20' : 'transparent',
-              color: statusFilter === s ? 'var(--chart-1)' : theme.text, fontSize: 12,
-            }}
-          >
-            {s || 'All'}
-          </button>
-        ))}
-      </div>
-
-      {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>{error}</div>}
-      {loading ? (
-        <div>Loading executions...</div>
-      ) : executions.length === 0 ? (
-        <p style={{ color: theme.textMuted }}>
-          {statusFilter ? `No executions with status "${statusFilter}".` : 'No executions yet — these appear once a Decision is approved and an ESO runs.'}
-        </p>
-      ) : (
-        <div style={{ display: 'grid', gap: 8 }}>
-          {executions.map((e) => (
-            <div key={e.id} style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${STATUS_COLOR[e.status]}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span><strong>{e.esoId}</strong> <span style={{ fontSize: 11, color: theme.textMuted }}>via {e.executorType}</span></span>
-                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, backgroundColor: `${STATUS_COLOR[e.status]}20`, color: STATUS_COLOR[e.status] }}>{e.status}</span>
-              </div>
-              {e.error && <div style={{ fontSize: 12, color: 'var(--status-crit)', marginTop: 4 }}>{e.error}</div>}
-              {e.output && <pre style={{ fontSize: 11, marginTop: 4, color: theme.textMuted, whiteSpace: 'pre-wrap' }}>{JSON.stringify(e.output, null, 2)}</pre>}
-              <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 6 }}>{new Date(e.createdDate).toLocaleString()}</div>
-              {e.status === 'completed' && (
-                <button onClick={() => rollback(e.id)} disabled={rollingBack === e.id} style={{ marginTop: 8, fontSize: 11 }}>
-                  {rollingBack === e.id ? 'Rolling back...' : 'Roll Back'}
-                </button>
-              )}
+      <section className="intel-section">
+        <div className="intel-execution-pipeline">
+          {data.pipeline?.map((stage: any) => (
+            <div key={stage.label} className="intel-status-card" data-tone={badgeTone(stage.label === 'Completed' ? 'completed' : stage.label === 'Running' ? 'running' : 'pending')}>
+              <span className="intel-kpi-label">{stage.label}</span>
+              <strong className="intel-number">{formatNumber(stage.count)}</strong>
             </div>
           ))}
         </div>
-      )}
+      </section>
+
+      <section className="intel-section">
+        <div className="intel-section-head">
+          <div>
+            <span className="intel-eyebrow">Execution Health</span>
+            <h2>Operational indicators</h2>
+          </div>
+        </div>
+        <div className="intel-stat-grid">
+          {[
+            ['Approved Decisions', data.summary?.approvedDecisions],
+            ['Queued', data.summary?.queuedExecutions],
+            ['Running', data.summary?.runningExecutions],
+            ['Completed', data.summary?.completedExecutions],
+            ['Failed', data.summary?.failedExecutions],
+            ['Rolled Back', data.summary?.rolledBackExecutions],
+            ['Average Execution Time', data.summary?.averageExecutionHours != null ? `${data.summary.averageExecutionHours}h` : 'Insufficient data'],
+            ['Outcome Measurement', data.summary?.outcomeMeasurementRate != null ? formatPercent(data.summary.outcomeMeasurementRate) : 'Insufficient data'],
+          ].map(([label, value]) => (
+            <article key={String(label)} className="intel-kpi" data-tone={badgeTone(String(label).includes('Failed') ? 'failed' : String(label).includes('Completed') ? 'completed' : 'running')}>
+              <span className="intel-kpi-label">{label}</span>
+              <div className="intel-kpi-value">{typeof value === 'number' ? formatNumber(value) : value}</div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="intel-section intel-execution-layout">
+        <div className="intel-panel">
+          <div className="intel-section-head">
+            <div>
+              <span className="intel-eyebrow">Active Executions</span>
+              <h2>Monitoring table</h2>
+            </div>
+            <div className="intel-inline-list">
+              {['active', 'all', 'running', 'blocked', 'completed'].map((filter) => (
+                <button key={filter} type="button" className={statusFilter === filter ? 'is-active-filter' : ''} onClick={() => setStatusFilter(filter)}>
+                  {filter}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="intel-table-wrap">
+            <table className="intel-table">
+              <thead>
+                <tr>
+                  <th>Execution</th>
+                  <th>Decision</th>
+                  <th>Owner</th>
+                  <th>Department</th>
+                  <th>Status</th>
+                  <th>Progress</th>
+                  <th>Started</th>
+                  <th>Duration</th>
+                  <th>Risk</th>
+                  <th>Outcome</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.activeExecutions?.items?.length ? data.activeExecutions.items.map((row: any) => (
+                  <tr key={row.id}>
+                    <td>{row.execution}</td>
+                    <td>{row.decision}</td>
+                    <td>{row.owner || 'Insufficient data'}</td>
+                    <td>{row.department || 'Insufficient data'}</td>
+                    <td><span className="intel-pill" data-tone={badgeTone(row.status)}>{row.status}</span></td>
+                    <td>{row.progress != null ? formatPercent(row.progress) : 'Insufficient data'}</td>
+                    <td>{formatDateTime(row.started)}</td>
+                    <td>{row.durationDays != null ? `${row.durationDays} days` : 'Insufficient data'}</td>
+                    <td><span className="intel-mini-badge" data-tone={badgeTone(row.risk)}>{row.risk}</span></td>
+                    <td>{row.outcomeStatus || 'Outcome not measured'}</td>
+                    <td>
+                      <div className="intel-inline-actions">
+                        {row.status === 'running' && <button type="button" onClick={() => completeExecution(row.id)}><CheckCircle2 size={14} /> Complete</button>}
+                        {['running', 'failed', 'blocked'].includes(String(row.status)) && <button type="button" onClick={() => rollbackExecution(row.id)}><RotateCcw size={14} /> Rollback</button>}
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={11}>No executions match the current filter.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="intel-execution-sidebar">
+          <div className="intel-panel">
+            <div className="intel-section-head">
+              <div>
+                <span className="intel-eyebrow">Bottlenecks</span>
+                <h2>Where execution is breaking</h2>
+              </div>
+            </div>
+            <div className="intel-summary-list">
+              {data.bottlenecks?.items?.map((item: any) => (
+                <article key={item.key} className="intel-summary-item">
+                  <div className="intel-inline-list">
+                    <strong>{item.label}</strong>
+                    <span className="intel-pill" data-tone={badgeTone(item.count > 0 ? 'high' : 'completed')}>{formatNumber(item.count)}</span>
+                  </div>
+                  <p>{item.detail}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="intel-panel">
+            <div className="intel-section-head">
+              <div>
+                <span className="intel-eyebrow">Predicted vs Realized</span>
+                <h2>Outcome comparison</h2>
+              </div>
+            </div>
+            {data.predictedVsRealized?.items?.length ? (
+              <div className="intel-summary-list">
+                {data.predictedVsRealized.items.map((item: any) => (
+                  <article key={item.executionId} className="intel-summary-item">
+                    <strong>{item.label}</strong>
+                    <p>Predicted {formatNumber(item.predicted)} vs realized {formatNumber(item.realized)}</p>
+                    <small>{item.variance >= 0 ? 'Over-performance' : 'Under-performance'} {formatNumber(Math.abs(item.variance))}</small>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon="○" message="No comparable predicted and realized outcome metrics are available." />
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="intel-section intel-execution-layout">
+        <div className="intel-panel">
+          <div className="intel-section-head">
+            <div>
+              <span className="intel-eyebrow">Decision to Outcome Funnel</span>
+              <h2>Conversion chain</h2>
+            </div>
+          </div>
+          <div className="intel-funnel">
+            {data.funnel?.map((step: any) => (
+              <div key={step.label} className="intel-funnel-step">
+                <strong>{formatNumber(step.count)}</strong>
+                <span>{step.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="intel-panel">
+          <div className="intel-section-head">
+            <div>
+              <span className="intel-eyebrow">Outcome & Learning Loop</span>
+              <h2>Measured results</h2>
+            </div>
+          </div>
+          <div className="intel-summary-list">
+            {data.outcomeLoop?.length ? data.outcomeLoop.map((item: any) => (
+              <article key={item.executionId} className="intel-summary-item">
+                <div className="intel-inline-list">
+                  <strong>{item.executionId}</strong>
+                  <span className="intel-pill" data-tone={badgeTone(item.outcome)}>{item.outcome}</span>
+                </div>
+                <p>{item.targetVsActual ? JSON.stringify(item.targetVsActual) : 'Outcome not measured'}</p>
+                <small>{formatNumber(item.learningCount)} learning record(s), {formatNumber(item.reusableLearningCount)} reusable</small>
+              </article>
+            )) : <EmptyState icon="○" message="No completed execution outcomes are available yet." />}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
