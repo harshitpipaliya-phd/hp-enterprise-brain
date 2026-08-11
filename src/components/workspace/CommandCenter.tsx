@@ -124,7 +124,17 @@ export default function CommandCenter({ tenantId, organizationName, organization
       ]);
 
       setSummary({
-        intelligenceScore: { score: 0, ...(summaryRes?.intelligenceScore ?? {}) },
+        // score defaults to NULL, not 0. The endpoint returns null when not one
+        // component of the composite had a denominator, and a default of 0 turned
+        // that into a measured "0 / 100" — the strongest possible negative claim
+        // about an organization nobody had measured yet.
+        intelligenceScore: {
+          score: null,
+          measuredComponents: 0,
+          unmeasuredComponents: 0,
+          basis: null,
+          ...(summaryRes?.intelligenceScore ?? {}),
+        },
         pendingRecommendations: asArray(summaryRes?.pendingRecommendations),
         openDecisionsCount: Number(summaryRes?.openDecisionsCount ?? 0),
         topRisks: asArray(summaryRes?.topRisks),
@@ -234,8 +244,14 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const configuredProviders = providers.filter((p) => p.available).length;
   const providerTotal = providers.length;
   const qualityAlerts = missingEvidence + duplicates;
-  const score = Number(summary.intelligenceScore.score ?? 0);
-  const health = healthOf(score);
+  // null stays null all the way to the ring, which renders unmeasured rather than
+  // empty. `Number(null)` is 0, so coalescing here would reintroduce the fabrication
+  // one line below where it was removed.
+  const rawScore = summary.intelligenceScore.score;
+  const score = rawScore === null || rawScore === undefined ? null : Number(rawScore);
+  const health: Health = score === null ? 'warn' : healthOf(score);
+  const scoreBasis = summary.intelligenceScore.basis
+    ?? 'Mean of the components that have a denominator; components with none are excluded, never scored zero.';
   const pendingCount = summary.pendingRecommendations.length;
   const riskCount = summary.topRisks.length;
   const openDecisions = Number(summary.openDecisionsCount ?? 0);
@@ -390,16 +406,34 @@ export default function CommandCenter({ tenantId, organizationName, organization
         <div className="cc-score" role="group" aria-label="Organizational intelligence score">
           <div
             className="cc-score__ring"
-            data-health={health}
-            style={{ ['--score-fill' as any]: Math.max(0, Math.min(100, score)) }}
+            data-health={score === null ? 'warn' : health}
+            style={{ ['--score-fill' as any]: score === null ? 0 : Math.max(0, Math.min(100, score)) }}
+            title={scoreBasis}
           >
-            <span>{formatNumber(score)}</span>
-            <small>/ 100</small>
+            {score === null ? (
+              <span style={{ fontSize: 13, fontStyle: 'italic' }}>unmeasured</span>
+            ) : (
+              <>
+                <span>{formatNumber(score)}</span>
+                <small>/ 100</small>
+              </>
+            )}
           </div>
           <div className="cc-score__meta">
             <span>Intelligence Score</span>
             <strong>{systemStatus.summary}</strong>
-            <em className={`eb-badge eb-badge-${badgeOf(health)}`}>{labelOf(health)}</em>
+            {score === null ? (
+              <em className="eb-badge eb-badge-warning">undetermined</em>
+            ) : (
+              <em className={`eb-badge eb-badge-${badgeOf(health)}`}>{labelOf(health)}</em>
+            )}
+            {summary.intelligenceScore.unmeasuredComponents > 0 && (
+              <small style={{ fontSize: 10, color: 'var(--content-tertiary)', display: 'block', marginTop: 2 }}>
+                {summary.intelligenceScore.unmeasuredComponents} of{' '}
+                {summary.intelligenceScore.unmeasuredComponents + summary.intelligenceScore.measuredComponents}{' '}
+                components unmeasurable
+              </small>
+            )}
           </div>
         </div>
       </header>

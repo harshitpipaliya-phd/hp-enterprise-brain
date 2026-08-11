@@ -14,16 +14,18 @@ import AgentMonitor from './components/workspace/AgentMonitor';
 import EvidenceWorkspace from './components/workspace/EvidenceWorkspace';
 import ConversationWorkspace from './components/workspace/ConversationWorkspace';
 /*
-  DecisionIntelligence is the ONLY component in the app that imports recharts,
-  and recharts plus its exclusive dependencies (es-toolkit, decimal.js-light,
-  @reduxjs/toolkit, immer, six d3-* packages) measured ~999 kB — about 64% of
-  the entire bundle. Every user paid that download to reach the login screen,
-  whatever they went on to open.
+  Kept lazy, but no longer for the original reason — which was that this was the
+  only screen importing recharts, and recharts plus its exclusive dependencies
+  measured ~999 kB that every user downloaded to reach the login screen.
 
-  Loading it on demand is one import changed. Deliberately NOT applied to the
-  other 23 workspace screens in this phase: this one has an order-of-magnitude
-  payoff and no shared-chunk complications, the rest are ~180 kB combined and
-  can be batched later.
+  Decision Intelligence now draws on the hand-built SVG charts in ui/charts.tsx,
+  so its chunk is ~15 kB and recharts is no longer in its dependency graph. (It
+  is still in the bundle: SignalDashboard, EvidenceWorkspace and DepartmentList
+  import it, and moving those is a separate piece of work.)
+
+  The split stays because it still defers the whole intelligence surface —
+  screen, chart kit and shared primitives — off the login path, and because
+  removing it would be a change with no upside.
 */
 const DECISION_INTELLIGENCE = () => import('./components/workspace/DecisionIntelligence');
 import TaskMonitor from './components/workspace/TaskMonitor';
@@ -475,8 +477,11 @@ function AuthenticatedApp() {
             {view === 'memory' && selected && (
               <MemoryScreen tenantId={selected.tenantId} />
             )}
+            {/* Now takes a tenant: the catalogue it renders is per-organization,
+                where before it rendered the same two hardcoded definitions for
+                everyone. */}
             {view === 'esolibrary' && selected && (
-              <EsoLibraryScreen />
+              <EsoLibraryScreen tenantId={selected.tenantId} />
             )}
             {view === 'kasbaexplorer' && selected && (
               <KasbaExplorer tenantId={selected.tenantId} />
