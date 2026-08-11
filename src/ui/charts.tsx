@@ -490,7 +490,7 @@ export function Radar({ dimensions, max = 5, width = 280, height = 280, label }:
 
 /* ─────────────────────────── quadrant ─────────────────────────── */
 
-export interface QuadrantPoint { key: string; x: number; y: number; r?: number; hot?: boolean }
+export interface QuadrantPoint { key: string; x: number; y: number; r?: number; hot?: boolean; onClick?: () => void }
 
 /**
  * Two dimensions with the interesting corner NAMED.
@@ -523,7 +523,20 @@ export function Quadrant({
           fill={q.hot ? T.conseq : T.text3}>{q.text}</Text>
       ))}
       {points.map((p) => (
-        <g key={p.key}>
+        <g
+          key={p.key}
+          onClick={p.onClick}
+          onKeyDown={(e) => {
+            if (!p.onClick) return
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              p.onClick()
+            }
+          }}
+          tabIndex={p.onClick ? 0 : undefined}
+          role={p.onClick ? 'button' : undefined}
+          style={p.onClick ? { cursor: 'pointer' } : undefined}
+        >
           <circle cx={X(p.x)} cy={Y(p.y)} r={p.r ?? 6} fill={p.hot ? T.conseq : T.data} fillOpacity={0.6}
             stroke={p.hot ? T.conseq : T.data} />
           <Text x={X(p.x) + (p.r ?? 6) + 5} y={Y(p.y) + 3.5} size={10} fill={T.text} weight={600}>{p.key}</Text>
@@ -760,5 +773,222 @@ export function NullLegend({ what = 'never measured' }: { what?: string }) {
         below requirement
       </span>
     </div>
+  )
+}
+
+/* ─────────────────────────── risk matrix ─────────────────────────── */
+
+export interface RiskCell {
+  /** 1-5 bands. Risks with either axis unmeasured are not placed at all. */
+  likelihood: number
+  impact: number
+  count: number
+  maxSeverity: number | null
+  risks: { id: string; title: string; severity: number | null }[]
+}
+
+/**
+ * Likelihood against impact, on the 5x5 grid a risk register is read on.
+ *
+ * WHY THIS IS NOT `Heatmap`. Heatmap answers "how good is each capability in each
+ * unit" — a value per cell, one sequential hue, plus a deficit column. This answers
+ * "how many risks sit at each combination of likelihood and impact", where the
+ * cell's POSITION carries the meaning and its contents are a population. Forcing one
+ * component to do both would mean a scaleMax that means two different things.
+ *
+ * THE BACKGROUND IS THE JUDGEMENT; THE BUBBLES ARE THE DATA. Cell tint comes from
+ * likelihood x impact — the standard register shading, and the one place red is used
+ * here — so a reader sees which corner is dangerous before reading a single bubble.
+ * Bubble AREA scales with the number of risks in the cell, not its radius: scaling
+ * the radius would make three risks look nine times worse than one.
+ *
+ * EMPTY IS NOT THE SAME AS UNPLACEABLE, and both are shown. A grid with nothing in
+ * the top-right is good news. A grid missing four risks because their likelihood was
+ * never measured is not — so `unplaceable` renders as a note rather than being
+ * silently dropped. A matrix that omits rows without saying so is worse than one
+ * with a visible gap.
+ */
+export function RiskMatrix({
+  cells, unplaceable = 0, hotLabel = 'likely and consequential',
+  width = 420, cell = 62, label,
+}: {
+  cells: RiskCell[]
+  unplaceable?: number
+  hotLabel?: string
+  width?: number
+  cell?: number
+  label?: string
+}) {
+  const id = React.useMemo(nextId, [])
+  const PL = 34, PB = 30, PT = 18
+
+  const grid = cell * 5
+  const height = PT + grid + PB
+  const totalWidth = Math.max(width, PL + grid + 12)
+
+  const byKey = new Map<string, RiskCell>()
+  for (const c of cells) byKey.set(`${c.likelihood}:${c.impact}`, c)
+
+  const maxCount = cells.reduce((m, c) => Math.max(m, c.count), 0)
+  const bands = [1, 2, 3, 4, 5]
+
+  return (
+    <>
+      <Frame width={totalWidth} height={height} label={label ?? 'Risk likelihood against impact'}>
+        <Defs id={id} />
+
+        {bands.map((impact) =>
+          bands.map((likelihood) => {
+            const x = PL + (likelihood - 1) * cell
+            // Impact rises up the axis, so band 5 is the top row.
+            const y = PT + (5 - impact) * cell
+            const heat = (likelihood * impact) / 25
+
+            return (
+              <rect
+                key={`c${likelihood}:${impact}`}
+                x={x} y={y} width={cell - 2} height={cell - 2}
+                fill={heat >= 0.48 ? T.conseq : T.data}
+                opacity={heat >= 0.48 ? 0.05 + heat * 0.16 : 0.04 + heat * 0.08}
+                stroke={T.ruleSoft}
+              />
+            )
+          }),
+        )}
+
+        {bands.map((impact) =>
+          bands.map((likelihood) => {
+            const found = byKey.get(`${likelihood}:${impact}`)
+            if (!found || found.count === 0) return null
+
+            const x = PL + (likelihood - 1) * cell + (cell - 2) / 2
+            const y = PT + (5 - impact) * cell + (cell - 2) / 2
+            const r = 9 + Math.sqrt(found.count / Math.max(1, maxCount)) * 12
+            const hot = likelihood * impact >= 12
+
+            return (
+              <g key={`b${likelihood}:${impact}`}>
+                <title>
+                  {`${found.count} risk${found.count === 1 ? '' : 's'} · likelihood ${likelihood}/5 · impact ${impact}/5`}
+                  {found.maxSeverity == null ? '' : ` · worst severity ${found.maxSeverity.toFixed(2)}`}
+                  {`\n${found.risks.map((risk) => `• ${risk.title}`).join('\n')}`}
+                </title>
+                <circle
+                  cx={x} cy={y} r={r}
+                  fill={hot ? T.conseq : T.data} fillOpacity={0.55}
+                  stroke={hot ? T.conseq : T.data} strokeWidth={1.5}
+                />
+                <Text x={x} y={y + 4} size={12} weight={800} anchor="middle" fill="var(--surface-deep)">
+                  {found.count}
+                </Text>
+              </g>
+            )
+          }),
+        )}
+
+        {bands.map((likelihood) => (
+          <Text key={`lx${likelihood}`} x={PL + (likelihood - 1) * cell + (cell - 2) / 2} y={PT + grid + 15}
+            size={10} fill={T.text3} weight={700} anchor="middle" mono>
+            {likelihood}
+          </Text>
+        ))}
+        {bands.map((impact) => (
+          <Text key={`iy${impact}`} x={PL - 10} y={PT + (5 - impact) * cell + (cell - 2) / 2 + 4}
+            size={10} fill={T.text3} weight={700} anchor="end" mono>
+            {impact}
+          </Text>
+        ))}
+
+        <Text x={PL + grid} y={12} size={9} weight={800} anchor="end" fill={T.conseq}>
+          {hotLabel.toUpperCase()}
+        </Text>
+        <Text x={PL + grid / 2} y={height - 6} size={10} fill={T.text3} weight={700} anchor="middle">
+          LIKELIHOOD →
+        </Text>
+        <text x={11} y={PT + grid / 2} fontSize={10} fill={T.text3} fontWeight={700} textAnchor="middle"
+          transform={`rotate(-90 11 ${PT + grid / 2})`}>
+          IMPACT →
+        </text>
+      </Frame>
+
+      {unplaceable > 0 && (
+        <p className="bc-note bc-note--warn">
+          {unplaceable} risk{unplaceable === 1 ? ' is' : 's are'} not plotted: either likelihood or impact
+          could not be measured for {unplaceable === 1 ? 'it' : 'them'}. They stay in the register below rather
+          than being placed at the origin.
+        </p>
+      )}
+    </>
+  )
+}
+
+/* ─────────────────────────── scored findings ─────────────────────────── */
+
+/**
+ * A ranked list of scored findings, where the score is bounded 0-max.
+ *
+ * Exists because `HBars` normalises to the largest value in the set, which is right
+ * for counts and wrong for a bounded score: it would draw a worst-in-set severity of
+ * 0.9 as a full-width bar. Here the axis IS the scale, so a register whose worst
+ * finding is mild looks mild. A null score is hatched rather than drawn at zero.
+ */
+export function ScoreBars({
+  rows, max = 5, width = 460, rowHeight = 26, labelWidth = 210, label, hotFrom = 3.5,
+}: {
+  rows: { key: string; value: number | null }[]
+  max?: number
+  width?: number
+  rowHeight?: number
+  labelWidth?: number
+  label?: string
+  /** At or above this, the bar is drawn as a consequence rather than a measurement. */
+  hotFrom?: number
+}) {
+  const id = React.useMemo(nextId, [])
+  const barMax = width - labelWidth - 46
+  const height = rows.length * rowHeight + 26
+
+  if (rows.length === 0) return null
+
+  return (
+    <Frame width={width} height={height} label={label ?? 'Findings by severity'}>
+      <Defs id={id} />
+      <Text x={0} y={11} size={9} fill={T.text3} weight={800}>{`SEVERITY · 0 TO ${max}`}</Text>
+
+      {rows.map((row, i) => {
+        const y = 20 + i * rowHeight
+        const hot = row.value !== null && row.value >= hotFrom
+
+        return (
+          <g key={row.key}>
+            <title>{row.key}</title>
+            <Text x={0} y={y + 15} size={11.5} fill={T.text} weight={600}>
+              {row.key.length > 34 ? `${row.key.slice(0, 33)}…` : row.key}
+            </Text>
+
+            {row.value === null ? (
+              <>
+                <rect x={labelWidth} y={y + 4} width={barMax} height={rowHeight - 12}
+                  fill={`url(#${id}-hatch)`} opacity={0.45} stroke={T.ruleSoft} />
+                <Text x={labelWidth + barMax + 6} y={y + 15} size={10} fill={T.none} weight={600}>
+                  not scored
+                </Text>
+              </>
+            ) : (
+              <>
+                <rect x={labelWidth} y={y + 4} width={barMax} height={rowHeight - 12}
+                  fill="var(--surface-inset)" />
+                <rect x={labelWidth} y={y + 4} width={Math.max(2, (row.value / max) * barMax)} height={rowHeight - 12}
+                  fill={hot ? T.conseq : T.data} opacity={hot ? 0.75 : 0.62} />
+                <Text x={labelWidth + barMax + 6} y={y + 15} size={11} weight={800} mono
+                  fill={hot ? T.conseq : T.text}>
+                  {row.value.toFixed(2)}
+                </Text>
+              </>
+            )}
+          </g>
+        )
+      })}
+    </Frame>
   )
 }
