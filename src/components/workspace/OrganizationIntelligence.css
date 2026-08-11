@@ -1,0 +1,462 @@
+/**
+ * Organization intelligence screens.
+ *
+ * Extends ui/layers.css rather than replacing it: the three-layer strip, panels,
+ * chips, metrics and empty states all come from there, and these are the pieces
+ * those screens need that no other screen does — a domain table, a recommendation
+ * card, a maturity ladder, a provenance disclosure.
+ *
+ * SEMANTIC TOKENS ONLY. No literal colour appears below, so both themes work and
+ * neither is hardcoded. Red is reserved for consequence, exactly as in charts.tsx:
+ * a fragile domain and an unowned critical gap earn it; a low count does not.
+ */
+
+/* ─────────────────────────── page shell ─────────────────────────── */
+
+.oi-page {
+  padding: 20px 24px 56px;
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.oi-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.oi-head__text { min-width: 260px; flex: 1 1 320px; }
+
+.oi-eyebrow {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+  margin: 0 0 4px;
+}
+
+.oi-head h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--content-primary);
+}
+
+.oi-question {
+  margin: 0;
+  font-size: 14px;
+  color: var(--content-secondary);
+  max-width: 68ch;
+}
+
+.oi-head__aside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+/* The data fingerprint. Deliberately quiet and always present: it is how a reader
+   confirms two panels describe the same state of the organization. */
+.oi-stamp {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  color: var(--content-tertiary);
+  text-align: right;
+  line-height: 1.5;
+}
+
+.oi-sections { display: grid; gap: 18px; }
+
+/* ─────────────────────────── notes under charts ─────────────────────────── */
+
+.bc-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--content-tertiary);
+}
+
+.bc-note--warn { color: var(--feedback-warning-content); }
+
+/* ─────────────────────────── tables ─────────────────────────── */
+
+.oi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.oi-table th {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-default);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--content-tertiary);
+  white-space: nowrap;
+}
+
+.oi-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--content-secondary);
+  vertical-align: top;
+}
+
+.oi-table tbody tr:last-child td { border-bottom: 0; }
+.oi-table tbody tr:hover td { background: var(--surface-hover); }
+
+.oi-table__name { color: var(--content-primary); font-weight: 600; }
+.oi-table__num {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.oi-table__sub { display: block; font-size: 11px; color: var(--content-tertiary); margin-top: 2px; }
+
+/* A row whose subject the organization does not know well. The tint is the finding. */
+.oi-table tr.is-fragile td { background: var(--feedback-error-surface); }
+.oi-table tr.is-fragile .oi-table__name { color: var(--feedback-error-content); }
+
+/* ─────────────────────────── inline confidence bar ─────────────────────────── */
+
+.oi-conf { display: flex; align-items: center; gap: 7px; }
+
+.oi-conf__bar {
+  position: relative;
+  width: 46px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-inset);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.oi-conf__bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--feedback-info-solid);
+  border-radius: 3px;
+}
+
+.oi-conf__bar--low i { background: var(--feedback-error-solid); }
+
+.oi-conf__val {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+  color: var(--content-primary);
+  font-weight: 700;
+}
+
+/* Undetermined. Never a bar at the far left — that reads as a measured zero. */
+.oi-conf__none {
+  font-size: 11px;
+  color: var(--content-tertiary);
+  font-style: italic;
+}
+
+/* ─────────────────────────── maturity ladder ─────────────────────────── */
+
+.oi-dims { display: grid; gap: 2px; }
+
+.oi-dim {
+  display: grid;
+  grid-template-columns: 148px 1fr 92px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  width: 100%;
+  background: none;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.oi-dim:last-of-type { border-bottom: 0; }
+.oi-dim:hover { background: var(--surface-hover); }
+
+.oi-dim__label { min-width: 0; }
+.oi-dim__name { display: block; font-size: 12.5px; font-weight: 600; color: var(--content-primary); }
+.oi-dim__move {
+  display: block;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+  margin-top: 2px;
+}
+
+.oi-dim__track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-inset);
+  overflow: hidden;
+}
+
+.oi-dim__fill { position: absolute; inset: 0 auto 0 0; background: var(--feedback-info-solid); opacity: 0.75; }
+.oi-dim__fill--weak { background: var(--feedback-error-solid); opacity: 0.7; }
+.oi-dim__fill--strong { background: var(--feedback-success-solid); opacity: 0.7; }
+
+/* A dimension with no measurable input. Hatched, never filled: the whole point is
+   that this is not a low score. */
+.oi-dim__track--none {
+  background: repeating-linear-gradient(45deg,
+    var(--content-tertiary) 0 2px, transparent 2px 6px);
+  opacity: 0.5;
+}
+
+.oi-dim__score {
+  text-align: right;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--content-primary);
+}
+
+.oi-dim__score small {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+  margin-top: 2px;
+}
+
+.oi-dim__score--none { color: var(--content-tertiary); font-style: italic; font-size: 10.5px; }
+
+/* The expanded factor list — what the score is made of. */
+.oi-factors {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  background: var(--surface-inset);
+  border-radius: var(--radius-sm, 6px);
+  display: grid;
+  gap: 7px;
+}
+
+.oi-factor { display: grid; grid-template-columns: 120px 52px 1fr; gap: 10px; align-items: baseline; font-size: 11.5px; }
+.oi-factor__key { font-family: var(--font-mono, ui-monospace, monospace); font-size: 10.5px; color: var(--content-primary); font-weight: 700; }
+.oi-factor__val { font-family: var(--font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; color: var(--content-secondary); }
+.oi-factor__val--none { color: var(--feedback-warning-content); font-style: italic; }
+.oi-factor__basis { color: var(--content-tertiary); line-height: 1.5; }
+
+/* ─────────────────────────── recommendation cards ─────────────────────────── */
+
+.oi-recs { display: grid; gap: 12px; }
+
+.oi-rec {
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-default);
+  border-radius: var(--radius-md, 10px);
+  background: var(--surface-card);
+  padding: 14px 16px;
+}
+
+.oi-rec--critical { border-left-color: var(--feedback-error-solid); }
+.oi-rec--high { border-left-color: var(--feedback-warning-solid); }
+.oi-rec--medium { border-left-color: var(--feedback-info-solid); }
+.oi-rec--low { border-left-color: var(--border-strong); }
+
+.oi-rec__top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+
+.oi-rec__rank {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--content-tertiary);
+  flex: 0 0 auto;
+}
+
+.oi-rec__title { margin: 0; font-size: 14px; font-weight: 700; color: var(--content-primary); flex: 1 1 240px; letter-spacing: -0.01em; }
+
+.oi-rec__why { margin: 0 0 10px; font-size: 12.5px; line-height: 1.55; color: var(--content-secondary); }
+
+.oi-rec__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 10px; }
+
+.oi-block {
+  background: var(--surface-inset);
+  border-radius: var(--radius-sm, 6px);
+  padding: 9px 11px;
+}
+
+.oi-block__label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+  font-weight: 700;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.oi-block__body { font-size: 11.5px; line-height: 1.55; color: var(--content-secondary); }
+.oi-block__body strong { color: var(--content-primary); }
+
+/* How well a benefit claim is supported. Always rendered — a benefit without its
+   label is a promise. */
+.oi-label {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 800;
+  border: 1px solid var(--border-subtle);
+  text-transform: uppercase;
+}
+
+.oi-label--observed { background: var(--feedback-success-surface); color: var(--feedback-success-content); border-color: var(--feedback-success-border); }
+.oi-label--estimated { background: var(--feedback-info-surface); color: var(--feedback-info-content); border-color: var(--feedback-info-border); }
+.oi-label--projected { background: var(--feedback-warning-surface); color: var(--feedback-warning-content); border-color: var(--feedback-warning-border); }
+.oi-label--unknown { background: var(--surface-inset); color: var(--content-tertiary); }
+
+.oi-rec__next {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--content-primary);
+  padding: 9px 11px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--feedback-info-surface);
+  border: 1px solid var(--feedback-info-border);
+}
+
+.oi-rec__next b {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 3px;
+  color: var(--feedback-info-content);
+}
+
+.oi-rec__dep {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--feedback-warning-content);
+}
+
+/* ─────────────────────────── chips ─────────────────────────── */
+
+.oi-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+.oi-chip {
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
+  color: var(--content-secondary);
+  white-space: nowrap;
+}
+
+.oi-chip--mono { font-family: var(--font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+.oi-chip--crit { background: var(--feedback-error-surface); color: var(--feedback-error-content); border-color: var(--feedback-error-border); font-weight: 700; }
+.oi-chip--warn { background: var(--feedback-warning-surface); color: var(--feedback-warning-content); border-color: var(--feedback-warning-border); font-weight: 700; }
+.oi-chip--ok { background: var(--feedback-success-surface); color: var(--feedback-success-content); border-color: var(--feedback-success-border); font-weight: 700; }
+.oi-chip--info { background: var(--feedback-info-surface); color: var(--feedback-info-content); border-color: var(--feedback-info-border); }
+
+/* ─────────────────────────── provenance disclosure ─────────────────────────── */
+
+.oi-prov { margin-top: 10px; }
+
+.oi-prov > summary {
+  cursor: pointer;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+  font-weight: 700;
+  list-style: none;
+}
+
+.oi-prov > summary::-webkit-details-marker { display: none; }
+.oi-prov > summary::before { content: '▸ '; }
+.oi-prov[open] > summary::before { content: '▾ '; }
+.oi-prov > summary:hover { color: var(--content-primary); }
+
+.oi-prov__body {
+  margin-top: 7px;
+  padding: 9px 11px;
+  background: var(--surface-inset);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--content-secondary);
+}
+
+.oi-prov__body code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  color: var(--content-primary);
+  word-break: break-word;
+}
+
+.oi-prov__src { display: block; margin-top: 4px; }
+
+/* ─────────────────────────── findings list ─────────────────────────── */
+
+.oi-findings { display: grid; gap: 9px; }
+
+.oi-finding {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  padding: 10px 12px;
+  background: var(--surface-card);
+}
+
+.oi-finding__top { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.oi-finding__title { margin: 0; font-size: 12.5px; font-weight: 700; color: var(--content-primary); flex: 1 1 220px; }
+.oi-finding__detail { margin: 6px 0 0; font-size: 11.5px; line-height: 1.55; color: var(--content-secondary); }
+.oi-finding__meta { margin-top: 8px; }
+
+/* ─────────────────────────── derivation footer ─────────────────────────── */
+
+.oi-derivation {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md, 10px);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--content-tertiary);
+  display: grid;
+  gap: 4px;
+}
+
+.oi-derivation b { color: var(--content-secondary); }
+
+/* ─────────────────────────── responsive ─────────────────────────── */
+
+@media (max-width: 900px) {
+  .oi-page { padding: 16px 14px 48px; }
+  .oi-head h1 { font-size: 22px; }
+  .oi-head__aside { margin-left: 0; }
+  .oi-stamp { text-align: left; }
+  .oi-dim { grid-template-columns: 110px 1fr 76px; gap: 8px; }
+  .oi-factor { grid-template-columns: 1fr; gap: 2px; }
+}

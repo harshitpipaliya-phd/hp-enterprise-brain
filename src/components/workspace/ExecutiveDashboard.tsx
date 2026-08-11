@@ -1,169 +1,387 @@
-import { useState, useEffect } from 'react';
-import { decisionIntelligenceApi } from '../../api/intelligence';
-import { reasoningEngineApi } from '../../api/reasoning-engine';
-import { useTheme } from '../../hooks/useTheme';
-
-interface ExecutiveSummary {
-  statistics: {
-    decisions: { total: number; approved: number; rejected: number; acceptanceRate: number };
-    recommendations: { total: number; byCategory: Record<string, number> };
-    outcomes: { total: number; successful: number; recommendationAccuracy: number };
-    risks: { total: number; open: number; byCategory: Record<string, number>; averageScore: number };
-    evidenceQuality: number;
-  };
-  topRisks: Array<{ id: string; category: string; score: number; impact: string }>;
-  organizationalKnowledge: Array<{ domain: string; confidence: number; reinforcementCount: number; patternCount: number }>;
-  pendingRecommendations: Array<{ id: string; title: string; category: string; confidence: number; priority: string }>;
-  openDecisionsCount: number;
-  intelligenceScore: { score: number; breakdown: Record<string, number> };
-}
-
-const CATEGORY_COLOR: Record<string, string> = { risk: 'var(--status-crit)', opportunity: 'var(--chart-1)', watch: 'var(--status-warn)', compliance: 'var(--chart-5)' };
+import { useCallback, useEffect, useState } from 'react';
+import { organizationIntelligenceApi } from '../../api/organizationIntelligence';
+import type { OrganizationalState, RecommendationsResponse, GapsResponse } from '../../api/organizationIntelligence';
+import {
+  LayerStrip, StateLayer, MovementLayer, ConsequenceLayer, LayerFigure, LayerPoints,
+  ConsequenceEmpty, Panel, Radar, Sparkline, Button, Spinner, ErrorState, Tabs,
+} from '../../ui';
+import {
+  DimensionLadder, RecommendationCard, GapRow, IntelligenceHeader, DerivationFooter,
+  pct, num, count,
+} from './intelligenceUi';
+import './OrganizationIntelligence.css';
 
 /**
- * Executive Dashboard (Sprint 10, scoped). Answers the questions an
- * executive actually asks in one screen using the executive-summary
- * endpoint that has existed since Sprint 5. No KPI Builder, no Dashboard
- * Builder, no drag-and-drop widgets, no PDF/Excel export — those are
- * separate products, not this screen.
+ * Executive Dashboard — "Where is this organization, and what should it do next?"
+ *
+ * WHAT WAS WRONG WITH THE PREVIOUS VERSION, precisely. It rendered
+ * `Math.round(statistics.outcomes.recommendationAccuracy * 100)%` as a KPI. That
+ * figure is successes divided by outcomes, and this organization has recorded no
+ * outcomes, so the endpoint returned 0.0 and the tile displayed a confident
+ * "Recommendation Accuracy: 0%". A leader reading it would conclude that every
+ * recommendation the Brain had ever made was wrong. The same applied to
+ * "Avg Risk Score: 0" over an empty risk register, and to an Organizational
+ * Intelligence Score that averaged those zeros into a single number nobody could
+ * decompose. Three fabrications, all of them arithmetic on empty sets.
+ *
+ * The replacement measures the eight stages of the Organizational Intelligence Loop,
+ * scores only the ones with a measurable input, and reports the rest as undetermined
+ * with the blocking reason named. The composite carries how much of its intended
+ * weight was actually available.
+ *
+ * AND IT ENDS IN ACTIONS, which is the part a leader is here for. Prioritised
+ * recommendations, each derived from a specific detected gap or risk, each carrying
+ * its evidence, its confidence, a labelled benefit and one next action.
  */
 export default function ExecutiveDashboard({ tenantId }: { tenantId: string }) {
-  const theme = useTheme();
-  const [data, setData] = useState<ExecutiveSummary | null>(null);
-  const [missingEvidenceCount, setMissingEvidenceCount] = useState(0);
-  const [duplicateCount, setDuplicateCount] = useState(0);
-  const [earlyWarningCount, setEarlyWarningCount] = useState(0);
+  const [state, setState] = useState<OrganizationalState | null>(null);
+  const [recommendations, setRecommendations] = useState<RecommendationsResponse | null>(null);
+  const [gaps, setGaps] = useState<GapsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'actions' | 'gaps'>('actions');
 
-  const load = async () => {
+  const load = useCallback(async (fresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      setData(await decisionIntelligenceApi.getExecutiveSummary(tenantId));
-      const [missing, dupes, warnings] = await Promise.all([reasoningEngineApi.missingEvidence(tenantId), reasoningEngineApi.duplicateSignals(tenantId), reasoningEngineApi.earlyWarnings(tenantId)]);
-      setMissingEvidenceCount(missing.count);
-      setDuplicateCount(dupes.count);
-      setEarlyWarningCount(warnings.count);
+      // Three endpoints, one computation. The engine composes and caches per data
+      // version, so these are three cheap slices of one result rather than three
+      // recomputations.
+      const [s, r, g] = await Promise.all([
+        organizationIntelligenceApi.getState(tenantId, fresh),
+        organizationIntelligenceApi.getRecommendations(tenantId),
+        organizationIntelligenceApi.getGaps(tenantId),
+      ]);
+      setState(s);
+      setRecommendations(r);
+      setGaps(g);
     } catch (e: any) {
-      setError(e.message);
+      setError(e?.message ?? 'Could not load the organizational picture.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
 
-  useEffect(() => { load(); }, [tenantId]);
+  useEffect(() => { void load(); }, [load]);
 
-  if (loading) return <div style={{ padding: 24 }}>Loading executive summary...</div>;
-  if (error) return <div style={{ padding: 24, color: 'var(--status-crit)' }}>Error: {error}</div>;
-  if (!data) return <div style={{ padding: 24 }}>No data yet — nothing has moved through the loop for this tenant.</div>;
+  if (loading && !state) {
+    return <div className="oi-page"><Spinner label="Measuring the organization against the intelligence loop" /></div>;
+  }
 
-  const { statistics, topRisks, organizationalKnowledge, pendingRecommendations, openDecisionsCount, intelligenceScore } = data;
+  if (error && !state) {
+    return <div className="oi-page"><ErrorState message={error} onRetry={() => void load()} /></div>;
+  }
+
+  if (!state || !recommendations || !gaps) return null;
+
+  const s = state.state;
+  const overall = s.overall;
+
+  // Every dimension carries a 0..1 score; the radar is drawn on 0..5 so it reads on
+  // the same scale as a KASBA level. null stays null — Radar hatches it rather than
+  // drawing a spoke at the centre.
+  const radarDimensions = s.dimensions.map((d) => ({
+    key: d.label.split(' ')[0],
+    value: d.score === null ? null : Number((d.score * 5).toFixed(2)),
+  }));
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1>Executive Dashboard</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 11, color: theme.textMuted }}>Organizational Intelligence Score</div>
-            <div style={{ fontSize: 28, fontWeight: 'bold', color: intelligenceScore.score >= 70 ? 'var(--status-good)' : intelligenceScore.score >= 40 ? 'var(--status-warn)' : 'var(--status-crit)' }}>
-              {intelligenceScore.score}
+    <div className="oi-page">
+      <IntelligenceHeader
+        eyebrow="Analytics"
+        title="Executive Dashboard"
+        question="Where is this organization on its intelligence loop, and what should it do next?"
+        meta={state}
+        actions={<Button variant="secondary" onClick={() => void load(true)} disabled={loading}>Recompute</Button>}
+      />
+
+      <LayerStrip>
+        <StateLayer>
+          {overall.score === null ? (
+            <ConsequenceEmpty
+              missing="a single measurable loop dimension"
+              produces="Nothing this organization's state is built from could be measured. Ingest operational data, or record a signal, to give the loop an input."
+            />
+          ) : (
+            <LayerFigure
+              value={num(overall.score)}
+              note={`${overall.stage} · ${overall.dimensionsMeasured} of ${overall.dimensionsMeasured + overall.dimensionsUnmeasured} loop stages measurable, carrying ${pct(overall.weightMeasured, 0)} of the intended weight.`}
+            />
+          )}
+        </StateLayer>
+
+        <MovementLayer>
+          {state.movement.moving.length === 0 ? (
+            <ConsequenceEmpty
+              missing="a series whose slope clears its own standard error"
+              produces="Every measurable series is statistically flat. Nothing is provably growing or shrinking, which is itself a finding."
+            />
+          ) : (
+            <LayerPoints
+              points={state.movement.moving.slice(0, 3).map((t) => (
+                <>
+                  <strong>{t.area}</strong> — {t.label.toLowerCase()} is {t.direction}
+                  {t.changePct !== null ? ` ${Math.abs(t.changePct).toFixed(0)}%` : ''} over {t.periods} months.
+                  {' '}Rising means {t.risingMeans}.
+                </>
+              ))}
+            />
+          )}
+        </MovementLayer>
+
+        <ConsequenceLayer>
+          {state.consequence.firstAction === null ? (
+            <ConsequenceEmpty
+              missing="a detected gap or risk"
+              produces="Every detection rule ran and none matched. There is nothing to act on."
+            />
+          ) : (
+            <LayerPoints
+              points={[
+                <>
+                  <strong>{state.consequence.criticalGaps} critical gap{state.consequence.criticalGaps === 1 ? '' : 's'}</strong> and
+                  {' '}{state.consequence.openRisks} open risk{state.consequence.openRisks === 1 ? '' : 's'},
+                  {' '}{state.consequence.unownedRisks} of them with nobody assigned.
+                </>,
+                <><strong>Do first:</strong> {state.consequence.firstAction.recommendation}.</>,
+                <>{state.consequence.firstAction.why}</>,
+              ]}
+            />
+          )}
+        </ConsequenceLayer>
+      </LayerStrip>
+
+      <div className="oi-sections">
+        <div className="bl-grid bl-grid--wide-left">
+          <Panel
+            title="The loop, stage by stage"
+            hint="click a stage for the measurements behind its score"
+            footnote={<>{overall.why}</>}
+          >
+            <DimensionLadder dimensions={s.dimensions} />
+          </Panel>
+
+          <Panel
+            title="Shape of the loop"
+            hint="0-5, hatched where never measured"
+            footnote={
+              s.unmeasured.length > 0
+                ? <>{s.unmeasured.length} stage{s.unmeasured.length === 1 ? '' : 's'} could not be measured at all and {s.unmeasured.length === 1 ? 'is' : 'are'} hatched rather than drawn at zero. <strong>Never having tried is not the same as having failed.</strong></>
+                : <>Every stage of the loop has a measurable input.</>
+            }
+          >
+            <Radar dimensions={radarDimensions} max={5} width={280} height={280} label="Loop stage scores" />
+
+            <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+              {s.byMovement.map((m) => (
+                <div key={m.movement} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>{m.movement}</span>
+                  <span className="oi-chips">
+                    {m.unmeasured > 0 && <span className="oi-chip oi-chip--warn">{m.unmeasured} unmeasured</span>}
+                    <span className="oi-chip oi-chip--mono">{m.score === null ? 'undetermined' : num(m.score)}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+
+        <div className="bl-grid bl-grid--2">
+          <Panel title="Strengths" hint="stages at 0.65 or above">
+            {s.strengths.length === 0 ? (
+              <ConsequenceEmpty
+                missing="a loop stage scoring 0.65 or above"
+                produces="No stage of the loop is yet well established. The ladder above shows which is closest."
+              />
+            ) : (
+              <div className="oi-findings">
+                {s.strengths.map((d) => (
+                  <div className="oi-finding" key={d.key}>
+                    <div className="oi-finding__top">
+                      <h4 className="oi-finding__title">{d.label}</h4>
+                      <span className="oi-chips">
+                        <span className="oi-chip oi-chip--ok">{num(d.score)}</span>
+                        <span className="oi-chip">{d.stage}</span>
+                      </span>
+                    </div>
+                    <p className="oi-finding__detail">{d.why}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="Weaknesses and blanks" hint="stages below 0.40, and stages with no input">
+            {s.weaknesses.length === 0 && s.unmeasured.length === 0 ? (
+              <ConsequenceEmpty
+                missing="a loop stage below 0.40 or without a measurable input"
+                produces="Every stage clears the floor and every one of them can be measured."
+              />
+            ) : (
+              <div className="oi-findings">
+                {[...s.weaknesses, ...s.unmeasured].map((d) => (
+                  <div className="oi-finding" key={d.key}>
+                    <div className="oi-finding__top">
+                      <h4 className="oi-finding__title">{d.label}</h4>
+                      <span className="oi-chips">
+                        <span className={`oi-chip oi-chip--${d.score === null ? 'warn' : 'crit'}`}>
+                          {d.score === null ? 'undetermined' : num(d.score)}
+                        </span>
+                      </span>
+                    </div>
+                    <p className="oi-finding__detail">{d.blocking ?? d.why}</p>
+                    {d.unmeasured.length > 0 && (
+                      <p className="bc-note">
+                        Unmeasurable components: {d.unmeasured.join(', ')}. Their weight was shared across the
+                        rest rather than scored zero.
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        <Panel
+          title="What this organization should do next"
+          hint={`${recommendations.total} actions · ${recommendations.critical} critical · ${gaps.total} gaps detected`}
+          right={
+            <Tabs
+              value={tab}
+              onChange={setTab}
+              tabs={[
+                { id: 'actions', label: `Actions (${recommendations.total})` },
+                { id: 'gaps', label: `Gaps (${gaps.total})` },
+              ]}
+            />
+          }
+          footnote={<>{recommendations.method.priority} <strong>{recommendations.method.benefit}</strong></>}
+        >
+          {tab === 'actions' ? (
+            recommendations.recommendations.length === 0 ? (
+              <ConsequenceEmpty
+                missing="a detected gap or risk to act on"
+                produces="Every detection rule ran against this organization's records and none matched."
+              />
+            ) : (
+              <div className="oi-recs">
+                {recommendations.recommendations.slice(0, 12).map((r) => (
+                  <RecommendationCard recommendation={r} key={r.id} />
+                ))}
+                {recommendations.total > 12 && (
+                  <p className="bc-note">
+                    Showing the 12 highest-priority of {recommendations.total}. The remainder are ranked below
+                    priority score {num(recommendations.recommendations[11].priorityScore)} and are available
+                    from the recommendations endpoint.
+                  </p>
+                )}
+              </div>
+            )
+          ) : (
+            gaps.gaps.length === 0 ? (
+              <ConsequenceEmpty
+                missing="a detected absence"
+                produces="Nothing the detectors look for is missing from this organization's records."
+              />
+            ) : (
+              <div className="oi-findings">
+                {gaps.gaps.slice(0, 15).map((g) => <GapRow gap={g} key={g.id} />)}
+                {gaps.total > 15 && (
+                  <p className="bc-note">Showing the 15 most severe of {gaps.total}.</p>
+                )}
+              </div>
+            )
+          )}
+        </Panel>
+
+        {state.movement.moving.length > 0 && (
+          <Panel
+            title="What is actually moving"
+            hint="ordinary least squares over complete months"
+            footnote={<>{state.movement.method.trend} {state.movement.method.partial}</>}
+          >
+            <div className="bl-scroll">
+              <table className="oi-table">
+                <thead>
+                  <tr>
+                    <th>Series</th>
+                    <th>Shape</th>
+                    <th>Direction</th>
+                    <th>Change</th>
+                    <th>t</th>
+                    <th>r²</th>
+                    <th>Rising means</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.movement.moving.map((t) => (
+                    <tr key={t.key}>
+                      <td>
+                        <span className="oi-table__name">{t.area}</span>
+                        <span className="oi-table__sub">{t.label}</span>
+                      </td>
+                      <td>
+                        <Sparkline values={t.series} width={90} height={22} label={`${t.periods} months`} />
+                      </td>
+                      <td>
+                        <span className={`oi-chip oi-chip--${t.direction === 'rising' ? 'warn' : 'info'}`}>{t.direction}</span>
+                      </td>
+                      <td className="oi-table__num">{t.changePct === null ? '—' : `${t.changePct > 0 ? '+' : ''}${t.changePct.toFixed(0)}%`}</td>
+                      <td className="oi-table__num">{num(t.significance)}</td>
+                      <td className="oi-table__num">{num(t.fitQuality)}</td>
+                      <td>{t.risingMeans}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        )}
+
+        <Panel title="What the organization holds" hint="the population every figure above is taken over">
+          <div className="bl-grid bl-grid--3" style={{ gap: 12 }}>
+            <div className="oi-block">
+              <div className="oi-block__label">Operational records</div>
+              <div className="oi-block__body"><strong style={{ fontSize: 17 }}>{count(state.totals.operationalRecords)}</strong>
+                <div style={{ marginTop: 3, color: 'var(--content-tertiary)' }}>across {state.totals.datasets} dataset{state.totals.datasets === 1 ? '' : 's'}</div>
+              </div>
+            </div>
+            <div className="oi-block">
+              <div className="oi-block__label">Loop records</div>
+              <div className="oi-block__body"><strong style={{ fontSize: 17 }}>{count(state.totals.loopRecords)}</strong>
+                <div style={{ marginTop: 3, color: 'var(--content-tertiary)' }}>signals, evidence, decisions and the rest</div>
+              </div>
+            </div>
+            <div className="oi-block">
+              <div className="oi-block__label">Gaps by area</div>
+              <div className="oi-block__body">
+                <span className="oi-chips">
+                  {Object.entries(gaps.byArea).map(([area, n]) => (
+                    <span className="oi-chip oi-chip--mono" key={area}>{area}: {n}</span>
+                  ))}
+                </span>
+              </div>
             </div>
           </div>
-          <button onClick={load}>Refresh</button>
-        </div>
-      </header>
+        </Panel>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 32 }}>
-        <Stat theme={theme} label="Decision Acceptance Rate" value={`${Math.round(statistics.decisions.acceptanceRate * 100)}%`} />
-        <Stat theme={theme} label="Recommendation Accuracy" value={`${Math.round(statistics.outcomes.recommendationAccuracy * 100)}%`} />
-        <Stat theme={theme} label="Evidence Quality" value={`${Math.round(statistics.evidenceQuality * 100)}%`} />
-        <Stat theme={theme} label="Open Decisions" value={String(openDecisionsCount)} />
-        <Stat theme={theme} label="Open Risks" value={String(statistics.risks.open)} />
-        <Stat theme={theme} label="Avg Risk Score" value={String(statistics.risks.averageScore)} />
+        <Panel title="The headline, in sentences" hint="assembled only from measured figures">
+          {s.headline.length === 0 ? (
+            <ConsequenceEmpty
+              missing="a measured figure to build a statement from"
+              produces="No sentence here is written unless the figures in it were measured. Nothing was."
+            />
+          ) : (
+            <ul className="bl-points">
+              {s.headline.map((h, i) => <li key={i}>{h}</li>)}
+            </ul>
+          )}
+        </Panel>
       </div>
 
-      <h2 style={{ marginBottom: 12 }}>Pending Recommendations — awaiting a decision</h2>
-      {pendingRecommendations.length === 0 ? (
-        <p style={{ color: theme.textMuted, marginBottom: 32 }}>Nothing pending.</p>
-      ) : (
-        <div style={{ display: 'grid', gap: 8, marginBottom: 32 }}>
-          {pendingRecommendations.map((r) => (
-            <div key={r.id} style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${CATEGORY_COLOR[r.category] ?? theme.border}`, display: 'flex', justifyContent: 'space-between' }}>
-              <span>{r.title}</span>
-              <span style={{ color: theme.textMuted, fontSize: 12 }}>{r.category} · {Math.round(r.confidence * 100)}% confidence · {r.priority} priority</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <h2 style={{ marginBottom: 12 }}>Top Risks</h2>
-      {topRisks.length === 0 ? (
-        <p style={{ color: theme.textMuted, marginBottom: 32 }}>No risks assessed yet.</p>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 32 }}>
-          {topRisks.map((r) => (
-            <div key={r.id} style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, backgroundColor: theme.surface }}>
-              <div style={{ fontSize: 12, textTransform: 'uppercase', color: theme.textMuted }}>{r.category}</div>
-              <div style={{ fontSize: 20, fontWeight: 'bold' }}>Score: {r.score}</div>
-              <div style={{ fontSize: 12, color: theme.textMuted }}>Impact: {r.impact}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <h2 style={{ marginBottom: 12 }}>Data Quality Alerts</h2>
-      <p style={{ color: theme.textMuted, fontSize: 12, marginBottom: 12 }}>Deterministic checks — not AI-generated, algorithmic detection over real data.</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 32 }}>
-        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${missingEvidenceCount > 0 ? 'var(--status-warn)' : 'var(--status-good)'}` }}>
-          <div style={{ fontSize: 12, color: theme.textMuted }}>Signals Missing Evidence (3+ days old)</div>
-          <div style={{ fontSize: 20, fontWeight: 'bold' }}>{missingEvidenceCount}</div>
-        </div>
-        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${duplicateCount > 0 ? 'var(--status-warn)' : 'var(--status-good)'}` }}>
-          <div style={{ fontSize: 12, color: theme.textMuted }}>Likely Duplicate Signal Clusters</div>
-          <div style={{ fontSize: 20, fontWeight: 'bold' }}>{duplicateCount}</div>
-        </div>
-        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${earlyWarningCount > 0 ? 'var(--status-crit)' : 'var(--status-good)'}` }}>
-          <div style={{ fontSize: 12, color: theme.textMuted }}>Early Warnings (high/critical, unaddressed)</div>
-          <div style={{ fontSize: 20, fontWeight: 'bold' }}>{earlyWarningCount}</div>
-        </div>
-      </div>
-
-      <h2 style={{ marginBottom: 12 }}>Organizational Knowledge</h2>
-      {organizationalKnowledge.length === 0 ? (
-        <p style={{ color: theme.textMuted }}>No reinforced Mental Models yet — this fills in as Learnings accumulate per domain.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>Domain</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>Confidence</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>Reinforced</th>
-              <th style={{ textAlign: 'left', padding: 8, borderBottom: `1px solid ${theme.border}` }}>Patterns</th>
-            </tr>
-          </thead>
-          <tbody>
-            {organizationalKnowledge.map((m) => (
-              <tr key={m.domain}>
-                <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}` }}>{m.domain}</td>
-                <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}` }}>{Math.round(m.confidence * 100)}%</td>
-                <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}` }}>{m.reinforcementCount}×</td>
-                <td style={{ padding: 8, borderBottom: `1px solid ${theme.border}` }}>{m.patternCount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-function Stat({ label, value, theme }: { label: string; value: string; theme: ReturnType<typeof useTheme> }) {
-  return (
-    <div style={{ padding: 16, borderRadius: 8, backgroundColor: theme.surface, border: `1px solid ${theme.border}` }}>
-      <div style={{ fontSize: 12, color: theme.textMuted }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 'bold', color: theme.text }}>{value}</div>
+      <DerivationFooter derivation={recommendations.derivation} />
     </div>
   );
 }
