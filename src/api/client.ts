@@ -6,6 +6,7 @@
  * callers pass resource-relative paths ('/organizations/demo-tenant') and the
  * route table in routes/api.php stays literally readable in the api modules.
  */
+
 const API_ORIGIN: string = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const API_BASE = `${API_ORIGIN.replace(/\/+$/, '')}/api/v1`;

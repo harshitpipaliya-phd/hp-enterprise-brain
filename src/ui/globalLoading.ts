@@ -6,6 +6,7 @@
  * Passive reads, polling and tiny background activity should not light up the
  * whole screen.
  */
+
 let pageRequests = 0;
 let mutationRequests = 0;
 let navigationPending = false;

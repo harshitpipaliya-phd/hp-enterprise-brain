@@ -1,3 +1,4 @@
+
 export type HealthTone = 'good' | 'warn' | 'crit' | 'info';
 
 export function toDate(value: unknown): Date | null {
