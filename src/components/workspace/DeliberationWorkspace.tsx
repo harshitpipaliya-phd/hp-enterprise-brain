@@ -1,171 +1,236 @@
-import { useState, useEffect } from 'react';
-import { caseApi } from '../../api/case';
-import { useTheme } from '../../hooks/useTheme';
+import { useEffect, useMemo, useState } from 'react';
+import { RefreshCw, Scale } from 'lucide-react';
+import { decisionIntelligenceApi } from '../../api/intelligence';
+import { EmptyState, ErrorState, LoadingState } from '../shared/States';
+import { badgeTone, formatDateTime, formatNumber, formatPercent } from './intelligenceShared';
+import './IntelligenceSuite.css';
 
-interface Case { id: string; title: string; status: string; resolvedHypothesisId: string | null }
-interface Hypothesis {
-  id: string; statement: string; rootCauseFamily: string; confidence: number;
-  status: 'proposed' | 'supported' | 'rejected' | 'confirmed'; rejectedReason: string | null; createdDate: string;
-}
+type DeliberationOverview = any;
 
-const ROOT_CAUSE_FAMILIES = ['Capability', 'Capacity', 'Process', 'Information', 'Motivation', 'Coordination', 'External', 'Policy'];
-const STATUS_COLOR: Record<string, string> = { proposed: 'var(--chart-1)', supported: 'var(--status-good)', rejected: 'var(--status-crit)', confirmed: 'var(--chart-5)' };
-
-/**
- * Deliberation Workspace (EPIC-004). The Hypothesis Ledger, visible — every
- * hypothesis tried for a case, in order, including rejections and why.
- * This is the screen §12.3's "deliberation moment" demo actually needs.
- */
 export default function DeliberationWorkspace({ tenantId }: { tenantId: string }) {
-  const theme = useTheme();
-  const [cases, setCases] = useState<Case[]>([]);
-  const [active, setActive] = useState<Case | null>(null);
-  const [ledger, setLedger] = useState<Hypothesis[]>([]);
-  const [showCaseForm, setShowCaseForm] = useState(false);
-  const [caseTitle, setCaseTitle] = useState('');
-  const [showHypForm, setShowHypForm] = useState(false);
-  const [hypStatement, setHypStatement] = useState('');
-  const [hypFamily, setHypFamily] = useState(ROOT_CAUSE_FAMILIES[0]);
-  const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
+  const [data, setData] = useState<DeliberationOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
 
-  const loadCases = async () => {
-    try { setCases(await caseApi.listCases(tenantId)); } catch (e: any) { setError(e.message); }
-  };
-
-  useEffect(() => { loadCases(); }, [tenantId]);
-
-  const openCase = async (c: Case) => {
-    setActive(c);
-    try { setLedger(await caseApi.getLedger(tenantId, c.id)); } catch (e: any) { setError(e.message); }
-  };
-
-  const createCase = async () => {
-    if (!caseTitle.trim()) return;
+  const load = async ({ background = false } = {}) => {
+    const useBackgroundRefresh = background || !!data;
+    if (useBackgroundRefresh && data) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError(null);
     try {
-      const c = await caseApi.createCase({ tenantId, title: caseTitle });
-      await caseApi.transition(tenantId, c.id, 'investigating');
-      setCaseTitle('');
-      setShowCaseForm(false);
-      await loadCases();
-      openCase({ ...c, status: 'investigating' });
-    } catch (e: any) { setError(e.message); }
+      const overview = await decisionIntelligenceApi.getDeliberationOverview(tenantId, 1, 8);
+      setData(overview);
+      setSelectedCaseId((current) => current ?? overview?.focus?.selectedCaseId ?? overview?.cases?.items?.[0]?.id ?? null);
+    } catch (e: any) {
+      setError(e?.message ?? 'Unable to load deliberation workspace.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const proposeHypothesis = async () => {
-    if (!active || !hypStatement.trim()) return;
-    try {
-      await caseApi.proposeHypothesis({ tenantId, caseId: active.id, statement: hypStatement, rootCauseFamily: hypFamily });
-      setHypStatement('');
-      setShowHypForm(false);
-      setLedger(await caseApi.getLedger(tenantId, active.id));
-    } catch (e: any) { setError(e.message); }
-  };
+  useEffect(() => {
+    load();
+  }, [tenantId]);
 
-  const reject = async (h: Hypothesis) => {
-    const reason = rejectReason[h.id];
-    if (!reason?.trim()) { setError('A rejection reason is required — this is what makes the ledger a real deliberation trace.'); return; }
-    if (!active) return;
-    try {
-      await caseApi.rejectHypothesis(tenantId, active.id, h.id, reason);
-      setLedger(await caseApi.getLedger(tenantId, active.id));
-    } catch (e: any) { setError(e.message); }
-  };
+  const selectedCase = useMemo(() => {
+    if (!data) return null;
+    const fallbackId = selectedCaseId ?? data.focus?.selectedCaseId ?? data.cases?.items?.[0]?.id ?? null;
+    if (!fallbackId) return null;
+    return data.cases?.detailsById?.[fallbackId] ?? null;
+  }, [data, selectedCaseId]);
 
-  const confirm = async (h: Hypothesis) => {
-    if (!active) return;
-    try {
-      await caseApi.confirmHypothesis(tenantId, active.id, h.id);
-      setLedger(await caseApi.getLedger(tenantId, active.id));
-      await loadCases();
-      const updated = await caseApi.getCase(tenantId, active.id);
-      setActive(updated);
-    } catch (e: any) { setError(e.message); }
-  };
+  if (loading && !data) return <LoadingState label="Loading deliberation workspace..." />;
+  if (error && !data) return <ErrorState message={error} />;
+  if (!data) return null;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1100, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <h1 style={{ marginBottom: 8 }}>Deliberation Workspace</h1>
-      <p style={{ color: theme.textMuted, marginBottom: 24, fontSize: 13 }}>
-        Every hypothesis considered for a case, in order — including what was rejected and why. Nothing here is ever overwritten.
-      </p>
-
-      {error && <div style={{ padding: 10, borderRadius: 6, backgroundColor: 'var(--status-crit)20', color: 'var(--status-crit)', marginBottom: 16, fontSize: 13 }}>{error}</div>}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24 }}>
+    <div className="intel-page intel-deliberation">
+      <header className="intel-header intel-deliberation-header">
         <div>
-          <button onClick={() => setShowCaseForm((s) => !s)} style={{ width: '100%', marginBottom: 12 }}>+ New Case</button>
-          {showCaseForm && (
-            <div style={{ marginBottom: 12, display: 'grid', gap: 6 }}>
-              <input placeholder="Case title" value={caseTitle} onChange={(e) => setCaseTitle(e.target.value)} style={{ padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, backgroundColor: theme.surface, color: theme.text }} />
-              <button onClick={createCase}>Create & Start Investigating</button>
+          <span className="intel-eyebrow"><Scale size={14} /> Investigation Workbench</span>
+          <h1>Deliberation Workspace</h1>
+          <p>Investigate signals, test hypotheses, and make evidence-backed decisions from one tenant-scoped intelligence stream.</p>
+          <div className="intel-meta">
+            <div className="intel-meta-card">
+              <span>Organization</span>
+              <strong>{data.organization?.name || 'Organization'}</strong>
+              <small>Current tenant scope</small>
             </div>
-          )}
-          <div style={{ display: 'grid', gap: 4 }}>
-            {cases.map((c) => (
-              <div key={c.id} onClick={() => openCase(c)} style={{ padding: 8, borderRadius: 6, cursor: 'pointer', backgroundColor: active?.id === c.id ? theme.surface : 'transparent', border: `1px solid ${theme.border}` }}>
-                <div style={{ fontSize: 13 }}>{c.title}</div>
-                <div style={{ fontSize: 10, color: theme.textMuted, textTransform: 'uppercase' }}>{c.status}</div>
-              </div>
-            ))}
+            <div className="intel-meta-card">
+              <span>Pending Decisions</span>
+              <strong>{formatNumber(data.summary?.pendingDecisions)}</strong>
+              <small>Waiting for governance attention</small>
+            </div>
+            <div className="intel-meta-card">
+              <span>Refresh</span>
+              <strong><button type="button" onClick={() => load({ background: true })}><RefreshCw size={15} /> Refresh</button></strong>
+              <small>{refreshing ? 'Updating investigations...' : 'Reload only this workspace'}</small>
+            </div>
           </div>
         </div>
 
-        <div>
-          {!active ? (
-            <p style={{ color: theme.textMuted }}>Select or create a case to begin deliberation.</p>
-          ) : (
+        <div className="intel-score-card">
+          <span className="intel-subtle">Current Bottleneck</span>
+          <strong>{data.focus?.biggestBottleneck?.label || 'Insufficient data'}</strong>
+          <p>
+            {data.focus?.biggestBottleneck?.conversionRate != null
+              ? `${formatPercent(data.focus.biggestBottleneck.conversionRate)} conversion from the previous stage`
+              : 'No complete stage conversion metric is available yet.'}
+          </p>
+          {refreshing && <div className="intel-refresh-chip" data-variant="deliberation">Refreshing case intelligence...</div>}
+        </div>
+      </header>
+
+      <section className="intel-section">
+        <div className="intel-section-head">
+          <div>
+            <span className="intel-eyebrow">Deliberation Health</span>
+            <h2>Active investigation posture</h2>
+          </div>
+        </div>
+        <div className="intel-stat-grid">
+          {[
+            ['Open Cases', data.summary?.openCases, 'Cases not yet resolved'],
+            ['Active Investigations', data.summary?.activeInvestigations, 'Still being worked'],
+            ['Pending Recommendations', data.summary?.pendingRecommendations, 'Waiting for decision'],
+            ['Pending Decisions', data.summary?.pendingDecisions, 'Governance queue'],
+            ['Average Decision Age', data.summary?.averageDecisionAgeDays != null ? `${data.summary.averageDecisionAgeDays} days` : 'Insufficient data', 'Open decisions only'],
+            ['Evidence Coverage', data.summary?.evidenceCoverage != null ? formatPercent(data.summary.evidenceCoverage) : 'Insufficient data', 'Open cases with linked evidence'],
+            ['High/Critical Risks', data.summary?.highCriticalRisks, 'Transparent threshold: score >= 0.50'],
+            ['Overdue Decisions', data.summary?.overdueDecisions ?? 'Insufficient data', data.summary?.overdueDecisionNote || 'No due-date model exposed'],
+          ].map(([label, value, note]) => (
+            <article key={String(label)} className="intel-kpi" data-tone={badgeTone(String(label).includes('Risk') ? 'high' : label === 'Evidence Coverage' ? 'active' : 'pending')}>
+              <span className="intel-kpi-label">{label}</span>
+              <div className="intel-kpi-value">{typeof value === 'number' ? formatNumber(value) : value}</div>
+              <small>{note}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="intel-section intel-deliberation-shell">
+        <div className="intel-case-list">
+          <div className="intel-section-head">
+            <div>
+              <span className="intel-eyebrow">Case Explorer</span>
+              <h2>Investigations</h2>
+            </div>
+          </div>
+          {data.cases?.items?.length ? data.cases.items.map((item: any) => (
+            <button
+              type="button"
+              key={item.id}
+              className={`intel-case-row ${selectedCaseId === item.id ? 'is-selected' : ''}`}
+              onClick={() => setSelectedCaseId(item.id)}
+            >
+              <div className="intel-inline-list">
+                <strong>{item.title}</strong>
+                <span className="intel-pill" data-tone={badgeTone(item.severity || item.status)}>{item.severity || item.status}</span>
+              </div>
+              <div className="intel-case-grid">
+                <span>Status: {item.status || 'Insufficient data'}</span>
+                <span>Evidence: {formatNumber(item.evidenceCount)}</span>
+                <span>Age: {item.ageDays != null ? `${item.ageDays} days` : 'Insufficient data'}</span>
+                <span>Confidence: {item.confidence != null ? formatPercent(item.confidence) : 'Insufficient data'}</span>
+              </div>
+              <small>{item.currentHypothesis?.statement || item.nextAction}</small>
+            </button>
+          )) : <EmptyState icon="○" message="No cases are available for this organization yet." />}
+        </div>
+
+        <div className="intel-case-detail">
+          <div className="intel-section-head">
+            <div>
+              <span className="intel-eyebrow">Case Intelligence</span>
+              <h2>{selectedCase?.summary?.title || 'Select a case'}</h2>
+              <p>{selectedCase?.summary?.status ? `Status: ${selectedCase.summary.status}` : 'Choose a case to inspect its evidence, hypotheses, reasoning, and decision trail.'}</p>
+            </div>
+          </div>
+
+          {selectedCase ? (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h2 style={{ margin: 0 }}>{active.title}</h2>
-                <button onClick={() => setShowHypForm((s) => !s)} disabled={active.status === 'resolved' || active.status === 'closed'}>
-                  + Propose Hypothesis
-                </button>
+              <div className="intel-inline-list">
+                <span className="intel-pill" data-tone={badgeTone(selectedCase.summary?.severity || selectedCase.summary?.status)}>{selectedCase.summary?.severity || selectedCase.summary?.status}</span>
+                <span className="intel-pill" data-tone="info">{selectedCase.summary?.classification || 'Unclassified'}</span>
+                <span className="intel-pill" data-tone="warn">{selectedCase.summary?.confidence != null ? formatPercent(selectedCase.summary.confidence) : 'Insufficient data'}</span>
               </div>
 
-              {showHypForm && (
-                <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, backgroundColor: theme.surface, marginBottom: 16, display: 'grid', gap: 8 }}>
-                  <input placeholder="Hypothesis statement" value={hypStatement} onChange={(e) => setHypStatement(e.target.value)} style={{ padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text }} />
-                  <select value={hypFamily} onChange={(e) => setHypFamily(e.target.value)} style={{ padding: 8, borderRadius: 6, border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text }}>
-                    {ROOT_CAUSE_FAMILIES.map((f) => <option key={f} value={f}>{f}</option>)}
-                  </select>
-                  <button onClick={proposeHypothesis}>Propose</button>
-                </div>
-              )}
-
-              <h3>Hypothesis Ledger — the deliberation trace</h3>
-              {ledger.length === 0 ? (
-                <p style={{ color: theme.textMuted }}>No hypotheses proposed yet.</p>
-              ) : (
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {ledger.map((h) => (
-                    <div key={h.id} style={{ padding: 12, borderRadius: 8, border: `1px solid ${theme.border}`, borderLeft: `4px solid ${STATUS_COLOR[h.status]}` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 11, textTransform: 'uppercase', color: STATUS_COLOR[h.status] }}>{h.status} · {h.rootCauseFamily}</span>
-                        <span style={{ fontSize: 11, color: theme.textMuted }}>{Math.round(h.confidence * 100)}% confidence</span>
-                      </div>
-                      <div style={{ margin: '4px 0' }}>{h.statement}</div>
-                      {h.rejectedReason && <div style={{ fontSize: 12, color: theme.textMuted, fontStyle: 'italic' }}>Rejected because: {h.rejectedReason}</div>}
-                      {h.status === 'proposed' && (
-                        <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
-                          <button onClick={() => confirm(h)}>Confirm (resolves case)</button>
-                          <input
-                            placeholder="Rejection reason (required)"
-                            value={rejectReason[h.id] ?? ''}
-                            onChange={(e) => setRejectReason({ ...rejectReason, [h.id]: e.target.value })}
-                            style={{ flex: 1, padding: 4, borderRadius: 4, border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text, fontSize: 12 }}
-                          />
-                          <button onClick={() => reject(h)}>Reject</button>
+              <div className="intel-timeline">
+                {selectedCase.timeline?.map((stage: any) => (
+                  <div key={stage.stage} className="intel-timeline-stage">
+                    <div className="intel-timeline-label">{stage.stage}</div>
+                    <div className="intel-timeline-card">
+                      {stage.items?.length ? stage.items.map((entry: any) => (
+                        <div key={entry.id} className="intel-timeline-item">
+                          <strong>{entry.title}</strong>
+                          <div className="intel-inline-list">
+                            <span className="intel-mini-badge" data-tone={badgeTone(entry.status)}>{entry.status}</span>
+                            <small>{entry.confidence != null ? formatPercent(entry.confidence) : 'Insufficient data'}</small>
+                            <small>{formatDateTime(entry.timestamp)}</small>
+                          </div>
                         </div>
-                      )}
+                      )) : <div className="intel-note">Insufficient data</div>}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ))}
+              </div>
             </>
+          ) : (
+            <EmptyState icon="○" message="No case detail is available yet." />
           )}
         </div>
-      </div>
+      </section>
+
+      <section className="intel-section">
+        <div className="intel-section-head">
+          <div>
+            <span className="intel-eyebrow">Decision Queue</span>
+            <h2>Requires attention</h2>
+          </div>
+        </div>
+        <div className="intel-panel">
+          <div className="intel-table-wrap">
+            <table className="intel-table">
+              <thead>
+                <tr>
+                  <th>Decision</th>
+                  <th>Related Case</th>
+                  <th>Recommendation</th>
+                  <th>Confidence</th>
+                  <th>Priority</th>
+                  <th>Owner</th>
+                  <th>Age</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.decisionQueue?.items?.length ? data.decisionQueue.items.map((item: any) => (
+                  <tr key={item.id}>
+                    <td>{item.decision || 'Decision'}</td>
+                    <td>{item.caseId || 'Insufficient data'}</td>
+                    <td>{item.recommendation || 'Insufficient data'}</td>
+                    <td>{item.confidence != null ? formatPercent(item.confidence) : 'Insufficient data'}</td>
+                    <td>{item.priority || 'Insufficient data'}</td>
+                    <td>{item.owner || 'Insufficient data'}</td>
+                    <td>{item.ageDays != null ? `${item.ageDays} days` : 'Insufficient data'}</td>
+                    <td><span className="intel-pill" data-tone={badgeTone(item.status)}>{item.status}</span></td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={8}>No pending decisions require attention.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

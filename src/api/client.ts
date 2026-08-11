@@ -9,7 +9,7 @@
 const API_ORIGIN: string = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const API_BASE = `${API_ORIGIN.replace(/\/+$/, '')}/api/v1`;
-import { globalLoading } from '../ui/globalLoading';
+import { globalLoading, type GlobalLoaderMode } from '../ui/globalLoading';
 
 export { API_ORIGIN, API_BASE };
 
@@ -123,23 +123,41 @@ export function onSessionExpired(callback: () => void): void {
   sessionExpiredCallback = callback;
 }
 
-export async function request(path: string, options: RequestInit = {}, _isRetry = false): Promise<any> {
-  globalLoading.requestStarted();
+export type ApiRequestOptions = RequestInit & {
+  globalLoader?: GlobalLoaderMode | 'auto';
+};
+
+function resolveGlobalLoaderMode(options: ApiRequestOptions): GlobalLoaderMode {
+  const requested = options.globalLoader ?? 'auto';
+  if (requested !== 'auto') return requested;
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (method === 'GET' || method === 'HEAD') {
+    return globalLoading.isNavigationPending() ? 'page' : 'none';
+  }
+
+  return 'mutation';
+}
+
+export async function request(path: string, options: ApiRequestOptions = {}, _isRetry = false): Promise<any> {
+  const loaderMode = resolveGlobalLoaderMode(options);
+  globalLoading.requestStarted(loaderMode);
   try {
-  const isFormData = options.body instanceof FormData;
+  const { globalLoader: _globalLoader, ...requestOptions } = options;
+  const isFormData = requestOptions.body instanceof FormData;
   const url = `${API_BASE}${path}`;
-  const method = options.method || 'GET';
+  const method = requestOptions.method || 'GET';
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    ...(options.headers as Record<string, string>),
+    ...(requestOptions.headers as Record<string, string>),
     Authorization: `Bearer ${authToken()}`,
   };
 
   let res: Response;
   try {
-    res = await fetch(url, { ...options, headers });
+    res = await fetch(url, { ...requestOptions, headers });
   } catch {
     // fetch() only rejects on network-layer failure, which for this app means
     // the Laravel server is not running. Surfacing that as-is beats the
@@ -200,6 +218,6 @@ export async function request(path: string, options: RequestInit = {}, _isRetry 
 
   return text ? addCamelAliases(JSON.parse(text)) : null;
   } finally {
-    globalLoading.requestFinished();
+    globalLoading.requestFinished(loaderMode);
   }
 }

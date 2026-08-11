@@ -61,6 +61,16 @@ export const decisionIntelligenceApi = {
   getAnalytics: (tenantId: string) => request(`/analytics/${tenantId}`),
   getExecutiveSummary: (tenantId: string) => request(`/analytics/${tenantId}/executive-summary`),
   getDecisionIntelligence: (tenantId: string) => request(`/analytics/${tenantId}/decision-intelligence`),
+  getDeliberationOverview: (tenantId: string, page = 1, pageSize = 8) =>
+    request(`/analytics/${tenantId}/deliberation-overview?page=${page}&pageSize=${pageSize}`),
+  getEnterpriseOverview: (tenantId: string) => request(`/analytics/${tenantId}/enterprise-overview`),
+  getExecutionOverview: (tenantId: string, page = 1, pageSize = 12, status = 'active') =>
+    request(`/analytics/${tenantId}/execution-overview?page=${page}&pageSize=${pageSize}&status=${encodeURIComponent(status)}`),
+  getTrend: (tenantId: string, metric: string, days = 180, dimension?: string) =>
+    request(
+      `/analytics/${tenantId}/trend?metric=${encodeURIComponent(metric)}&days=${days}${dimension ? `&dimension=${encodeURIComponent(dimension)}` : ''}`,
+      { globalLoader: 'none' },
+    ),
 
   // Executors (Sprint 3) — the real data behind the Multi-Agent Monitor
   listExecutors: (tenantId: string) => request(`/executors/${tenantId}`),

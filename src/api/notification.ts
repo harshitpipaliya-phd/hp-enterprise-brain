@@ -6,10 +6,14 @@ export const authApi = {
 };
 
 export const notificationApi = {
-  list: (tenantId: string, unreadOnly = false) => request(`/notifications/${tenantId}${unreadOnly ? '?unread=true' : ''}`),
-  unreadCount: (tenantId: string) => request(`/notifications/${tenantId}/unread-count`),
-  markRead: (tenantId: string, id: string) => request(`/notifications/${tenantId}/${id}/read`, { method: 'PATCH' }),
-  markAllRead: (tenantId: string) => request(`/notifications/${tenantId}/read-all`, { method: 'POST' }),
+  list: (tenantId: string, unreadOnly = false) =>
+    request(`/notifications/${tenantId}${unreadOnly ? '?unread=true' : ''}`, { globalLoader: 'none' }),
+  unreadCount: (tenantId: string) =>
+    request(`/notifications/${tenantId}/unread-count`, { globalLoader: 'none' }),
+  markRead: (tenantId: string, id: string) =>
+    request(`/notifications/${tenantId}/${id}/read`, { method: 'PATCH', globalLoader: 'none' }),
+  markAllRead: (tenantId: string) =>
+    request(`/notifications/${tenantId}/read-all`, { method: 'POST', globalLoader: 'none' }),
 };
 
 export const settingsApi = {
