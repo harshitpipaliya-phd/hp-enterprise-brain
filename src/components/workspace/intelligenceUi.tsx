@@ -14,8 +14,9 @@
  */
 
 import React from 'react';
+import { Panel } from '../../ui';
 import type {
-  ConfidenceValue, EvidenceRef, Provenance, Recommendation, StateDimension, Gap,
+  ConfidenceValue, EvidenceRef, ExecutiveInterpretation, Provenance, Recommendation, StateDimension, Gap,
 } from '../../api/organizationIntelligence';
 
 /** 0..1 as a percentage string. Formatting only. */
@@ -307,6 +308,79 @@ export function RecommendationCard({ recommendation }: { recommendation: Recomme
 /* ─────────────────────────── gap ─────────────────────────── */
 
 /** One gap: what is absent, how much it touches, and what would close it. */
+export function ExecutiveInterpretationPanel({ interpretation }: { interpretation: ExecutiveInterpretation | null | undefined }) {
+  if (!interpretation) return null;
+
+  const available = interpretation.status === 'available';
+  const findings = interpretation.critical_findings.slice(0, 3);
+  const actions = interpretation.recommendations.slice(0, 3);
+
+  return (
+    <Panel
+      title="Executive interpretation"
+      hint={available ? `DeepSeek - ${interpretation.model ?? 'configured model'}` : 'DeepSeek unavailable'}
+      footnote={<span>{interpretation.guardrails.model_role} {interpretation.guardrails.facts}</span>}
+    >
+      {!available && (
+        <div className="oi-ai-unavailable">
+          <strong>Interpretation unavailable.</strong>
+          <span>{interpretation.reason ?? 'unknown'}{interpretation.detail ? `: ${interpretation.detail}` : ''}</span>
+        </div>
+      )}
+
+      <p className="oi-ai-summary">{interpretation.executive_summary}</p>
+
+      {available && (
+        <div className="oi-ai-grid">
+          <div className="oi-ai-section">
+            <h4>Most Important Findings</h4>
+            {findings.length === 0 ? (
+              <p className="bc-note">No model finding was accepted for this data version.</p>
+            ) : findings.map((finding) => (
+              <article className="oi-ai-card" key={finding.title}>
+                <div className="oi-finding__top">
+                  <span className={`oi-chip oi-chip--${finding.severity === 'critical' ? 'crit' : finding.severity === 'high' ? 'warn' : 'info'}`}>
+                    {finding.severity}
+                  </span>
+                  <h4 className="oi-finding__title">{finding.title}</h4>
+                  <span className="oi-chip oi-chip--mono">conf {num(finding.confidence)}</span>
+                </div>
+                <p><strong>Observed.</strong> {finding.observed_fact}</p>
+                <p><strong>Inference.</strong> {finding.inference}</p>
+                <p><strong>Why it matters.</strong> {finding.why_it_matters}</p>
+                {finding.evidence.length > 0 && (
+                  <div className="oi-chips">{finding.evidence.slice(0, 3).map((e) => <span className="oi-chip" key={e}>{e}</span>)}</div>
+                )}
+              </article>
+            ))}
+          </div>
+
+          <div className="oi-ai-section">
+            <h4>Prioritized Actions</h4>
+            {actions.length === 0 ? (
+              <p className="bc-note">No model action was accepted for this data version.</p>
+            ) : actions.map((action) => (
+              <article className="oi-ai-card" key={action.title}>
+                <div className="oi-finding__top">
+                  <span className={`oi-chip oi-chip--${action.priority === 'critical' ? 'crit' : action.priority === 'high' ? 'warn' : 'info'}`}>
+                    {action.priority}
+                  </span>
+                  <h4 className="oi-finding__title">{action.title}</h4>
+                  <span className="oi-chip oi-chip--mono">conf {num(action.confidence)}</span>
+                </div>
+                <p><strong>Observed.</strong> {action.observed_fact}</p>
+                <p><strong>Action.</strong> {action.action}</p>
+                <p><strong>How.</strong> {action.how}</p>
+                <p><strong>Expected benefit.</strong> {action.expected_benefit}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 export function GapRow({ gap }: { gap: Gap }) {
   return (
     <article className="oi-finding">

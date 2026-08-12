@@ -22,6 +22,7 @@
 .bl-layer {
   position: relative;
   overflow: hidden;
+  min-width: 0;
   padding: 15px 17px 16px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md, 10px);
@@ -57,6 +58,7 @@
   line-height: 1;
   letter-spacing: -0.035em;
   color: var(--content-primary);
+  overflow-wrap: anywhere;
 }
 
 .bl-figure small {
@@ -290,7 +292,10 @@
 .bl-panel__hint { font-size: 11.5px; color: var(--content-tertiary); }
 .bl-panel__right { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--content-tertiary); }
 
-.bl-panel__body { padding: 16px 18px 18px; }
+.bl-panel__body {
+  min-width: 0;
+  padding: 16px 18px 18px;
+}
 .bl-panel__body--flush { padding: 0; }
 
 /* The takeaway. Prose, deliberately — a chart without one leaves the reader to
@@ -359,10 +364,14 @@
 
 /* ─────────────── layout helpers ─────────────── */
 
-.bl-grid { display: grid; gap: var(--space-3, 14px); }
+.bl-grid { display: grid; gap: var(--space-3, 14px); min-width: 0; }
 .bl-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .bl-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .bl-grid--wide-left { grid-template-columns: 2fr 1fr; }
+
+.bl-grid > * {
+  min-width: 0;
+}
 
 @media (max-width: 1100px) {
   .bl-grid--2, .bl-grid--3, .bl-grid--wide-left { grid-template-columns: 1fr; }
@@ -370,4 +379,27 @@
 
 /* Wide charts and tables scroll inside their panel. The page body must never
    scroll sideways. */
-.bl-scroll { overflow-x: auto; }
+.bl-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.bl-scroll svg {
+  min-width: min(100%, 420px);
+}
+
+@media (max-width: 760px) {
+  .bl-panel__head {
+    align-items: flex-start;
+  }
+
+  .bl-panel__right {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .bl-panel__body {
+    padding: 14px;
+  }
+}

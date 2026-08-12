@@ -6,7 +6,7 @@ import {
   ConsequenceEmpty, Panel, Quadrant, Sparkline, ScoreBars, NullLegend, Button, Spinner, ErrorState,
 } from '../../ui';
 import {
-  ConfidenceBar, ProvenanceDetails, IntelligenceHeader, DerivationFooter, pct, num, count,
+  ConfidenceBar, ProvenanceDetails, IntelligenceHeader, DerivationFooter, ExecutiveInterpretationPanel, pct, num, count,
 } from './intelligenceUi';
 import './OrganizationIntelligence.css';
 
@@ -144,6 +144,10 @@ export default function MentalModelBrowser({ tenantId }: { tenantId: string }) {
           )}
         </ConsequenceLayer>
       </LayerStrip>
+
+      <div className="oi-sections" style={{ marginBottom: 18 }}>
+        <ExecutiveInterpretationPanel interpretation={data.interpretation} />
+      </div>
 
       <div className="oi-sections">
         <div className="bl-grid bl-grid--wide-left">

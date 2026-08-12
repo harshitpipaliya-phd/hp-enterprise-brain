@@ -31,6 +31,7 @@ import {
   ConfidenceBar,
   DerivationFooter,
   EvidenceList,
+  ExecutiveInterpretationPanel,
   GapRow,
   IntelligenceHeader,
   ProvenanceDetails,
@@ -194,6 +195,10 @@ export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string 
           />
         </ConsequenceLayer>
       </LayerStrip>
+
+      <div className="oi-sections" style={{ marginBottom: 18 }}>
+        <ExecutiveInterpretationPanel interpretation={decisions.interpretation} />
+      </div>
 
       <div className="oi-toolbar" style={{ marginBottom: 16 }}>
         <label className="oi-block" style={{ minWidth: 210 }}>

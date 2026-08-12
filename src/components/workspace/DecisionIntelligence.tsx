@@ -9,7 +9,7 @@ import {
 } from '../../ui';
 import {
   ConfidenceBar, ProvenanceDetails, EvidenceList, IntelligenceHeader, DerivationFooter,
-  pct, num, count,
+  ExecutiveInterpretationPanel, pct, num, count,
 } from './intelligenceUi';
 import './OrganizationIntelligence.css';
 
@@ -219,6 +219,10 @@ export default function DecisionIntelligence({ tenantId }: { tenantId: string })
           <div className="u-alert-body">{state.provenanceNote}</div>
         </div>
       )}
+
+      <div className="oi-sections" style={{ marginBottom: 18 }}>
+        <ExecutiveInterpretationPanel interpretation={data.interpretation} />
+      </div>
 
       <div className="oi-sections">
         <div className="bl-grid bl-grid--2">

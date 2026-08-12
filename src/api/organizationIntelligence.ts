@@ -72,6 +72,60 @@ export interface Derivation {
   liveness: string;
 }
 
+export interface ExecutiveInterpretation {
+  status: 'available' | 'unavailable';
+  reason?: string;
+  detail?: string | null;
+  model?: string;
+  dataVersion: string;
+  generatedAt: string;
+  executive_summary: string;
+  organizational_state: {
+    overall_assessment: string;
+    strengths: string[];
+    weaknesses: string[];
+    confidence: number | null;
+  };
+  critical_findings: {
+    title: string;
+    observed_fact: string;
+    inference: string;
+    why_it_matters: string;
+    evidence: string[];
+    confidence: number | null;
+    severity: string;
+    impact: string;
+  }[];
+  root_causes: {
+    cause: string;
+    affected_area: string;
+    observed_fact: string;
+    inference: string;
+    evidence: string[];
+    confidence: number | null;
+  }[];
+  blind_spots: string[];
+  risks: string[];
+  opportunities: string[];
+  recommendations: {
+    title: string;
+    priority: 'critical' | 'high' | 'medium' | 'low' | string;
+    observed_fact: string;
+    problem: string;
+    action: string;
+    why: string;
+    how: string;
+    evidence: string[];
+    expected_benefit: string;
+    expected_impact: string;
+    effort: string;
+    time_horizon: string;
+    confidence: number | null;
+  }[];
+  next_steps: string[];
+  guardrails: Record<string, string>;
+}
+
 /* ─────────────────────────── state ─────────────────────────── */
 
 export interface StateDimension {
@@ -244,6 +298,7 @@ export interface KnowledgeIntelligence extends IntelligenceMeta {
   concentrations: { area: string; field: string; value: string; records: number; of: number; share: number; title: string; detail: string }[];
   method: Record<string, string>;
   derivation: Derivation;
+  interpretation: ExecutiveInterpretation;
 }
 
 /* ─────────────────────────── decisions and risk ─────────────────────────── */
@@ -365,6 +420,7 @@ export interface DecisionIntelligenceData extends IntelligenceMeta {
     method: Record<string, string>;
   };
   derivation: Derivation;
+  interpretation: ExecutiveInterpretation;
 }
 
 /* ─────────────────────────── gaps and recommendations ─────────────────────────── */
@@ -446,6 +502,7 @@ export interface RecommendationsResponse extends IntelligenceMeta {
   firstAction: { id: string; recommendation: string; why: string; nextAction: string } | null;
   method: Record<string, string>;
   derivation: Derivation;
+  interpretation: ExecutiveInterpretation;
 }
 
 /* ─────────────────────────── the client ─────────────────────────── */
