@@ -77,6 +77,7 @@ export default function PersonList({ people, departments, loading, onSelect, onE
   }), [people, departmentNames]);
 
   const roles = useMemo(() => Array.from(new Set(enriched.map((row) => row.roleName))).sort(), [enriched]);
+  const isStudentDataset = useMemo(() => enriched.length > 0 && enriched.filter((row) => lower(row.roleName) === 'student').length / enriched.length >= 0.8, [enriched]);
 
   const model = useMemo(() => {
     const total = enriched.length;
@@ -167,24 +168,24 @@ export default function PersonList({ people, departments, loading, onSelect, onE
     <div className="people-dashboard">
       <section className="people-hero">
         <div>
-          <span className="people-eyebrow">Workforce intelligence</span>
-          <h2>AI readiness across your organization</h2>
-          <p>Search, segment, and review people records with tenant-scoped workforce analytics.</p>
+          <span className="people-eyebrow">{isStudentDataset ? 'Student intelligence' : 'Workforce intelligence'}</span>
+          <h2>{isStudentDataset ? 'Student readiness across fee risk' : 'AI readiness across your organization'}</h2>
+          <p>{isStudentDataset ? 'Search, segment, and review student records with class-section and fee-contact context.' : 'Search, segment, and review people records with tenant-scoped workforce analytics.'}</p>
         </div>
         <div
           className="people-hero-score"
           style={{ ['--people-readiness' as any]: Math.max(0, Math.min(100, model.avgAi)) }}
         >
           <span>{model.avgAi}</span>
-          <small>AI readiness</small>
+          <small>{isStudentDataset ? 'data readiness' : 'AI readiness'}</small>
         </div>
       </section>
 
       <section className="people-kpi-grid" aria-label="People KPIs">
-        <Kpi icon={<UsersRound />} label="Total Employees" value={model.total} hint={`${filtered.length} in current view`} />
-        <Kpi icon={<Building2 />} label="Departments" value={model.assignedDepartments} hint={`${departments.length} available`} />
-        <Kpi icon={<BrainCircuit />} label="AI Readiness" value={`${model.avgAi}%`} hint="profile completeness" />
-        <Kpi icon={<Gauge />} label="Skill Coverage" value={`${model.skillCoverage}%`} hint="role and department mapped" />
+        <Kpi icon={<UsersRound />} label={isStudentDataset ? 'Total Students' : 'Total Employees'} value={model.total} hint={`${filtered.length} in current view`} />
+        <Kpi icon={<Building2 />} label={isStudentDataset ? 'Class Sections' : 'Departments'} value={model.assignedDepartments} hint={`${departments.length} available`} />
+        <Kpi icon={<BrainCircuit />} label={isStudentDataset ? 'Data Readiness' : 'AI Readiness'} value={`${model.avgAi}%`} hint="profile completeness" />
+        <Kpi icon={<Gauge />} label={isStudentDataset ? 'Class Mapping' : 'Skill Coverage'} value={`${model.skillCoverage}%`} hint="role and department mapped" />
         <Kpi icon={<ShieldAlert />} label="Missing Profiles" value={model.missingProfiles} hint="role data absent" danger={model.missingProfiles > 0} />
         <Kpi icon={<Sparkles />} label="Recently Added" value={model.recent} hint="last 30 days" />
       </section>
@@ -192,7 +193,7 @@ export default function PersonList({ people, departments, loading, onSelect, onE
       <section className="people-insight-grid">
         <article className="people-insight-card">
           <span>Current state</span>
-          <strong>{model.total} active records across {model.assignedDepartments || 0} staffed departments.</strong>
+          <strong>{model.total} active records across {model.assignedDepartments || 0} {isStudentDataset ? 'class sections' : 'staffed departments'}.</strong>
           <p>{model.missingProfiles > 0 ? `${model.missingProfiles} records need role/profile enrichment before AI routing is reliable.` : 'Every visible record has enough profile data for baseline AI routing.'}</p>
         </article>
         <article className="people-insight-card">
@@ -202,7 +203,7 @@ export default function PersonList({ people, departments, loading, onSelect, onE
         </article>
         <article className="people-insight-card">
           <span>Operational risk</span>
-          <strong>{enriched.filter((row) => row.score.risk >= 50).length} people require attention.</strong>
+          <strong>{enriched.filter((row) => row.score.risk >= 50).length} {isStudentDataset ? 'student records' : 'people'} require attention.</strong>
           <p>Risk is computed from missing email, department, employee id, role, phone, and inactive status.</p>
         </article>
       </section>
@@ -211,7 +212,7 @@ export default function PersonList({ people, departments, loading, onSelect, onE
         <div className="people-toolbar">
           <div className="people-search">
             <Search size={16} aria-hidden="true" />
-            <input value={query} onChange={(event) => onFilter(() => setQuery(event.target.value))} placeholder="Search people, email, employee id, department..." />
+            <input value={query} onChange={(event) => onFilter(() => setQuery(event.target.value))} placeholder={isStudentDataset ? 'Search students, guardian email, student id, class...' : 'Search people, email, employee id, department...'} />
           </div>
           <select value={department} onChange={(event) => onFilter(() => setDepartment(event.target.value))} aria-label="Department filter">
             <option value="all">All departments</option>
@@ -241,8 +242,8 @@ export default function PersonList({ people, departments, loading, onSelect, onE
           <table className="people-table">
             <thead>
               <tr>
-                <Sortable label="Employee" sortKey="name" active={sortKey} dir={sortDir} onSort={updateSort} />
-                <Sortable label="Department" sortKey="department" active={sortKey} dir={sortDir} onSort={updateSort} />
+                <Sortable label={isStudentDataset ? 'Student' : 'Employee'} sortKey="name" active={sortKey} dir={sortDir} onSort={updateSort} />
+                <Sortable label={isStudentDataset ? 'Class Section' : 'Department'} sortKey="department" active={sortKey} dir={sortDir} onSort={updateSort} />
                 <Sortable label="Role" sortKey="role" active={sortKey} dir={sortDir} onSort={updateSort} />
                 <Sortable label="AI Score" sortKey="ai" active={sortKey} dir={sortDir} onSort={updateSort} />
                 <Sortable label="Risk" sortKey="risk" active={sortKey} dir={sortDir} onSort={updateSort} />

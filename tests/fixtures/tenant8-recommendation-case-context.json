@@ -1,0 +1,30 @@
+{
+    "tenantId": "8",
+    "recommendationId": "d4286d22-ae11-46cf-8c4e-b72185c0c287",
+    "caseId": "4ea40c6c-de38-4c88-aa2f-4aad985b059b",
+    "resolution": {
+        "via": "hpbrain_recommendations.dependencies -> hpbrain_evidence.signal_id -> hpbrain_case_signals -> hpbrain_cases",
+        "citedEvidence": 5,
+        "signalIds": [
+            "5f1d16da-0e9d-45c1-a4c9-bcd78cf00e62"
+        ],
+        "candidateCaseIds": [
+            "4ea40c6c-de38-4c88-aa2f-4aad985b059b"
+        ],
+        "note": null
+    },
+    "groundedOn": [
+        "14ea60dc-8af5-4d38-a36e-80284d334de3",
+        "38886c72-62ce-46da-a88f-74d30b7ab3e1",
+        "7be4b314-4ca7-473e-a638-abdf170e0425",
+        "be485dc7-ac0f-4a0a-8473-bb12658acf76",
+        "d304cbc0-02c5-4321-9c41-40e41aa26024"
+    ],
+    "caseContext": {
+        "primarySignalId": "5f1d16da-0e9d-45c1-a4c9-bcd78cf00e62",
+        "relatedSignals": [],
+        "evidence": [],
+        "evidenceCount": 0,
+        "citedFromRelated": 0
+    }
+}

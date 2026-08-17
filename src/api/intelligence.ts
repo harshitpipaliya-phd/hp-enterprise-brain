@@ -36,6 +36,8 @@ export const api = {
    */
   approveDecision: (tenantId: string, id: string, body: Record<string, unknown> = {}) =>
     request(`/decisions/${tenantId}/${id}/approve`, { method: 'POST', body: JSON.stringify(body) }),
+  rejectDecision: (tenantId: string, id: string, body: Record<string, unknown>) =>
+    request(`/decisions/${tenantId}/${id}/reject`, { method: 'POST', body: JSON.stringify(body) }),
 
   // Outcomes (Story 7)
   listOutcomes: (tenantId: string) => request(`/outcomes/${tenantId}`),
@@ -81,4 +83,20 @@ export const decisionIntelligenceApi = {
 
   // Evidence (Sprint 2) — the api object already has listEvidence/collectEvidence; this is the one genuinely missing method
   getEvidenceForSignal: (tenantId: string, signalId: string) => request(`/evidence/${tenantId}/signal/${signalId}`),
+
+  /**
+   * GET /recommendations/{tenantId}/{id}/case-context — what a recommendation
+   * actually cited (`groundedOn`), and what its case holds besides
+   * (`caseContext`). The two halves are kept apart by the endpoint on purpose;
+   * a caller that merges them is claiming the case's other evidence supported
+   * the recommendation, and it did not.
+   */
+  getRecommendationCaseContext: (tenantId: string, recommendationId: string) =>
+    request(`/recommendations/${tenantId}/${recommendationId}/case-context`),
+  proposeRecommendationDecision: (tenantId: string, recommendationId: string, rationale: string) =>
+    request('/decisions', { method: 'POST', body: JSON.stringify({ tenantId, recommendationId, rationale }) }),
+  approveDecision: (tenantId: string, id: string, body: Record<string, unknown> = {}) =>
+    request(`/decisions/${tenantId}/${id}/approve`, { method: 'POST', body: JSON.stringify(body) }),
+  rejectDecision: (tenantId: string, id: string, body: Record<string, unknown>) =>
+    request(`/decisions/${tenantId}/${id}/reject`, { method: 'POST', body: JSON.stringify(body) }),
 };

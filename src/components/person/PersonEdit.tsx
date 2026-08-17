@@ -8,27 +8,27 @@ interface Props {
   onCancel: () => void;
 }
 
+/**
+ * Edit a person.
+ *
+ * ONLY THE FOUR FIELDS THE BACKEND WRITES. PersonController::update() validates
+ * and maps exactly firstName, lastName, email and phone onto the tenant's Person
+ * source; every other key in the request body is discarded by the validator.
+ *
+ * This form used to render sixteen inputs — Employee ID, Display Name, Gender,
+ * Date of Birth, Employment Type, Employment Status, Joining Date, Department
+ * ID, Manager ID, Designation, Location, Status — and submit four. The other
+ * twelve accepted typing, showed no error, and silently discarded the edit;
+ * the submit handler even carried a comment explaining that they are not sent.
+ * A control that cannot change anything is worse than an absent one, because it
+ * tells the user they have made a change they have not made. They are gone.
+ */
 export default function PersonEdit({ person, onUpdated, onCancel }: Props) {
   const [form, setForm] = useState({
-    employeeId: person.employeeId,
-    firstName: person.firstName,
-    lastName: person.lastName,
-    displayName: person.displayName ?? '',
-    email: person.email,
+    firstName: person.firstName ?? '',
+    lastName: person.lastName ?? '',
+    email: person.email ?? '',
     phone: person.phone ?? '',
-    profilePhoto: person.profilePhoto ?? '',
-    gender: person.gender ?? '',
-    dateOfBirth: person.dateOfBirth ?? '',
-    employmentType: person.employmentType as 'full_time' | 'part_time' | 'contract' | 'intern',
-    employmentStatus: person.employmentStatus as 'active' | 'on_leave' | 'terminated' | 'resigned',
-    joiningDate: person.joiningDate ?? '',
-    departmentId: person.departmentId ?? '',
-    managerId: person.managerId ?? '',
-    designation: person.designation ?? '',
-    location: person.location ?? '',
-    reportingManagerId: person.reportingManagerId ?? '',
-    orgId: person.orgId,
-    status: person.status as 'active' | 'inactive' | 'archived',
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -38,9 +38,6 @@ export default function PersonEdit({ person, onUpdated, onCancel }: Props) {
     setError(null);
     setSaving(true);
     try {
-      // PersonController::update() maps exactly firstName / lastName / email /
-      // phone onto tbluser columns. Everything else on this form has no column
-      // to write to, so it is not sent.
       const updated = await api.updatePerson(person.tenantId, person.id, {
         firstName: form.firstName,
         lastName: form.lastName,
@@ -56,78 +53,36 @@ export default function PersonEdit({ person, onUpdated, onCancel }: Props) {
   };
 
   return (
-    <div>
-      <h2>Edit Person</h2>
-      {error && <div style={{ color: 'red' }}>{error}</div>}
-      <form onSubmit={submit} style={{ display: 'grid', gap: 12, maxWidth: 600 }}>
-        <label>
-          Employee ID <input required value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} />
+    <div style={{ maxWidth: 620 }}>
+      <div className="eb-eyebrow">Edit person</div>
+      <h2 style={{ marginTop: 6 }}>{person.displayName || `${person.firstName} ${person.lastName}`}</h2>
+      <p style={{ color: 'var(--content-secondary)', fontSize: 13.5, lineHeight: 1.6, maxWidth: '70ch' }}>
+        Name and contact details are written back to this organization’s source system. Class, department,
+        role and reference number are owned there and are not editable from the Brain.
+      </p>
+
+      {error && <div className="people-alert" role="alert" style={{ marginTop: 16 }}>{error}</div>}
+
+      <form onSubmit={submit} style={{ display: 'grid', gap: 14, marginTop: 20 }}>
+        <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 650, color: 'var(--content-secondary)' }}>
+          First name
+          <input required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
         </label>
-        <label>
-          First Name <input required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+        <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 650, color: 'var(--content-secondary)' }}>
+          Last name
+          <input required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
         </label>
-        <label>
-          Last Name <input required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+        <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 650, color: 'var(--content-secondary)' }}>
+          Email
+          <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         </label>
-        <label>
-          Display Name <input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} />
+        <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 650, color: 'var(--content-secondary)' }}>
+          Phone
+          <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </label>
-        <label>
-          Email <input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        </label>
-        <label>
-          Phone <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        </label>
-        <label>
-          Gender <input value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} />
-        </label>
-        <label>
-          Date of Birth <input type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
-        </label>
-        <label>
-          Employment Type
-          <select value={form.employmentType} onChange={(e) => setForm({ ...form, employmentType: e.target.value as any })}>
-            <option value="full_time">Full Time</option>
-            <option value="part_time">Part Time</option>
-            <option value="contract">Contract</option>
-            <option value="intern">Intern</option>
-          </select>
-        </label>
-        <label>
-          Employment Status
-          <select value={form.employmentStatus} onChange={(e) => setForm({ ...form, employmentStatus: e.target.value as any })}>
-            <option value="active">Active</option>
-            <option value="on_leave">On Leave</option>
-            <option value="terminated">Terminated</option>
-            <option value="resigned">Resigned</option>
-          </select>
-        </label>
-        <label>
-          Joining Date <input type="date" value={form.joiningDate} onChange={(e) => setForm({ ...form, joiningDate: e.target.value })} />
-        </label>
-        <label>
-          Department ID <input value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })} />
-        </label>
-        <label>
-          Manager ID <input value={form.managerId} onChange={(e) => setForm({ ...form, managerId: e.target.value })} />
-        </label>
-        <label>
-          Designation <input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-        </label>
-        <label>
-          Location <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
-        </label>
-        <label>
-          Status
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as any })}>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="archived">Archived</option>
-          </select>
-        </label>
-        <div>
-          <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-          <button type="button" onClick={onCancel} style={{ marginLeft: 8 }}>Cancel</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
+          <button type="button" className="eb-pill-btn" onClick={onCancel}>Cancel</button>
         </div>
       </form>
     </div>

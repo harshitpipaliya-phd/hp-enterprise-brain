@@ -368,6 +368,7 @@ function AuthenticatedApp() {
                 onNavigate={(v) => navigate(v, selected)}
                 onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
                 onArchive={() => navigate('archive', selected)}
+                onArchived={(org) => { setSelected(null); setView('list'); reloadAfter(`Organization "${org.name}" archived`, 'warning'); }}
               />
             )}
             {view === 'list' && (
@@ -399,6 +400,7 @@ function AuthenticatedApp() {
                 onNavigate={(v) => navigate(v, selected)}
                 onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
                 onArchive={() => navigate('archive', selected)}
+                onArchived={(org) => { setSelected(null); setView('list'); reloadAfter(`Organization "${org.name}" archived`, 'warning'); }}
               />
             )}
             {view === 'departments' && selected && (

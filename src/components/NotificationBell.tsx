@@ -15,28 +15,39 @@ export function NotificationBell({ tenantId }: { tenantId: string }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const load = async () => {
+  const loadCount = async () => {
     try {
-      const [list, count] = await Promise.all([notificationApi.list(tenantId), notificationApi.unreadCount(tenantId)]);
-      setNotifications(list);
+      const count = await notificationApi.unreadCount(tenantId);
       setUnreadCount(count.count);
     } catch { /* notification load failure shouldn't break the shell */ }
   };
 
+  const loadList = async () => {
+    try {
+      const list = await notificationApi.list(tenantId);
+      setNotifications(list);
+      setUnreadCount(list.filter((item: Notification) => !item.readDate).length);
+    } catch { /* notification load failure shouldn't break the shell */ }
+  };
+
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 30000);
+    loadCount();
+    const interval = setInterval(loadCount, 120000);
     return () => clearInterval(interval);
   }, [tenantId]);
 
+  useEffect(() => {
+    if (open) void loadList();
+  }, [open, tenantId]);
+
   const markRead = async (id: string) => {
     await notificationApi.markRead(tenantId, id);
-    load();
+    loadList();
   };
 
   const markAllRead = async () => {
     await notificationApi.markAllRead(tenantId);
-    load();
+    loadList();
   };
 
   return (

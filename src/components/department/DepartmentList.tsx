@@ -44,6 +44,21 @@ interface DepartmentTwin {
   openRiskSignalCount?: number;
   decisionCount?: number;
   decisionApprovalRate?: number | null;
+  feeIntelligence?: {
+    records: number;
+    students: number;
+    net: number;
+    collected: number;
+    outstanding: number;
+    overdue: number;
+    expectedCollectable: number;
+    atRiskAmount: number;
+    collectionRate: number | null;
+    criticalStudents: number;
+    highStudents: number;
+    reminders: number;
+    failedTransactions: number;
+  } | null;
 }
 
 type SortKey = 'name' | 'status' | 'people' | 'coverage' | 'updated';
@@ -55,6 +70,7 @@ type EnrichedDepartment = Department & {
   openRiskSignals: number;
   decisionCount: number;
   decisionApprovalRate: number | null;
+  feeIntelligence: DepartmentTwin['feeIntelligence'];
 };
 
 /* Shared with Signals and every other screen — see ui/palette. */
@@ -83,6 +99,11 @@ function formatPercent(value: number | null): string {
 function formatDate(value: string | null | undefined): string {
   const date = parseDate(value);
   return date ? date.toLocaleDateString() : '-';
+}
+
+function formatCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '-';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value));
 }
 
 function countBy<T>(items: T[], pick: (item: T) => string): Record<string, number> {
@@ -182,15 +203,17 @@ export default function DepartmentList({ organization, departments, loading, onS
     return departments.map((dept) => {
       const twin = twins[dept.id];
       const heatmap = twin?.capabilityHeatmap ?? [];
-      const peopleCount = twin?.personCount ?? peopleCounts[dept.id] ?? null;
+      const fee = twin?.feeIntelligence ?? null;
+      const peopleCount = fee?.students ?? twin?.personCount ?? peopleCounts[dept.id] ?? null;
       return {
         ...dept,
         peopleCount,
-        coverage: coverageFromTwin(twin),
+        coverage: fee?.collectionRate ?? coverageFromTwin(twin),
         assessedCapabilities: heatmap.filter((cell) => Number(cell.assessedCount ?? 0) > 0).length,
-        openRiskSignals: Number(twin?.openRiskSignalCount ?? 0),
+        openRiskSignals: Number(((fee?.criticalStudents ?? 0) + (fee?.highStudents ?? 0)) || (twin?.openRiskSignalCount ?? 0)),
         decisionCount: Number(twin?.decisionCount ?? 0),
         decisionApprovalRate: twin?.decisionApprovalRate ?? null,
+        feeIntelligence: fee,
       };
     });
   }, [departments, people, twins]);
@@ -227,6 +250,9 @@ export default function DepartmentList({ organization, departments, loading, onS
     const counts = filtered.map((dept) => dept.peopleCount).filter((value): value is number => value !== null);
     const coverages = filtered.map((dept) => dept.coverage).filter((value): value is number => value !== null);
     const riskDepartments = filtered.filter((dept) => dept.openRiskSignals > 0);
+    const feeRows = filtered.filter((dept) => dept.feeIntelligence);
+    const totalOutstanding = feeRows.reduce((sum, dept) => sum + Number(dept.feeIntelligence?.outstanding ?? 0), 0);
+    const totalExpected = feeRows.reduce((sum, dept) => sum + Number(dept.feeIntelligence?.expectedCollectable ?? 0), 0);
     const sizeRows = filtered
       .filter((dept) => dept.peopleCount !== null)
       .map((dept) => ({ name: dept.name, value: dept.peopleCount ?? 0, percent: 0 }))
@@ -256,6 +282,9 @@ export default function DepartmentList({ organization, departments, loading, onS
       avgTeamSize: average(counts),
       avgCoverage: average(coverages),
       riskDepartments,
+      feeRows,
+      totalOutstanding,
+      totalExpected,
       sizeRows: sizeRows.map((row) => ({ ...row, percent: maxSize ? row.value / maxSize : 0 })),
       statusRows,
       typeRows,
@@ -303,7 +332,9 @@ export default function DepartmentList({ organization, departments, loading, onS
         title: 'Operating Load',
         body: model.avgTeamSize === null
           ? 'Team size could not be calculated because no people counts are available.'
-          : `Average team size is ${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} people; ${model.riskDepartments.length.toLocaleString()} departments report open risk signals.`,
+          : model.feeRows.length > 0
+            ? `Average class-section size is ${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} students; ${formatCurrency(model.totalOutstanding)} is outstanding and ${formatCurrency(model.totalExpected)} is expected collectable.`
+            : `Average team size is ${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} people; ${model.riskDepartments.length.toLocaleString()} departments report open risk signals.`,
         tone: model.riskDepartments.length > 0 ? 'impact' : 'movement',
       },
     ] as Array<{ label: string; title: string; body: string; tone: 'state' | 'movement' | 'impact' }>;
@@ -380,9 +411,9 @@ export default function DepartmentList({ organization, departments, loading, onS
         <Kpi icon={<Activity size={18} />} label="Active Departments" value={model.active.length.toLocaleString()} hint={`${model.inactive.length.toLocaleString()} inactive`} tone={model.active.length > 0 ? 'good' : 'warn'} />
         <Kpi icon={<UserCheck size={18} />} label="Departments With Heads" value={model.headed.length.toLocaleString()} hint={formatPercent(model.total ? model.headed.length / model.total : null)} tone="good" />
         <Kpi icon={<UserMinus size={18} />} label="Departments Without Heads" value={model.missingHeads.length.toLocaleString()} hint="Leadership assignment gaps" tone={model.missingHeads.length > 0 ? 'crit' : 'good'} />
-        <Kpi icon={<Users size={18} />} label="Average Team Size" value={model.avgTeamSize === null ? '-' : model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} hint="Calculated from people API" tone="state" />
-        <Kpi icon={<ShieldCheck size={18} />} label="Average Capability Coverage" value={formatPercent(model.avgCoverage)} hint="From department twin heatmaps" tone={model.avgCoverage !== null && model.avgCoverage >= 0.5 ? 'good' : 'warn'} />
-        <Kpi icon={<AlertTriangle size={18} />} label="Departments With Risk" value={model.riskDepartments.length.toLocaleString()} hint="Open risk signals reported" tone={model.riskDepartments.length > 0 ? 'crit' : 'good'} />
+        <Kpi icon={<Users size={18} />} label={model.feeRows.length > 0 ? 'Average Students' : 'Average Team Size'} value={model.avgTeamSize === null ? '-' : model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} hint={model.feeRows.length > 0 ? 'students per class-section' : 'Calculated from people API'} tone="state" />
+        <Kpi icon={<ShieldCheck size={18} />} label={model.feeRows.length > 0 ? 'Average Collection' : 'Average Capability Coverage'} value={formatPercent(model.avgCoverage)} hint={model.feeRows.length > 0 ? 'collected / net fees' : 'From department twin heatmaps'} tone={model.avgCoverage !== null && model.avgCoverage >= 0.5 ? 'good' : 'warn'} />
+        <Kpi icon={<AlertTriangle size={18} />} label={model.feeRows.length > 0 ? 'Risk Sections' : 'Departments With Risk'} value={model.riskDepartments.length.toLocaleString()} hint={model.feeRows.length > 0 ? 'sections with high/critical students' : 'Open risk signals reported'} tone={model.riskDepartments.length > 0 ? 'crit' : 'good'} />
       </section>
 
       <section className="dept-intel__summary">
@@ -396,7 +427,7 @@ export default function DepartmentList({ organization, departments, loading, onS
       </section>
 
       <section className="dept-intel__grid dept-intel__grid--wide-left">
-        <ChartCard title="Department Size Comparison" meta="people by department" footer={model.avgTeamSize === null ? 'People counts are unavailable in the current API response.' : `Average team size is ${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} people.`}>
+        <ChartCard title="Department Size Comparison" meta={model.feeRows.length > 0 ? 'students by class-section' : 'people by department'} footer={model.avgTeamSize === null ? 'People counts are unavailable in the current API response.' : `Average ${model.feeRows.length > 0 ? 'class-section size' : 'team size'} is ${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} ${model.feeRows.length > 0 ? 'students' : 'people'}.`}>
           {model.sizeRows.length > 0 ? <HorizontalBars rows={model.sizeRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} /> : <EmptyChart />}
         </ChartCard>
         <PieCard title="Head Assignment Status" rows={model.leadershipRows} colorFor={(name) => name === 'assigned' ? 'var(--chart-1)' : 'var(--chart-3)'} />
@@ -405,7 +436,7 @@ export default function DepartmentList({ organization, departments, loading, onS
       <section className="dept-intel__grid dept-intel__grid--thirds">
         <PieCard title="Active vs Archived" rows={model.statusRows} colorFor={(name) => STATUS_COLORS[name] ?? STATUS_COLORS.unknown} />
         <DistributionCard title="Department Distribution" rows={model.typeRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} />
-        <DistributionCard title="Capability Coverage Distribution" rows={model.coverageRows} colorFor={(name) => name === 'high' ? 'var(--chart-1)' : name === 'medium' ? 'var(--chart-4)' : name === 'low' ? 'var(--chart-3)' : 'var(--content-tertiary)'} />
+        <DistributionCard title={model.feeRows.length > 0 ? 'Collection Coverage Distribution' : 'Capability Coverage Distribution'} rows={model.coverageRows} colorFor={(name) => name === 'high' ? 'var(--chart-1)' : name === 'medium' ? 'var(--chart-4)' : name === 'low' ? 'var(--chart-3)' : 'var(--content-tertiary)'} />
       </section>
 
       <section className="dept-intel__grid dept-intel__grid--two">
@@ -463,10 +494,16 @@ export default function DepartmentList({ organization, departments, loading, onS
                     <span>Updated {formatDate(dept.updatedDate)}</span>
                   </div>
                   <div className="dept-intel__unit-stats">
-                    <div><strong>{dept.peopleCount === null ? '-' : dept.peopleCount.toLocaleString()}</strong><span>people</span></div>
-                    <div><strong>{formatPercent(dept.coverage)}</strong><span>coverage</span></div>
-                    <div><strong>{dept.openRiskSignals.toLocaleString()}</strong><span>risks</span></div>
+                    <div><strong>{dept.peopleCount === null ? '-' : dept.peopleCount.toLocaleString()}</strong><span>{dept.feeIntelligence ? 'students' : 'people'}</span></div>
+                    <div><strong>{formatPercent(dept.coverage)}</strong><span>{dept.feeIntelligence ? 'collection' : 'coverage'}</span></div>
+                    <div><strong>{dept.openRiskSignals.toLocaleString()}</strong><span>{dept.feeIntelligence ? 'risk students' : 'risks'}</span></div>
                   </div>
+                  {dept.feeIntelligence && (
+                    <div className="dept-intel__unit-meta">
+                      <span>{formatCurrency(dept.feeIntelligence.outstanding)} outstanding</span>
+                      <span>{formatCurrency(dept.feeIntelligence.expectedCollectable)} expected</span>
+                    </div>
+                  )}
                   <div className="dept-intel__leadership-line">
                     <span className={dept.headId ? 'ok' : 'gap'}>{dept.headId ? 'Head assigned' : 'No head assigned'}</span>
                     <em>{dept.headId ?? 'leadership gap'}</em>

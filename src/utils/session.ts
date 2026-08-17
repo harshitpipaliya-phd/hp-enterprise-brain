@@ -33,11 +33,22 @@ export interface StoredSession {
   userName: string | null;
   organization: OrganizationRow | null;
   view: string | null;
+  /**
+   * The person whose profile was open, if any.
+   *
+   * Only the id. The person's own fields are re-read from the API on restore,
+   * because a name or a class stored here would outlive the edit that changed
+   * it and the screen would open showing something that is no longer true. The
+   * id is also the only part of a person that is safe to keep in a store the
+   * user can edit: it is checked against the tenant's own list before anything
+   * is shown, so a hand-edited value opens nothing.
+   */
+  personId: string | null;
 }
 
 const KEY = 'hpbrain-session';
 
-const EMPTY: StoredSession = { role: null, userName: null, organization: null, view: null };
+const EMPTY: StoredSession = { role: null, userName: null, organization: null, view: null, personId: null };
 
 export function loadSession(): StoredSession {
   try {
@@ -57,6 +68,7 @@ export function loadSession(): StoredSession {
           ? (parsed.organization as OrganizationRow)
           : null,
       view: typeof parsed?.view === 'string' ? parsed.view : null,
+      personId: typeof parsed?.personId === 'string' && parsed.personId !== '' ? parsed.personId : null,
     };
   } catch {
     // Corrupt JSON must not brick the app into a permanent white screen. A

@@ -1,20 +1,27 @@
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, PlayCircle, RefreshCw, RotateCcw } from 'lucide-react';
-import { decisionIntelligenceApi } from '../../api/intelligence';
+import { CheckCircle2, ClipboardCheck, FileCheck2, PlayCircle, RefreshCw, RotateCcw } from 'lucide-react';
+import { api, decisionIntelligenceApi } from '../../api/intelligence';
 import { esoApi } from '../../api/eso';
 import { LoadingState, ErrorState, EmptyState } from '../shared/States';
 import { badgeTone, formatDateTime, formatNumber, formatPercent } from './intelligenceShared';
 import './IntelligenceSuite.css';
 
 type ExecutionOverview = any;
+type EsoDefinition = { id: string; name: string; esoCode?: string; status?: string };
 
 export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
   const [data, setData] = useState<ExecutionOverview | null>(null);
+  const [definitions, setDefinitions] = useState<EsoDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('active');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [planForms, setPlanForms] = useState<Record<string, Record<string, string>>>({});
+  const [outcomeForms, setOutcomeForms] = useState<Record<string, Record<string, string>>>({});
 
   const load = async (filter = statusFilter, options?: { background?: boolean }) => {
     const useBackgroundRefresh = Boolean(options?.background) || !!data;
@@ -25,8 +32,12 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
     }
     setError(null);
     try {
-      const overview = await decisionIntelligenceApi.getExecutionOverview(tenantId, 1, 12, filter);
+      const [overview, definitionPayload] = await Promise.all([
+        decisionIntelligenceApi.getExecutionOverview(tenantId, 1, 12, filter),
+        esoApi.definitions(tenantId),
+      ]);
       setData(overview);
+      setDefinitions(definitionPayload?.definitions ?? []);
     } catch (e: any) {
       setError(e?.message ?? 'Unable to load execution center.');
     } finally {
@@ -40,13 +51,131 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
   }, [tenantId, statusFilter]);
 
   const completeExecution = async (id: string) => {
-    await esoApi.transition(tenantId, id, 'completed');
-    await load(statusFilter);
+    setBusyId(id);
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      await esoApi.transition(tenantId, id, 'completed');
+      setActionMessage(`Execution ${id} is marked completed. Record its measured outcome next.`);
+      await load(statusFilter);
+    } catch (e: any) {
+      setActionError(e?.message ?? 'Unable to complete execution.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const rollbackExecution = async (id: string) => {
-    await esoApi.rollback(tenantId, id);
-    await load(statusFilter);
+    const reason = window.prompt('Rollback reason');
+    if (!reason || reason.trim().length === 0) {
+      setActionError('A rollback reason is required.');
+      return;
+    }
+    setBusyId(id);
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      await esoApi.rollback(tenantId, id, reason.trim());
+      setActionMessage(`Execution ${id} was rolled back.`);
+      await load(statusFilter);
+    } catch (e: any) {
+      setActionError(e?.message ?? 'Unable to roll back execution.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const updatePlanForm = (decisionId: string, patch: Record<string, string>) => {
+    setPlanForms((forms) => ({ ...forms, [decisionId]: { ...(forms[decisionId] ?? {}), ...patch } }));
+  };
+
+  const updateOutcomeForm = (executionId: string, patch: Record<string, string>) => {
+    setOutcomeForms((forms) => ({ ...forms, [executionId]: { ...(forms[executionId] ?? {}), ...patch } }));
+  };
+
+  const startExecution = async (item: any) => {
+    const form = planForms[item.id] ?? {};
+    const defaultEso = item.recommendation?.esoId || definitions[0]?.id || '';
+    const esoDefinitionId = form.esoDefinitionId || defaultEso;
+    const baselineMetric = (form.baselineMetric || '').trim();
+
+    if (!esoDefinitionId) {
+      setActionError('No ESO definition is available for this tenant.');
+      return;
+    }
+    if (!baselineMetric) {
+      setActionError('A baseline metric is required before execution can start.');
+      return;
+    }
+
+    setBusyId(item.id);
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      await esoApi.createMeasurementPlan({
+        decisionId: item.id,
+        baselineMetric,
+        baselineValue: form.baselineValue ? Number(form.baselineValue) : undefined,
+        targetValue: form.targetValue ? Number(form.targetValue) : undefined,
+        metricUnit: form.metricUnit || undefined,
+        measurementWindowDays: form.measurementWindowDays ? Number(form.measurementWindowDays) : 14,
+      });
+      const execution = await esoApi.create({
+        decisionId: item.id,
+        esoDefinitionId,
+        executorType: 'human',
+      });
+      setActionMessage(`Execution ${execution.id} started for decision ${item.id}.`);
+      await load(statusFilter);
+    } catch (e: any) {
+      setActionError(e?.message ?? 'Unable to start execution.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const recordOutcome = async (row: any) => {
+    const form = outcomeForms[row.id] ?? {};
+    const metricName = (form.metricName || '').trim();
+    const metricValue = form.metricValue === '' || form.metricValue == null ? null : Number(form.metricValue);
+    const evidenceIds = (form.evidenceIds ?? (row.citationEvidenceIds || []).join('\n'))
+      .split(/[\n,]+/)
+      .map((id: string) => id.trim())
+      .filter(Boolean);
+
+    if (!row.decisionId) {
+      setActionError('This execution is not linked to a decision.');
+      return;
+    }
+    if (!metricName || metricValue === null || Number.isNaN(metricValue)) {
+      setActionError('A numeric outcome metric is required.');
+      return;
+    }
+    if (evidenceIds.length === 0) {
+      setActionError('An outcome must cite at least one real evidence row.');
+      return;
+    }
+
+    setBusyId(row.id);
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      const outcome = await api.captureOutcome({
+        tenantId,
+        decisionId: row.decisionId,
+        result: form.result || 'partial',
+        metrics: { [metricName]: metricValue },
+        evidenceIds,
+        feedback: form.feedback || undefined,
+        confidence: form.confidence ? Number(form.confidence) : 0.7,
+      });
+      setActionMessage(`Outcome ${outcome.id} recorded. Learning will appear after the loop consumer processes OutcomeRecorded.`);
+      await load(statusFilter);
+    } catch (e: any) {
+      setActionError(e?.message ?? 'Unable to record outcome.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   if (loading && !data) return <LoadingState label="Loading execution center..." />;
@@ -96,6 +225,112 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
             </div>
           ))}
         </div>
+      </section>
+
+      {(actionError || actionMessage) && (
+        <section className="intel-section">
+          <div className="intel-panel" data-tone={actionError ? 'critical' : 'completed'}>
+            <p>{actionError || actionMessage}</p>
+          </div>
+        </section>
+      )}
+
+      <section className="intel-section">
+        <div className="intel-section-head">
+          <div>
+            <span className="intel-eyebrow"><ClipboardCheck size={14} /> Execution Intake</span>
+            <h2>Approved decisions waiting for action</h2>
+          </div>
+        </div>
+        {data.executionQueue?.items?.length ? (
+          <div className="intel-summary-list">
+            {data.executionQueue.items.map((item: any) => {
+              const form = planForms[item.id] ?? {};
+              const defaultEso = item.recommendation?.esoId || definitions[0]?.id || '';
+              return (
+                <article key={item.id} className="intel-summary-item">
+                  <div className="intel-inline-list">
+                    <strong>{item.decision}</strong>
+                    <span className="intel-pill" data-tone={badgeTone(item.recommendation?.priority || 'pending')}>{item.recommendation?.priority || 'approved'}</span>
+                    {item.caseId && <span className="intel-mini-badge">Case {item.caseId.slice(0, 8)}</span>}
+                  </div>
+                  <p>{item.recommendation?.impact || 'Approved decision is ready for a governed human execution.'}</p>
+                  <div className="intel-form-grid">
+                    <label>
+                      <span>Executable object</span>
+                      <select
+                        value={form.esoDefinitionId ?? defaultEso}
+                        onChange={(e) => updatePlanForm(item.id, { esoDefinitionId: e.target.value })}
+                        disabled={!definitions.length || busyId === item.id}
+                      >
+                        {definitions.length ? definitions.map((definition) => (
+                          <option key={definition.id} value={definition.id}>
+                            {definition.esoCode ? `${definition.esoCode} - ${definition.name}` : definition.name}
+                          </option>
+                        )) : <option value="">No ESO definitions</option>}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Baseline metric</span>
+                      <input
+                        value={form.baselineMetric ?? ''}
+                        onChange={(e) => updatePlanForm(item.id, { baselineMetric: e.target.value })}
+                        placeholder="collection rate"
+                        disabled={busyId === item.id}
+                      />
+                    </label>
+                    <label>
+                      <span>Baseline value</span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={form.baselineValue ?? ''}
+                        onChange={(e) => updatePlanForm(item.id, { baselineValue: e.target.value })}
+                        disabled={busyId === item.id}
+                      />
+                    </label>
+                    <label>
+                      <span>Target value</span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={form.targetValue ?? ''}
+                        onChange={(e) => updatePlanForm(item.id, { targetValue: e.target.value })}
+                        disabled={busyId === item.id}
+                      />
+                    </label>
+                    <label>
+                      <span>Unit</span>
+                      <input
+                        value={form.metricUnit ?? ''}
+                        onChange={(e) => updatePlanForm(item.id, { metricUnit: e.target.value })}
+                        placeholder="ratio, INR, count"
+                        disabled={busyId === item.id}
+                      />
+                    </label>
+                    <label>
+                      <span>Window days</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={form.measurementWindowDays ?? '14'}
+                        onChange={(e) => updatePlanForm(item.id, { measurementWindowDays: e.target.value })}
+                        disabled={busyId === item.id}
+                      />
+                    </label>
+                  </div>
+                  <div className="intel-inline-actions">
+                    <button type="button" onClick={() => startExecution(item)} disabled={!definitions.length || busyId === item.id}>
+                      <PlayCircle size={14} /> Plan and start
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState icon="O" message="No approved decisions are waiting for execution." />
+        )}
       </section>
 
       <section className="intel-section">
@@ -174,6 +409,75 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
                         {row.status === 'running' && <button type="button" onClick={() => completeExecution(row.id)}><CheckCircle2 size={14} /> Complete</button>}
                         {['running', 'failed', 'blocked'].includes(String(row.status)) && <button type="button" onClick={() => rollbackExecution(row.id)}><RotateCcw size={14} /> Rollback</button>}
                       </div>
+                      {row.status === 'completed' && !row.outcome && (
+                        <div className="intel-outcome-form">
+                          <label>
+                            <span>Result</span>
+                            <select
+                              value={outcomeForms[row.id]?.result ?? 'partial'}
+                              onChange={(e) => updateOutcomeForm(row.id, { result: e.target.value })}
+                              disabled={busyId === row.id}
+                            >
+                              <option value="success">success</option>
+                              <option value="partial">partial</option>
+                              <option value="failure">failure</option>
+                              <option value="inconclusive">inconclusive</option>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Metric</span>
+                            <input
+                              value={outcomeForms[row.id]?.metricName ?? ''}
+                              onChange={(e) => updateOutcomeForm(row.id, { metricName: e.target.value })}
+                              placeholder="collection rate"
+                              disabled={busyId === row.id}
+                            />
+                          </label>
+                          <label>
+                            <span>Value</span>
+                            <input
+                              type="number"
+                              step="0.0001"
+                              value={outcomeForms[row.id]?.metricValue ?? ''}
+                              onChange={(e) => updateOutcomeForm(row.id, { metricValue: e.target.value })}
+                              disabled={busyId === row.id}
+                            />
+                          </label>
+                          <label>
+                            <span>Confidence</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="1"
+                              step="0.01"
+                              value={outcomeForms[row.id]?.confidence ?? '0.7'}
+                              onChange={(e) => updateOutcomeForm(row.id, { confidence: e.target.value })}
+                              disabled={busyId === row.id}
+                            />
+                          </label>
+                          <label>
+                            <span>Evidence IDs</span>
+                            <textarea
+                              rows={2}
+                              value={outcomeForms[row.id]?.evidenceIds ?? (row.citationEvidenceIds || []).join('\n')}
+                              onChange={(e) => updateOutcomeForm(row.id, { evidenceIds: e.target.value })}
+                              disabled={busyId === row.id}
+                            />
+                          </label>
+                          <label>
+                            <span>Feedback</span>
+                            <textarea
+                              rows={2}
+                              value={outcomeForms[row.id]?.feedback ?? ''}
+                              onChange={(e) => updateOutcomeForm(row.id, { feedback: e.target.value })}
+                              disabled={busyId === row.id}
+                            />
+                          </label>
+                          <button type="button" onClick={() => recordOutcome(row)} disabled={busyId === row.id}>
+                            <FileCheck2 size={14} /> Record outcome
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )) : (

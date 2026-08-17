@@ -8,20 +8,26 @@ import {
   Bot,
   BrainCircuit,
   Building2,
+  Calendar,
   CheckCircle2,
   ClipboardCheck,
   DatabaseZap,
   FileSearch,
   Gauge,
+  Globe2,
   IdCard,
   ListChecks,
+  Pencil,
   RefreshCw,
   ShieldAlert,
   Sparkles,
   Target,
+  Trash2,
+  Upload,
   UserX,
   Users,
   Workflow,
+  X,
 } from 'lucide-react';
 import { api, decisionIntelligenceApi } from '../../api/intelligence';
 import { reasoningEngineApi } from '../../api/reasoning-engine';
@@ -31,6 +37,8 @@ import { taskApi } from '../../api/task';
 import { api as organizationApi } from '../../api/organization';
 import { api as capabilityApi } from '../../api/capability';
 import { api as departmentApi } from '../../api/department';
+import { ingestionApi } from '../../api/ingestion';
+import { api as signalApi } from '../../api/signal';
 import { LoadingState, ErrorState } from '../shared/States';
 import type { Organization, View } from '../../App';
 import './CommandCenter.css';
@@ -42,6 +50,7 @@ interface CommandCenterProps {
   onNavigate: (view: View) => void;
   onUpdated?: (organization: Organization) => void;
   onArchive?: () => void;
+  onArchived?: (organization: Organization) => void;
 }
 
 type Health = 'good' | 'warn' | 'crit';
@@ -78,7 +87,7 @@ interface HomeMetrics {
 type RecordPanel = 'profile' | 'structure' | 'quality' | 'audit';
 type OrganizationProfileDraft = Pick<Organization, 'name' | 'orgCode' | 'industry'>;
 
-export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive }: CommandCenterProps) {
+export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onArchived }: CommandCenterProps) {
   const [summary, setSummary] = useState<any>(null);
   const [missingEvidence, setMissingEvidence] = useState(0);
   const [duplicates, setDuplicates] = useState(0);
@@ -89,6 +98,11 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics | null>(null);
   const [capabilityCount, setCapabilityCount] = useState(0);
   const [activeDepartmentCount, setActiveDepartmentCount] = useState<number | null>(null);
+  const [overviewStructure, setOverviewStructure] = useState<any>(null);
+  const [overviewQuality, setOverviewQuality] = useState<any>(null);
+  const [overviewAudit, setOverviewAudit] = useState<any[]>([]);
+  const [dataSources, setDataSources] = useState<any[]>([]);
+  const [signals, setSignals] = useState<any[]>([]);
   const [recordPanel, setRecordPanel] = useState<RecordPanel>('profile');
   const [recordData, setRecordData] = useState<any>(null);
   const [recordLoading, setRecordLoading] = useState(false);
@@ -97,6 +111,10 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState<OrganizationProfileDraft | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,22 +125,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
     setError(null);
 
     try {
-      const [summaryRes, homeRes, missingRes, dupRes, unreadRes, execRes, providerRes, tasksRes, capabilitiesRes, departmentsRes] = await Promise.all([
-        decisionIntelligenceApi.getExecutiveSummary(tenantId),
-        api.getHomeMetrics(tenantId),
-        reasoningEngineApi.missingEvidence(tenantId),
-        reasoningEngineApi.duplicateSignals(tenantId),
-        notificationApi.unreadCount(tenantId),
-        aiApi.executions(tenantId),
-        aiApi.providers(),
-        taskApi.listRegistry(),
-        capabilityApi.listCapabilities(tenantId, organization?.id),
-        // This is the same tenant-and-organization-scoped collection the
-        // Departments screen renders. Deriving the card from it prevents an
-        // aggregate from ever counting a department owned by another org.
-        departmentApi.listDepartments(tenantId, organization?.id),
-      ]);
-
+      const summaryRes = await decisionIntelligenceApi.getExecutiveSummary(tenantId);
       setSummary({
         // score defaults to NULL, not 0. The endpoint returns null when not one
         // component of the composite had a denominator, and a default of 0 turned
@@ -139,17 +142,61 @@ export default function CommandCenter({ tenantId, organizationName, organization
         openDecisionsCount: Number(summaryRes?.openDecisionsCount ?? 0),
         topRisks: asArray(summaryRes?.topRisks),
       });
-      setMissingEvidence(Number(missingRes?.count ?? 0));
-      setDuplicates(Number(dupRes?.count ?? 0));
-      setUnreadNotifications(Number(unreadRes?.count ?? 0));
-      setAiExecutions(asArray(execRes).slice(0, 7));
-      setProviders(asArray(providerRes?.providers));
-      setTaskCount(asArray(tasksRes).length);
-      setCapabilityCount(asArray(capabilitiesRes).length);
-      setActiveDepartmentCount(
-        asArray(departmentsRes).filter((department) => String(department.status || '').toLowerCase() === 'active').length,
-      );
+      setLoading(false);
+
+      const homeRes = await api.getHomeMetrics(tenantId);
       setHomeMetrics(homeRes as HomeMetrics);
+
+      const secondary = await Promise.allSettled([
+        reasoningEngineApi.missingEvidence(tenantId),
+        reasoningEngineApi.duplicateSignals(tenantId),
+        notificationApi.unreadCount(tenantId),
+        aiApi.executions(tenantId),
+        aiApi.providers(),
+        taskApi.listRegistry(),
+        capabilityApi.listCapabilities(tenantId, organization?.id),
+        departmentApi.listDepartments(tenantId, organization?.id),
+        organization ? organizationApi.getStructure(tenantId, organization.id) : Promise.resolve(null),
+        organization ? organizationApi.getDataQuality(tenantId, organization.id) : Promise.resolve(null),
+        organization ? organizationApi.getAuditLogs(tenantId, organization.id) : Promise.resolve([]),
+        ingestionApi.listSources(tenantId),
+        signalApi.listSignals(tenantId),
+      ]);
+
+      const [
+        missingRes,
+        dupRes,
+        unreadRes,
+        execRes,
+        providerRes,
+        tasksRes,
+        capabilitiesRes,
+        departmentsRes,
+        structureRes,
+        qualityRes,
+        auditRes,
+        sourceRes,
+        signalRes,
+      ] =
+        secondary.map((result) => result.status === 'fulfilled' ? result.value : null);
+
+      if (missingRes) setMissingEvidence(Number(missingRes?.count ?? 0));
+      if (dupRes) setDuplicates(Number(dupRes?.count ?? 0));
+      if (unreadRes) setUnreadNotifications(Number(unreadRes?.count ?? 0));
+      if (execRes) setAiExecutions(asArray(execRes).slice(0, 7));
+      if (providerRes) setProviders(asArray(providerRes?.providers));
+      if (tasksRes) setTaskCount(asArray(tasksRes).length);
+      if (capabilitiesRes) setCapabilityCount(asArray(capabilitiesRes).length);
+      if (departmentsRes) {
+        setActiveDepartmentCount(
+          asArray(departmentsRes).filter((department) => String(department.status || '').toLowerCase() === 'active').length,
+        );
+      }
+      if (structureRes) setOverviewStructure(structureRes);
+      if (qualityRes) setOverviewQuality(qualityRes);
+      setOverviewAudit(asArray(auditRes));
+      setDataSources(asArray(sourceRes));
+      setSignals(asArray(signalRes));
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -237,6 +284,21 @@ export default function CommandCenter({ tenantId, organizationName, organization
     }
   };
 
+  const archiveFromOverview = async () => {
+    if (!organization || deleteConfirm !== organization.name) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await organizationApi.archiveOrganization(organization.tenantId, organization.id);
+      setDeleteOpen(false);
+      onArchived?.({ ...organization, status: 'archived' });
+    } catch (e: any) {
+      setDeleteError(e.message || 'Unable to archive organization.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading command center..." />;
   if (error) return <ErrorState message={error} />;
   if (!summary) return null;
@@ -250,8 +312,6 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const rawScore = summary.intelligenceScore.score;
   const score = rawScore === null || rawScore === undefined ? null : Number(rawScore);
   const health: Health = score === null ? 'warn' : healthOf(score);
-  const scoreBasis = summary.intelligenceScore.basis
-    ?? 'Mean of the components that have a denominator; components with none are excluded, never scored zero.';
   const pendingCount = summary.pendingRecommendations.length;
   const riskCount = summary.topRisks.length;
   const openDecisions = Number(summary.openDecisionsCount ?? 0);
@@ -263,6 +323,14 @@ export default function CommandCenter({ tenantId, organizationName, organization
     peopleWithoutProfile: 0,
   };
   const activeDepartments = activeDepartmentCount ?? erp.activeDepartments;
+  const structureDepartments = asArray(overviewStructure?.departments);
+  const visibleDepartments = structureDepartments.slice(0, 5);
+  const activeDataSources = dataSources.filter((source) => source.is_active !== false && source.isActive !== false);
+  const visibleDataSources = dataSources.slice(0, 5);
+  const visibleAudit = overviewAudit.slice(0, 4);
+  const visibleSignals = signals.slice(0, 5);
+  const qualityAssessedRows = Number(overviewQuality?.totalPeople ?? 0) + Number(overviewQuality?.totalDepartments ?? 0);
+  const qualityScore = qualityAssessedRows > 0 && overviewQuality?.score !== undefined ? Number(overviewQuality.score) : null;
   const orgAttention = asArray(homeMetrics?.attention).filter((item) => item.id !== 'all-clear');
   const profileCompleteness = erp.activePeople > 0
     ? Math.round(((erp.activePeople - erp.peopleWithoutProfile) / erp.activePeople) * 100)
@@ -336,107 +404,131 @@ export default function CommandCenter({ tenantId, organizationName, organization
     })),
   ].slice(0, 7);
 
-  const isEmpty = derivedSignalLoad === 0
-    && openDecisions === 0
-    && missingEvidence === 0
-    && taskCount === 0
-    && aiExecutions.length === 0;
-
-  if (isEmpty) {
-    return (
-      <div className="cc-page eb-fade-in">
-        <header className="cc-hero">
-          <div className="cc-hero__copy">
-            <span className="cc-kicker">
-              {new Date().toLocaleDateString(undefined, {
-                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-              })}
-            </span>
-            <h1>{organizationName || 'Command Center'}</h1>
-            <p>Live executive cockpit for signals, evidence, decisions, execution, and AI system health.</p>
-          </div>
-          <div className="cc-score" role="group" aria-label="Organizational intelligence score">
-            <div className="cc-score__ring" data-health="good" style={{ ['--score-fill' as any]: 0 }}>
-              <span>0</span>
-              <small>/ 100</small>
-            </div>
-            <div className="cc-score__meta">
-              <span>Intelligence Score</span>
-              <strong>No data yet</strong>
-              <em className="eb-badge eb-badge-info">Onboarding</em>
-            </div>
-          </div>
-        </header>
-        <section className="cc-onboarding" aria-label="Onboarding">
-          <div className="cc-onboarding__card">
-            <h2>Welcome to Enterprise Brain</h2>
-            <p>No organizational intelligence has been generated yet.</p>
-            <p>Upload your first dataset to begin AI analysis.</p>
-            <button type="button" className="eb-pill-btn" onClick={() => onNavigate('ingestion')}>
-              Open Ingestion Engine <ArrowRight size={15} />
-            </button>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
   return (
     <div className="cc-page eb-fade-in">
-      <header className="cc-hero">
-        <div className="cc-hero__copy">
-          <span className="cc-kicker">
-            {new Date().toLocaleDateString(undefined, {
-              weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-            })}
-          </span>
-          <h1>{organizationName || 'Command Center'}</h1>
-          <p>Live executive cockpit for signals, evidence, decisions, execution, and AI system health.</p>
-          <div className="cc-hero__actions">
-            <button type="button" onClick={() => onNavigate('signals')}>
-              Open Signals <ArrowRight size={15} />
-            </button>
-            <button type="button" className="eb-pill-btn" onClick={() => load('refresh')} disabled={refreshing}>
-              <RefreshCw size={15} className={refreshing ? 'cc-spin' : ''} /> Refresh
-            </button>
-            {/* {organization && <button type="button" className="eb-pill-btn" onClick={beginProfileEdit}>Edit</button>} */}
+      <header className="cc-org-hero">
+        <div className="cc-org-hero__identity">
+          <div className="cc-org-hero__icon">{organization?.logo ? <img src={organization.logo} alt="" /> : <Building2 size={31} />}</div>
+          <div>
+            <div className="cc-org-hero__title">
+              <h1>{organizationName || organization?.name || 'Organization'}</h1>
+              <span className={`eb-badge eb-badge-${String(organization?.status || 'active').toLowerCase() === 'active' ? 'success' : 'warning'}`}>
+                {organization?.status || 'active'}
+              </span>
+            </div>
+            <div className="cc-org-hero__meta" aria-label="Organization metadata">
+              {organization?.industry && <span><Building2 size={14} /> {organization.industry}</span>}
+              <span><Users size={14} /> {erp.activePeople.toLocaleString()} People</span>
+              {organization?.createdDate && <span><Calendar size={14} /> Created {formatShortDate(organization.createdDate)}</span>}
+              {organization?.orgCode && <span><IdCard size={14} /> {organization.orgCode}</span>}
+              {organization?.country && <span><Globe2 size={14} /> {organization.country}</span>}
+            </div>
           </div>
         </div>
-
-        <div className="cc-score" role="group" aria-label="Organizational intelligence score">
-          <div
-            className="cc-score__ring"
-            data-health={score === null ? 'warn' : health}
-            style={{ ['--score-fill' as any]: score === null ? 0 : Math.max(0, Math.min(100, score)) }}
-            title={scoreBasis}
-          >
-            {score === null ? (
-              <span style={{ fontSize: 13, fontStyle: 'italic' }}>unmeasured</span>
-            ) : (
-              <>
-                <span>{formatNumber(score)}</span>
-                <small>/ 100</small>
-              </>
-            )}
-          </div>
-          <div className="cc-score__meta">
-            <span>Intelligence Score</span>
-            <strong>{systemStatus.summary}</strong>
-            {score === null ? (
-              <em className="eb-badge eb-badge-warning">undetermined</em>
-            ) : (
-              <em className={`eb-badge eb-badge-${badgeOf(health)}`}>{labelOf(health)}</em>
-            )}
-            {summary.intelligenceScore.unmeasuredComponents > 0 && (
-              <small style={{ fontSize: 10, color: 'var(--content-tertiary)', display: 'block', marginTop: 2 }}>
-                {summary.intelligenceScore.unmeasuredComponents} of{' '}
-                {summary.intelligenceScore.unmeasuredComponents + summary.intelligenceScore.measuredComponents}{' '}
-                components unmeasurable
-              </small>
-            )}
-          </div>
+        <div className="cc-org-hero__actions">
+          <button type="button" className="eb-pill-btn" onClick={beginProfileEdit} disabled={!organization}>
+            <Pencil size={15} /> Edit Organization
+          </button>
+          {organization && (
+            <button type="button" className="eb-pill-btn cc-danger-outline" onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); setDeleteError(null); }}>
+              <Trash2 size={15} /> Delete Organization
+            </button>
+          )}
+          <button type="button" onClick={() => onNavigate('ingestion')}>
+            <Upload size={15} /> Open Ingestion Engine <ArrowRight size={15} />
+          </button>
+          <button type="button" className="eb-pill-btn" onClick={() => load('refresh')} disabled={refreshing}>
+            <RefreshCw size={15} className={refreshing ? 'cc-spin' : ''} /> Refresh
+          </button>
         </div>
       </header>
+
+      <section className="cc-kpi-grid" aria-label="Organization overview KPIs">
+        <OverviewKpi
+          icon={<Gauge />}
+          label="Health Score"
+          value={qualityScore === null ? 'Unmeasured' : formatNumber(qualityScore)}
+          detail={qualityScore === null ? 'No people or departments assessed' : 'Source-data quality'}
+          tone={qualityScore === null ? 'warn' : healthOf(qualityScore)}
+        />
+        <OverviewKpi icon={<Building2 />} label="Departments" value={activeDepartments} detail="Active departments" tone={erp.departmentsWithoutManager > 0 ? 'warn' : 'good'} />
+        <OverviewKpi icon={<Users />} label="People" value={erp.activePeople} detail="Total active people" tone={erp.peopleWithoutDepartment > 0 ? 'warn' : 'good'} />
+        <OverviewKpi icon={<Target />} label="Capabilities" value={capabilityCount} detail="Mapped capabilities" tone="good" />
+        <OverviewKpi icon={<Upload />} label="Data Sources" value={dataSources.length} detail={`${activeDataSources.length} active sources`} tone={dataSources.length === 0 ? 'warn' : 'good'} />
+      </section>
+
+      <section className="cc-overview-board" aria-label="Organization dashboard sections">
+        <div className="cc-panel cc-org-details">
+          <div className="cc-section-head">
+            <div>
+              <span className="cc-kicker">Organization Overview</span>
+              <h2>Organization information</h2>
+            </div>
+          </div>
+          {organization ? (
+            <dl className="cc-detail-list">
+              <div><dt>Organization Name</dt><dd>{organization.name}</dd></div>
+              <div><dt>Legal Name</dt><dd>{organization.legalName || 'Not recorded'}</dd></div>
+              <div><dt>Industry</dt><dd>{organization.industry || 'Not recorded'}</dd></div>
+              <div><dt>Country</dt><dd>{organization.country || 'Not recorded'}</dd></div>
+              <div><dt>Timezone</dt><dd>{organization.timezone || 'Not recorded'}</dd></div>
+              <div><dt>Status</dt><dd><span className="eb-badge eb-badge-success">{organization.status || 'active'}</span></dd></div>
+            </dl>
+          ) : (
+            <p className="cc-empty">No organization record is selected.</p>
+          )}
+        </div>
+
+        <OverviewListCard
+          title="Recent Activity"
+          actionLabel="Audit"
+          onAction={() => setRecordPanel('audit')}
+          empty="No organization audit events are available."
+          rows={visibleAudit.map((record, index) => ({
+            id: String(record.id ?? index),
+            title: String(record.action || 'Recorded change'),
+            meta: `${record.actorName || record.actorId || record.actor_id || 'System'} - ${formatDate(record.createdAt || record.createdDate || record.created_at)}`,
+          }))}
+        />
+
+        <OverviewListCard
+          title="Departments"
+          actionLabel="View All"
+          onAction={() => onNavigate('departments')}
+          empty="No active departments are available in the source system."
+          rows={visibleDepartments.map((department: any) => ({
+            id: String(department.id),
+            title: String(department.name || 'Unnamed department'),
+            meta: `${Number(overviewStructure?.peopleByDepartment?.[department.id] ?? 0).toLocaleString()} people`,
+          }))}
+        />
+
+        <OverviewListCard
+          title="Data Sources"
+          actionLabel="View All"
+          onAction={() => onNavigate('ingestion')}
+          empty="No ingestion data sources are configured yet."
+          rows={visibleDataSources.map((source: any) => ({
+            id: String(source.id ?? source.source_key ?? source.sourceKey),
+            title: String(source.display_name ?? source.displayName ?? source.source_key ?? 'Data source'),
+            meta: String(source.source_type ?? source.sourceType ?? 'source'),
+            badge: source.is_active === false || source.isActive === false ? 'Inactive' : 'Active',
+          }))}
+        />
+
+        <OverviewListCard
+          title="Signals"
+          actionLabel="View All"
+          onAction={() => onNavigate('signals')}
+          empty="No signals are available for this organization."
+          rows={visibleSignals.map((signal: any) => ({
+            id: String(signal.id ?? signal.signal_id ?? signal.title),
+            title: String(signal.title ?? signal.name ?? 'Signal'),
+            meta: String(signal.classification ?? signal.severity ?? signal.status ?? 'unclassified'),
+            badge: signal.severity ?? signal.priority ?? signal.state,
+          }))}
+        />
+      </section>
 
       <section className="cc-org-command" aria-label="Organization command overview">
         <div className="cc-org-command__header">
@@ -651,6 +743,48 @@ export default function CommandCenter({ tenantId, organizationName, organization
         </section>
       )}
 
+      {organization && deleteOpen && (
+        <div className="cc-modal-backdrop" role="presentation">
+          <div className="cc-delete-modal" role="dialog" aria-modal="true" aria-labelledby="cc-delete-title">
+            <button
+              type="button"
+              className="cc-modal-close"
+              aria-label="Close"
+              onClick={() => { setDeleteOpen(false); setDeleteError(null); }}
+              disabled={deleting}
+            >
+              <X size={18} />
+            </button>
+            <div className="cc-delete-modal__head">
+              <span><AlertTriangle size={26} /></span>
+              <div>
+                <h2 id="cc-delete-title">Delete Organization</h2>
+                <p>Are you sure you want to delete the organization <strong>{organization.name}</strong>?</p>
+              </div>
+            </div>
+            <p className="cc-delete-modal__warning">
+              The current backend archives the organization through the existing tenant-scoped archive endpoint. ERP-owned source data is not hard-deleted by this action.
+            </p>
+            <label className="cc-delete-modal__confirm">
+              To confirm, type the organization name below.
+              <input
+                value={deleteConfirm}
+                onChange={(event) => setDeleteConfirm(event.target.value)}
+                placeholder="Type organization name"
+                disabled={deleting}
+              />
+            </label>
+            {deleteError && <p className="cc-record__error">{deleteError}</p>}
+            <div className="cc-delete-modal__actions">
+              <button type="button" className="eb-pill-btn" onClick={() => setDeleteOpen(false)} disabled={deleting}>Cancel</button>
+              <button type="button" className="cc-delete-submit" disabled={deleteConfirm !== organization.name || deleting} onClick={archiveFromOverview}>
+                <Trash2 size={15} /> {deleting ? 'Deleting...' : 'Delete Organization'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <p className="cc-hint">
         Press <kbd>Ctrl</kbd> + <kbd>K</kbd> anywhere to jump straight to any screen.
       </p>
@@ -764,18 +898,18 @@ function formatDate(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+function formatShortDate(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 function healthOf(score: number): Health {
   if (score >= 70) return 'good';
   if (score >= 40) return 'warn';
   return 'crit';
-}
-
-function labelOf(h: Health): string {
-  return h === 'good' ? 'Healthy' : h === 'warn' ? 'Attention' : 'Critical';
-}
-
-function badgeOf(h: Health): string {
-  return h === 'good' ? 'success' : h === 'warn' ? 'warning' : 'danger';
 }
 
 function execBadge(status: string): string {
@@ -904,6 +1038,66 @@ function OrgMetric({
         <em>{label}</em>
         <small>{detail}</small>
       </div>
+    </div>
+  );
+}
+
+function OverviewKpi({
+  icon, label, value, detail, tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string | number;
+  detail: string;
+  tone: Health;
+}) {
+  return (
+    <div className="cc-overview-kpi" data-health={tone}>
+      <span>{icon}</span>
+      <div>
+        <em>{label}</em>
+        <strong>{typeof value === 'number' ? value.toLocaleString() : value}</strong>
+        <small>{detail}</small>
+      </div>
+    </div>
+  );
+}
+
+function OverviewListCard({
+  title, actionLabel, onAction, rows, empty,
+}: {
+  title: string;
+  actionLabel: string;
+  onAction: () => void;
+  empty: string;
+  rows: Array<{ id: string; title: string; meta: string; badge?: string | number | null }>;
+}) {
+  return (
+    <div className="cc-panel cc-overview-list">
+      <div className="cc-section-head">
+        <div>
+          <span className="cc-kicker">{title}</span>
+          <h2>{title}</h2>
+        </div>
+        <button type="button" className="eb-link-btn" onClick={onAction}>{actionLabel}</button>
+      </div>
+      {rows.length === 0 ? (
+        <p className="cc-empty">{empty}</p>
+      ) : (
+        <ul className="cc-overview-list__rows">
+          {rows.map((row) => (
+            <li key={row.id}>
+              <span>
+                <strong>{row.title}</strong>
+                <small>{row.meta}</small>
+              </span>
+              {row.badge !== undefined && row.badge !== null && row.badge !== '' && (
+                <em className="eb-badge eb-badge-info">{row.badge}</em>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

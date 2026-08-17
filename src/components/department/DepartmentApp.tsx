@@ -82,7 +82,12 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
         />
       )}
       {view === 'intelligence' && selected && viewingPersonId && (
-        <PersonIntelligence tenantId={organization.tenantId} personId={viewingPersonId} onBack={() => setViewingPersonId(null)} />
+        <PersonIntelligence
+          tenantId={organization.tenantId}
+          personId={viewingPersonId}
+          onBack={() => setViewingPersonId(null)}
+          backLabel={`Back to ${selected.name}`}
+        />
       )}
       {view === 'intelligence' && selected && !viewingPersonId && (
         <div>

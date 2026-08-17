@@ -36,7 +36,7 @@ describe('session persistence', () => {
   };
 
   it('returns an empty session when nothing has been stored', () => {
-    expect(loadSession()).toEqual({ role: null, userName: null, organization: null, view: null });
+    expect(loadSession()).toEqual({ role: null, userName: null, organization: null, view: null, personId: null });
   });
 
   it('round-trips the role, so a refresh cannot silently demote the user', () => {
@@ -73,7 +73,7 @@ describe('session persistence', () => {
     saveSession({ role: 'admin', organization: org, view: 'people' });
     clearSession();
 
-    expect(loadSession()).toEqual({ role: null, userName: null, organization: null, view: null });
+    expect(loadSession()).toEqual({ role: null, userName: null, organization: null, view: null, personId: null });
   });
 
   /**
@@ -86,7 +86,7 @@ describe('session persistence', () => {
     localStorage.setItem('hpbrain-session', '{not json');
 
     expect(() => loadSession()).not.toThrow();
-    expect(loadSession()).toEqual({ role: null, userName: null, organization: null, view: null });
+    expect(loadSession()).toEqual({ role: null, userName: null, organization: null, view: null, personId: null });
   });
 
   it('rejects a malformed organization instead of handing it to a component', () => {
@@ -102,5 +102,24 @@ describe('session persistence', () => {
     localStorage.setItem('hpbrain-session', JSON.stringify({ role: 42 }));
 
     expect(loadSession().role).toBeNull();
+  });
+
+  it('round-trips the open person so a refresh returns to their profile', () => {
+    saveSession({ personId: '592' });
+
+    expect(loadSession().personId).toBe('592');
+  });
+
+  /**
+   * An empty string would pass a truthiness check downstream in some shapes and
+   * fail in others; normalising it to null here means PersonApp has one case to
+   * handle rather than two.
+   */
+  it('treats a non-string or empty person id as no person', () => {
+    localStorage.setItem('hpbrain-session', JSON.stringify({ personId: 592 }));
+    expect(loadSession().personId).toBeNull();
+
+    localStorage.setItem('hpbrain-session', JSON.stringify({ personId: '' }));
+    expect(loadSession().personId).toBeNull();
   });
 });

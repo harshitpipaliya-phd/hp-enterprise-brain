@@ -83,10 +83,8 @@ describe('role matrix — unchanged by the redesign', () => {
   // Lifted from the pre-redesign Sidebar.tsx. If any of these counts move, the
   // refactor changed who can reach what, which is a product decision.
   const EXPECTED: Record<string, number> = {
-    // +1 on both: 'ingestion' was added to VIEW_META and to TENANT_ADMIN. Its
-    // routes carry permission:settings.manage, so it was deliberately NOT
-    // granted to manager/analyst/viewer/member — their counts below are
-    // unchanged, which is what shows the addition did not widen anything else.
+    // Ingestion carries permission:settings.manage, so it is deliberately NOT
+    // granted to manager/analyst/viewer/member.
     admin: 32,        // every view in VIEW_META
     tenant_admin: 27,
     manager: 15,
@@ -113,7 +111,7 @@ describe('role matrix — unchanged by the redesign', () => {
     expect(visibleViewsForRole('manager').has('agents')).toBe(false);
   });
 
-  it('keeps Organizations out of every role below tenant_admin', () => {
+  it('keeps the organization picker route out of every role below tenant_admin', () => {
     expect(visibleViewsForRole('tenant_admin').has('list')).toBe(true);
     expect(visibleViewsForRole('manager').has('list')).toBe(false);
     expect(visibleViewsForRole('analyst').has('list')).toBe(false);
@@ -136,8 +134,7 @@ describe('sidebar', () => {
   it('disables org-scoped items until an organization is chosen', () => {
     renderSidebar({ hasSelectedOrg: false });
     expect((screen.getByRole('button', { name: 'People' }) as HTMLButtonElement).disabled).toBe(true);
-    // Organizations does not require one, so it stays reachable.
-    expect((screen.getByRole('button', { name: 'Organizations' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Organizations' })).toBeNull();
   });
 
   it('does not navigate when a disabled item is clicked', () => {
@@ -285,14 +282,14 @@ describe('mobile drawer', () => {
 });
 
 describe('breadcrumbs', () => {
-  it('names the landing view Command Center, never the raw view id', () => {
+  it('names the landing view Organization, never the raw view id', () => {
     const trail = breadcrumbsFor('home', 'Scholar Clone').map((c) => c.label);
-    expect(trail).toContain('Command Center');
+    expect(trail).toContain('Organization');
     expect(trail).not.toContain('home');
   });
 
   it.each([
-    ['home', 'Overview', 'Command Center'],
+    ['home', 'Overview', 'Organization'],
     ['people', 'Foundation', 'People'],
     ['signals', 'Intelligence Loop', 'Signals'],
     ['executive', 'Analytics', 'Executive Dashboard'],
@@ -325,7 +322,7 @@ describe('breadcrumbs', () => {
     expect(trail[trail.length - 1].view).toBeUndefined();
   });
 
-  it('covers every one of the 31 views without falling through', () => {
+  it('covers every declared view without falling through', () => {
     for (const view of Object.keys(VIEW_META) as (keyof typeof VIEW_META)[]) {
       const trail = breadcrumbsFor(view);
       expect(trail.length).toBeGreaterThan(1);
@@ -420,7 +417,7 @@ describe('command palette', () => {
     renderShell({ userRole: 'member' });
     open();
     const list = screen.getByRole('listbox');
-    expect(within(list).getByText('Command Center')).toBeTruthy();
+    expect(within(list).getByText('Organization')).toBeTruthy();
     expect(within(list).getByText('Settings')).toBeTruthy();
     // A member cannot see People in the sidebar, so it must not be typeable here.
     expect(within(list).queryByText('People')).toBeNull();
@@ -476,7 +473,7 @@ describe('command palette', () => {
     open();
     const list = screen.getByRole('listbox');
     expect(within(list).queryByText('People')).toBeNull();
-    expect(within(list).getByText('Organizations')).toBeTruthy();
+    expect(within(list).queryByText('Organizations')).toBeNull();
   });
 });
 

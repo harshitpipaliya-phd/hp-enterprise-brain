@@ -72,6 +72,17 @@ export const api = {
   /** GET /api/v1/people/{tenantId}/{id}/audit */
   getAuditLogs: (tenantId: string, id: string) => request(`/people/${scopedTenant(tenantId)}/${id}/audit`),
 
-  /** GET /api/v1/people/{tenantId}/{id}/twin */
-  getTwin: (tenantId: string, id: string) => request(`/people/${scopedTenant(tenantId)}/${id}/twin`),
+  /**
+   * GET /api/v1/people/{tenantId}/{id}/twin - the full person profile.
+   *
+   * The path still says `twin` because that is the shipped route and renaming it
+   * would break any client already calling it. What it returns is the person's
+   * ERP master row, their unit and profile, the operational records their
+   * reference appears in, and whatever the intelligence loop holds about them —
+   * so the method is named for the payload rather than for the URL.
+   */
+  getProfile: (tenantId: string, id: string) => request(`/people/${scopedTenant(tenantId)}/${id}/twin`),
+
+  /** @deprecated Use getProfile. Kept for callers written against the old name. */
+  getTwin: (tenantId: string, id: string) => api.getProfile(tenantId, id),
 };

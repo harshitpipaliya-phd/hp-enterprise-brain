@@ -28,6 +28,91 @@ interface HomeMetrics {
     pendingRecommendations: number;
     openDecisions: number;
   };
+  pipeline?: {
+    stage: string;
+    blocker: string | null;
+    nextAction: string;
+    counts: {
+      operationalRecords: number;
+      signals: number;
+      firedRuleKeys: number;
+      cases: number;
+      hypotheses: number;
+      recommendations: number;
+      decisions: number;
+      executions: number;
+      outcomes: number;
+      learnings: number;
+    };
+    review: {
+      firedRuleKeys: number;
+      approvedRuleKeys: number;
+      unclassifiedRuleKeys: number;
+      unclassified: string[];
+    };
+  };
+  domainIntelligence?: {
+    fees?: {
+      dataset: string;
+      availability: Record<string, boolean>;
+      overview: {
+        records: number;
+        students: number;
+        departments: number;
+        classes: number;
+        sections: number;
+        totalBilled: number;
+        totalConcession: number;
+        totalNet: number;
+        totalCollected: number;
+        totalOutstanding: number;
+        collectionRate: number | null;
+        defaulters: number;
+        criticalRiskStudents: number;
+        averagePaymentDelayDays: number | null;
+      };
+      analytics: {
+        byDepartment: Array<{ name: string; records: number; net: number; collected: number; outstanding: number; collectionRate: number | null }>;
+        byClass: Array<{ name: string; records: number; net: number; collected: number; outstanding: number; collectionRate: number | null }>;
+        byFeeType: Array<{ name: string; records: number; net: number; collected: number; outstanding: number; collectionRate: number | null }>;
+        byPaymentMethod: Array<{ name: string; records: number; net: number; collected: number; outstanding: number; collectionRate: number | null }>;
+        byScholarship: Array<{ name: string; records: number; net: number; collected: number; outstanding: number; collectionRate: number | null }>;
+        riskLevelRows: Array<{ name: string; count: number; share: number | null }>;
+        riskLevelStudents: Array<{ name: string; count: number; share: number | null }>;
+      };
+      priorityRecovery: Array<{
+        studentRef: string;
+        className: string;
+        section: string;
+        outstanding: number;
+        collectionRate: number | null;
+        riskScore: number;
+        riskBand: string;
+        sourceRiskLevel: string | null;
+        riskFactors: string[];
+        recommendedAction: string;
+      }>;
+      defaulters: Array<{
+        studentRef: string;
+        className: string;
+        section: string;
+        outstanding: number;
+        collectionRate: number | null;
+        overdueRecords: number;
+        partialRecords: number;
+        averageAttendancePct: number | null;
+        averageExamPct: number | null;
+        daysOverdue: number | null;
+        riskScore: number;
+        riskBand: string;
+        sourceRiskLevel: string | null;
+        riskFactors: string[];
+        recommendedAction: string;
+      }>;
+      dataQuality: Record<string, number>;
+      trace: { table: string; dataset: string; recordCount: number };
+    } | null;
+  };
   attention: AttentionItem[];
   dataFreshness: {
     erp: string;
@@ -111,7 +196,8 @@ export default function OrganizationIntelligenceHome({ organization, onNavigate 
     );
   }
 
-  const { erp, intelligence, attention, dataFreshness } = metrics;
+  const { erp, intelligence, pipeline, domainIntelligence, attention, dataFreshness } = metrics;
+  const fees = domainIntelligence?.fees;
 
   return (
     <div className="eb-home">
@@ -187,6 +273,122 @@ export default function OrganizationIntelligenceHome({ organization, onNavigate 
         </div>
       </div>
 
+      {pipeline && (
+        <section className="eb-home-attention">
+          <h3>Enterprise Brain Pipeline</h3>
+          <div className="eb-home-cards">
+            {[
+              ['Records', pipeline.counts.operationalRecords, 'tenant-scoped rows'],
+              ['Signals', pipeline.counts.signals, `${pipeline.counts.firedRuleKeys} fired rule keys`],
+              ['Cases', pipeline.counts.cases, 'opened investigations'],
+              ['Rule Keys', pipeline.review.firedRuleKeys, `${pipeline.review.approvedRuleKeys} classified`],
+              ['Recommendations', pipeline.counts.recommendations, 'grounded actions'],
+              ['Decisions', pipeline.counts.decisions, 'governed choices'],
+              ['Executions', pipeline.counts.executions, 'actions tracked'],
+              ['Learning', pipeline.counts.learnings, `${pipeline.counts.outcomes} outcomes`],
+            ].map(([label, value, detail]) => (
+              <div className="eb-stat-card" key={String(label)}>
+                <div className="eb-stat-value">{Number(value).toLocaleString()}</div>
+                <div className="eb-stat-label">{label}</div>
+                <div className="eb-stat-detail">{detail}</div>
+              </div>
+            ))}
+          </div>
+          <div className="eb-dashed-empty">
+            <strong>Current stage: {pipeline.stage.replace(/_/g, ' ')}</strong>
+            <p>{pipeline.blocker || 'The full intelligence loop has produced reusable learning.'}</p>
+            <p>{pipeline.nextAction}</p>
+            {pipeline.review.unclassified.length > 0 && (
+              <p>Unclassified rule keys: {pipeline.review.unclassified.join(', ')}</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {fees && (
+        <section className="eb-home-attention">
+          <h3>School Fee Intelligence</h3>
+          <div className="eb-home-cards">
+            {[
+              ['Students', fees.overview.students, 'distinct student refs'],
+              ['Departments', fees.overview.departments, 'from fee records'],
+              ['Total Billed', money(fees.overview.totalBilled), 'amount due'],
+              ['Collected', money(fees.overview.totalCollected), `${percent(fees.overview.collectionRate)} collection`],
+              ['Outstanding', money(fees.overview.totalOutstanding), 'open balance'],
+              ['Defaulters', fees.overview.defaulters, `${fees.overview.criticalRiskStudents} critical`],
+            ].map(([label, value, detail]) => (
+              <div className="eb-stat-card" key={String(label)}>
+                <div className="eb-stat-value">{typeof value === 'number' ? value.toLocaleString() : value}</div>
+                <div className="eb-stat-label">{label}</div>
+                <div className="eb-stat-detail">{detail}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="eb-home-cards">
+            <MiniTable
+              title="Department Exposure"
+              rows={fees.analytics.byDepartment.slice(0, 5)}
+              empty="No department fee breakdown is available."
+            />
+            <MiniTable
+              title="Collection by Class"
+              rows={fees.analytics.byClass.slice(0, 5)}
+              empty="No class-wise fee data is available."
+            />
+            <MiniTable
+              title="Fee Type Exposure"
+              rows={fees.analytics.byFeeType.slice(0, 5)}
+              empty="No fee-type breakdown is available."
+            />
+            <MiniTable
+              title="Payment Methods"
+              rows={fees.analytics.byPaymentMethod.slice(0, 5)}
+              empty="No payment-method data is available."
+            />
+            <MiniTable
+              title="Scholarship Segments"
+              rows={fees.analytics.byScholarship.slice(0, 5)}
+              empty="No scholarship or fee-plan data is available."
+            />
+            <DistributionCard
+              title="Student Risk Bands"
+              rows={fees.analytics.riskLevelStudents}
+              note="Distinct students, using the highest source risk level found for each student."
+            />
+            <DistributionCard
+              title="Risk Rows"
+              rows={fees.analytics.riskLevelRows}
+              note="Fee records, not distinct students."
+            />
+          </div>
+
+          <div className="eb-dashed-empty">
+            <strong>Priority recovery queue</strong>
+            {fees.priorityRecovery.length === 0 ? (
+              <p>No student has an outstanding or overdue fee balance in the current dataset.</p>
+            ) : (
+              <div className="eb-fee-risk-list">
+                {fees.priorityRecovery.slice(0, 5).map((student) => (
+                  <div key={student.studentRef} className="eb-fee-risk-row">
+                    <strong>{student.studentRef}</strong>
+                    <span>{student.className || 'Class unavailable'} {student.section || ''}</span>
+                    <span>{money(student.outstanding)} outstanding</span>
+                    <span>{student.riskBand} ({student.riskScore}) · {percent(student.collectionRate)} collected</span>
+                    <small>{student.riskFactors.join(' ') || 'No risk factors beyond the open balance.'}</small>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p>
+              Source: {fees.trace.table} / {fees.trace.dataset}, {fees.trace.recordCount.toLocaleString()} records.
+              {!fees.availability.dueDate && ' Due dates are not present, so days overdue is not calculated.'}
+              {!fees.availability.reminderHistory && ' Reminder history is not present, so reminder recommendations are not generated.'}
+            </p>
+          </div>
+        </section>
+      )}
+
       <div className="eb-home-attention">
         <h3>Needs Your Attention</h3>
         {attention.length === 0 ? (
@@ -215,6 +417,95 @@ export default function OrganizationIntelligenceHome({ organization, onNavigate 
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+function money(value: number | null | undefined): string {
+  if (value === null || value === undefined) return 'Data unavailable';
+  return `INR ${Math.round(value).toLocaleString()}`;
+}
+
+function percent(value: number | null | undefined): string {
+  if (value === null || value === undefined) return 'Data unavailable';
+  return `${Math.round(value * 100)}%`;
+}
+
+function MiniTable({
+  title,
+  rows,
+  empty,
+}: {
+  title: string;
+  rows: Array<{ name: string; records: number; collected: number; outstanding: number; collectionRate: number | null }>;
+  empty: string;
+}) {
+  return (
+    <div className="eb-stat-card eb-fee-mini-table">
+      <div className="eb-stat-label">{title}</div>
+      {rows.length === 0 ? (
+        <div className="eb-stat-detail">{empty}</div>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Collected</th>
+              <th>Outstanding</th>
+              <th>Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.name}>
+                <td>{row.name}</td>
+                <td>{money(row.collected)}</td>
+                <td>{money(row.outstanding)}</td>
+                <td>{percent(row.collectionRate)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function DistributionCard({
+  title,
+  rows,
+  note,
+}: {
+  title: string;
+  rows: Array<{ name: string; count: number; share: number | null }>;
+  note: string;
+}) {
+  return (
+    <div className="eb-stat-card eb-fee-mini-table">
+      <div className="eb-stat-label">{title}</div>
+      {rows.length === 0 ? (
+        <div className="eb-stat-detail">Data unavailable</div>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Band</th>
+              <th>Count</th>
+              <th>Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.name}>
+                <td>{row.name}</td>
+                <td>{row.count.toLocaleString()}</td>
+                <td>{percent(row.share)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="eb-stat-detail">{note}</div>
     </div>
   );
 }

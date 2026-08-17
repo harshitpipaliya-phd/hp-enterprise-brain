@@ -1,6 +1,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshCw, Scale } from 'lucide-react';
+import { CheckCircle2, RefreshCw, Scale, Send, XCircle } from 'lucide-react';
 import { decisionIntelligenceApi } from '../../api/intelligence';
 import { EmptyState, ErrorState, LoadingState } from '../shared/States';
 import { badgeTone, formatDateTime, formatNumber, formatPercent } from './intelligenceShared';
@@ -14,6 +14,48 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+
+  // Case context is fetched per recommendation, on demand, and cached by id.
+  // It is a second round-trip on purpose: the overview says what the brain
+  // recommends, and only a reader who asks gets told what it stood on.
+  const [openRecommendationId, setOpenRecommendationId] = useState<string | null>(null);
+  const [caseContextById, setCaseContextById] = useState<Record<string, any>>({});
+  const [caseContextError, setCaseContextError] = useState<Record<string, string>>({});
+  const [caseContextLoading, setCaseContextLoading] = useState<string | null>(null);
+  const [proposalTextById, setProposalTextById] = useState<Record<string, string>>({});
+  const [decisionNoteById, setDecisionNoteById] = useState<Record<string, string>>({});
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const toggleRecommendation = async (recommendationId: string) => {
+    if (openRecommendationId === recommendationId) {
+      setOpenRecommendationId(null);
+      return;
+    }
+
+    setOpenRecommendationId(recommendationId);
+
+    if (caseContextById[recommendationId]) return;
+
+    setCaseContextLoading(recommendationId);
+    setCaseContextError((current) => {
+      const { [recommendationId]: _dropped, ...rest } = current;
+      return rest;
+    });
+
+    try {
+      const context = await decisionIntelligenceApi.getRecommendationCaseContext(tenantId, recommendationId);
+      setCaseContextById((current) => ({ ...current, [recommendationId]: context }));
+    } catch (e: any) {
+      setCaseContextError((current) => ({
+        ...current,
+        [recommendationId]: e?.message ?? 'Unable to load what this recommendation cited.',
+      }));
+    } finally {
+      setCaseContextLoading(null);
+    }
+  };
 
   const load = async ({ background = false } = {}) => {
     const useBackgroundRefresh = background || !!data;
@@ -32,6 +74,53 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const proposeDecision = async (recommendation: any) => {
+    const rationale = (proposalTextById[recommendation.id] || recommendation.description || recommendation.title || '').trim();
+    if (rationale.length < 10) {
+      setActionError('A decision rationale must be at least 10 characters.');
+      return;
+    }
+
+    setActionBusyId(`recommendation:${recommendation.id}`);
+    setActionError(null);
+    setActionMessage(null);
+
+    try {
+      const decision = await decisionIntelligenceApi.proposeRecommendationDecision(tenantId, recommendation.id, rationale);
+      setActionMessage(`Decision ${decision.id} is proposed and waiting for governance review.`);
+      await load({ background: true });
+    } catch (e: any) {
+      setActionError(e?.message ?? 'Unable to record the decision proposal.');
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const decide = async (decisionId: string, action: 'approve' | 'reject') => {
+    const note = (decisionNoteById[decisionId] || '').trim();
+    if (action === 'reject' && note.length < 10) {
+      setActionError('A rejection note must be at least 10 characters.');
+      return;
+    }
+
+    setActionBusyId(`decision:${decisionId}:${action}`);
+    setActionError(null);
+    setActionMessage(null);
+
+    try {
+      const decision = action === 'approve'
+        ? await decisionIntelligenceApi.approveDecision(tenantId, decisionId, note ? { note } : {})
+        : await decisionIntelligenceApi.rejectDecision(tenantId, decisionId, { note });
+
+      setActionMessage(`Decision ${decision.id} is now ${decision.status}.`);
+      await load({ background: true });
+    } catch (e: any) {
+      setActionError(e?.message ?? `Unable to ${action} the decision.`);
+    } finally {
+      setActionBusyId(null);
     }
   };
 
@@ -181,6 +270,111 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
                   </div>
                 ))}
               </div>
+
+              <div className="intel-reco-block">
+                <div className="intel-section-head">
+                  <div>
+                    <span className="intel-eyebrow">Fee Intelligence</span>
+                    <h3>Recommended action</h3>
+                  </div>
+                </div>
+
+                {selectedCase.recommendations?.length ? selectedCase.recommendations.map((rec: any) => {
+                  const isOpen = openRecommendationId === rec.id;
+                  const context = caseContextById[rec.id];
+                  const contextError = caseContextError[rec.id];
+                  const linkedDecision = selectedCase.decisions?.find((decision: any) => decision.recommendationId === rec.id);
+                  const proposalText = proposalTextById[rec.id] ?? rec.description ?? rec.title ?? '';
+                  const proposalBusy = actionBusyId === `recommendation:${rec.id}`;
+
+                  return (
+                    <article key={rec.id} className="intel-reco-card" data-open={isOpen ? 'true' : 'false'}>
+                      <button
+                        type="button"
+                        className="intel-reco-head"
+                        onClick={() => toggleRecommendation(rec.id)}
+                        aria-expanded={isOpen}
+                      >
+                        <strong>{rec.title}</strong>
+                        <div className="intel-inline-list">
+                          <span className="intel-pill" data-tone="info">{rec.category || 'Uncategorised'}</span>
+                          <span className="intel-pill" data-tone={badgeTone(rec.priority)}>{rec.priority || 'Insufficient data'}</span>
+                          <span className="intel-mini-badge" data-tone={badgeTone(rec.status)}>{rec.status}</span>
+                          <small>Confidence: {rec.confidence != null ? formatPercent(rec.confidence) : 'Insufficient data'}</small>
+                        </div>
+                      </button>
+
+                      {rec.description && <p className="intel-reco-rationale">{rec.description}</p>}
+
+                      <div className="intel-decision-gate">
+                        <div className="intel-inline-list">
+                          <span className="intel-mini-badge" data-tone={badgeTone(linkedDecision?.status || 'pending')}>
+                            Decision: {linkedDecision?.status || 'not proposed'}
+                          </span>
+                          {linkedDecision?.id && <small>{linkedDecision.id}</small>}
+                        </div>
+
+                        {!linkedDecision ? (
+                          <div className="intel-gate-form">
+                            <textarea
+                              value={proposalText}
+                              onChange={(event) => setProposalTextById((current) => ({
+                                ...current,
+                                [rec.id]: event.target.value,
+                              }))}
+                              rows={3}
+                              aria-label={`Decision rationale for ${rec.title}`}
+                            />
+                            <button
+                              type="button"
+                              className="intel-action-button"
+                              onClick={() => proposeDecision(rec)}
+                              disabled={proposalBusy}
+                            >
+                              <Send size={15} /> {proposalBusy ? 'Recording...' : 'Send to governance'}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {isOpen && (
+                        <div className="intel-reco-evidence">
+                          {caseContextLoading === rec.id && <div className="intel-note">Loading cited evidence...</div>}
+                          {contextError && <div className="intel-note">{contextError}</div>}
+
+                          {context && (
+                            <>
+                              <div className="intel-inline-list">
+                                <span className="intel-mini-badge" data-tone="good">
+                                  Cited evidence: {formatNumber(context.groundedOn?.length ?? 0)}
+                                </span>
+                                <span className="intel-mini-badge" data-tone="info">
+                                  Other evidence in case: {formatNumber(context.caseContext?.evidenceCount ?? 0)}
+                                </span>
+                              </div>
+
+                              {context.groundedOn?.length ? (
+                                <ul className="intel-reco-evidence-list">
+                                  {context.groundedOn.map((evidenceId: string) => (
+                                    <li key={evidenceId}>{evidenceId}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <div className="intel-note">This recommendation cited no evidence.</div>
+                              )}
+
+                              {/* The resolution path, verbatim from the endpoint. A reader
+                                  who wants to know how this recommendation was tied to this
+                                  case should not have to take the link on trust. */}
+                              <small className="intel-reco-path">{context.resolution?.via}</small>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                }) : <EmptyState icon="○" message="No recommendation has been produced for this case yet." />}
+              </div>
             </>
           ) : (
             <EmptyState icon="○" message="No case detail is available yet." />
@@ -196,6 +390,11 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
           </div>
         </div>
         <div className="intel-panel">
+          {(actionError || actionMessage) && (
+            <div className="intel-gate-status" data-tone={actionError ? 'warn' : 'good'}>
+              {actionError || actionMessage}
+            </div>
+          )}
           <div className="intel-table-wrap">
             <table className="intel-table">
               <thead>
@@ -208,6 +407,7 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
                   <th>Owner</th>
                   <th>Age</th>
                   <th>Status</th>
+                  <th>Governance</th>
                 </tr>
               </thead>
               <tbody>
@@ -221,10 +421,41 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
                     <td>{item.owner || 'Insufficient data'}</td>
                     <td>{item.ageDays != null ? `${item.ageDays} days` : 'Insufficient data'}</td>
                     <td><span className="intel-pill" data-tone={badgeTone(item.status)}>{item.status}</span></td>
+                    <td>
+                      <div className="intel-gate-table-actions">
+                        <textarea
+                          value={decisionNoteById[item.id] ?? ''}
+                          onChange={(event) => setDecisionNoteById((current) => ({
+                            ...current,
+                            [item.id]: event.target.value,
+                          }))}
+                          rows={2}
+                          aria-label={`Governance note for ${item.decision || 'decision'}`}
+                        />
+                        <div className="intel-inline-actions">
+                          <button
+                            type="button"
+                            className="intel-action-button"
+                            onClick={() => decide(item.id, 'approve')}
+                            disabled={actionBusyId === `decision:${item.id}:approve`}
+                          >
+                            <CheckCircle2 size={15} /> Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="intel-action-button is-danger"
+                            onClick={() => decide(item.id, 'reject')}
+                            disabled={actionBusyId === `decision:${item.id}:reject`}
+                          >
+                            <XCircle size={15} /> Reject
+                          </button>
+                        </div>
+                      </div>
+                    </td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={8}>No pending decisions require attention.</td>
+                    <td colSpan={9}>No pending decisions require attention.</td>
                   </tr>
                 )}
               </tbody>

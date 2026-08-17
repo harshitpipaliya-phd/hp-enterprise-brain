@@ -1,341 +1,1069 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { api as personApi } from '../../api/person';
 import { LoadingState, ErrorState } from '../shared/States';
+import './PersonProfile.css';
 
-interface Person {
+/**
+ * The person profile.
+ *
+ * WHAT THIS SCREEN IS FOR. One person, everything the installation actually
+ * holds about them, and nothing else. It reads a single endpoint —
+ * GET /people/{tenantId}/{id}/twin — which is tenant-scoped server-side, so a
+ * person from another organization cannot be rendered here even if their id is
+ * guessed.
+ *
+ * THE RULE THAT SHAPES EVERY BRANCH BELOW: A FIELD WITH NO VALUE IS NOT DRAWN.
+ * The screen this replaced rendered a fixed set of cards whose contents were
+ * `—` for every tenant onboarded so far, alongside empty states that printed the
+ * response's own key names ("capabilityScores[] is empty", "No attributed
+ * activity in this twin yet"). Both are failures of the same kind: the interface
+ * describing its own plumbing rather than the person. Here a section renders
+ * only when the API returned something for it, and when it genuinely has nothing
+ * the empty state says what is missing and what would fill it, in the reader's
+ * words.
+ *
+ * NOTHING IS COMPUTED HERE THAT THE API DID NOT SEND. Totals, percentages and
+ * counts all arrive derived. Recomputing one in a component is a second
+ * definition of it, and the two will disagree.
+ */
+
+/* ─────────────────────────────── the payload ─────────────────────────────── */
+
+interface Identity {
   id: string;
-  firstName: string;
-  lastName: string;
-  jobTitle?: string | null;
-  email: string;
+  externalRef: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  displayName: string | null;
+  email: string | null;
+  phone: string | null;
+  gender: string | null;
+  role: string | null;
+  jobTitle: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  joinedDate: string | null;
+  status: string;
+  createdDate: string | null;
+  updatedDate: string | null;
+  mappedFields: string[];
+}
+
+interface LinkRule {
+  column: string;
+  label: string;
+  value: string;
+  basis: string;
+  records: number;
+}
+
+interface DatasetSummary {
+  dataset: string;
+  label: string;
+  records: number;
+  firstSeen: string | null;
+  lastSeen: string | null;
+}
+
+interface RecordRow {
+  id: string;
+  dataset: string;
+  datasetLabel: string;
+  reference: string | null;
+  occurredAt: string | null;
+  closedAt: string | null;
+  status: string | null;
+  category: string | null;
+  subCategory: string | null;
+  amount: number | null;
+  currency: string | null;
+  quantity: number | null;
+  location: string | null;
+  linkedBy: string[];
+  source: { file: string | null; row: number | null; importJobId: string | null; importedAt: string | null };
+  detail: Array<{ label: string; value: string }>;
+}
+
+interface Invoice {
+  reference: string | null;
+  period: string | null;
+  component: string | null;
+  dueDate: string | null;
+  net: number;
+  paid: number;
+  outstanding: number;
+  status: string | null;
+  daysOverdue: number | null;
+  method: string | null;
+  paymentDate: string | null;
+}
+
+interface Finance {
+  currency: string | null;
+  records: number;
+  covered: number;
+  partial: boolean;
+  billed: number;
+  concession: number;
+  net: number;
+  paid: number;
+  outstanding: number;
+  overdue: number;
+  collectedPct: number | null;
+  statusCounts: Array<{ name: string; count: number }>;
+  components: Array<{ name: string; net: number }>;
+  methods: Array<{ name: string; count: number }>;
+  lastPayment: { date: string; amount: number; method: string | null } | null;
+  nextDueDate: string | null;
+  invoices: Invoice[];
+}
+
+interface Academic {
+  studentRef?: string;
+  admissionNo?: string;
+  grNo?: string;
+  class?: string;
+  section?: string;
+  academicYear?: string;
+  department?: string;
+  campus?: string;
+  feePlan?: string;
+  scholarship?: string;
+  transport?: string;
+  quota?: string;
+  attendancePct?: number;
+  examAveragePct?: number;
+  engagementPct?: number;
+  riskBand?: string;
+  classesOnRecord?: number;
+  sectionsOnRecord?: number;
 }
 
 interface CapabilityScore {
   capabilityId: string;
   capabilityName: string;
-  scores: { knowledge: number | null; ability: number | null; skill: number | null; behaviour: number | null; attitude: number | null; overall: number | null };
+  capabilityState: string;
+  scores: Record<string, number | null>;
   gaps: Array<{ dimension: string; currentLevel: number | null; targetLevel: number; gap: number }>;
   assessedDate: string | null;
 }
 
-interface ExecutionHistoryItem {
-  id: string;
-  esoId: string;
-  status: string;
-  completedDate: string | null;
-  createdDate: string;
+interface Intelligence {
+  capabilities: CapabilityScore[];
+  decisions: { total: number; approved: number; items: Array<{ id: string; status: string | null; rationale: string | null; createdAt: string | null }> };
+  executions: Array<{ id: string; esoId: string | null; status: string; completedDate: string | null; createdDate: string | null }>;
+  executionSuccessCount: number;
+  learnings: number;
+  signals: Array<{
+    id: string; ruleKey: string | null; title: string | null; classification: string | null;
+    severity: string | null; priority: string | null; status: string | null;
+    confidence: number | null; source: string | null; createdAt: string | null;
+  }>;
+  signalCount: number;
+  evidenceCount: number;
+  cases: Array<{ id: string; title: string | null; status: string | null; createdAt: string | null }>;
+  score: { score: number | null; breakdown: Record<string, number | null> };
 }
 
-interface Twin {
-  person: { firstName: string; lastName: string; jobTitle: string | null; email: string };
-  capabilityCount: number;
-  capabilityScores: CapabilityScore[];
-  decisionParticipation: { total: number; approved: number };
-  learningContributions: number;
-  recentActivity: Array<{ type: string; createdAt: string; entityType: string }>;
-  guardians: Array<{ firstName: string; lastName: string; relationship: string; email: string | null; phone: string | null; isPrimaryContact: boolean }>;
-  executionHistory: ExecutionHistoryItem[];
-  individualScore: { score: number | null; breakdown: { capabilityScore: number | null; decisionQuality: number | null; executionSuccess: number | null } };
+interface Guardian {
+  firstName: string | null;
+  lastName: string | null;
+  relationship: string | null;
+  email: string | null;
+  phone: string | null;
+  isPrimaryContact: boolean;
+  origin: string;
 }
 
-const KASBA_DIMS: Array<{ key: 'knowledge' | 'ability' | 'skill' | 'behaviour' | 'attitude'; letter: string; name: string; desc: string }> = [
-  { key: 'knowledge', letter: 'K', name: 'Knowledge', desc: 'What the person understands \u2014 concepts, facts, and frameworks they can recall and reason with.' },
-  { key: 'ability', letter: 'A', name: 'Ability', desc: 'Capacity to apply knowledge under real conditions \u2014 judgment developed through practice.' },
-  { key: 'skill', letter: 'S', name: 'Skill', desc: 'Demonstrated technique \u2014 the observable, repeatable execution of a task.' },
-  { key: 'behaviour', letter: 'B', name: 'Behaviour', desc: 'Consistent conduct under pressure \u2014 what they actually do, not just what they know to do.' },
-  { key: 'attitude', letter: 'A', name: 'Attitude', desc: 'Disposition toward the work \u2014 observed longitudinally through evidence, never assumed.' },
-];
-
-function scoreColor(val: number | null): string {
-  if (val == null) return 'var(--conf-none)';
-  if (val >= 4) return 'var(--conf-verified)';
-  if (val >= 3) return 'var(--conf-high)';
-  if (val >= 2) return 'var(--conf-med)';
-  return 'var(--conf-low)';
+interface TimelineEvent {
+  at: string;
+  kind: string;
+  title: string;
+  detail: string | null;
+  source: string;
+  amount: number | null;
+  currency: string | null;
 }
 
-function statusBadgeClass(status: string): string {
-  const s = status.toLowerCase();
-  if (s.includes('complete') || s.includes('approved') || s.includes('success')) return 'eb-badge eb-badge-success';
-  if (s.includes('fail') || s.includes('reject')) return 'eb-badge eb-badge-danger';
-  if (s.includes('progress') || s.includes('pending')) return 'eb-badge eb-badge-warning';
+interface Profile {
+  person: Identity;
+  organization: { id: string; name: string | null; code: string | null; industry: string | null } | null;
+  linkage: { available: boolean; rules: LinkRule[]; matched: LinkRule[]; records: number; datasets: DatasetSummary[] };
+  academic: Academic | null;
+  contacts: { guardians: Guardian[] };
+  finance: Finance | null;
+  activity: { available: boolean; datasets: DatasetSummary[]; records: RecordRow[]; total: number; shown: number };
+  intelligence: Intelligence;
+  timeline: { events: TimelineEvent[]; total: number; bounded: boolean };
+  audit: Array<{ action: string; entityType: string | null; actorName: string | null; createdAt: string | null }>;
+}
+
+export interface PersonProfileActions {
+  onBack?: () => void;
+  backLabel?: string;
+  onEdit?: () => void;
+  onArchive?: () => void;
+  onViewSourceRecord?: () => void;
+}
+
+/* ──────────────────────────────── formatting ─────────────────────────────── */
+
+/**
+ * MySQL hands back 'YYYY-MM-DD HH:MM:SS'. Passing that to `new Date` is
+ * implementation-defined and returns Invalid Date in Safari, which rendered as
+ * the literal string "Invalid Date" in the timeline. The T makes it ISO.
+ */
+function parseDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(value.includes('T') ? value : value.replace(' ', 'T'));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function fmtDate(value: string | null | undefined): string | null {
+  const date = parseDate(value);
+  return date ? date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+}
+
+function fmtDateTime(value: string | null | undefined): string | null {
+  const date = parseDate(value);
+  return date ? date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
+}
+
+/** Currency as the record itself stored it. No default currency is assumed. */
+function money(value: number | null | undefined, currency: string | null): string {
+  if (value === null || value === undefined) return '—';
+  const code = (currency ?? '').trim();
+  if (/^[A-Za-z]{3}$/.test(code)) {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: code.toUpperCase(), maximumFractionDigits: 0 }).format(value);
+    } catch {
+      // An ISO-shaped code the runtime does not know. Fall through to plain
+      // number plus the code rather than throwing inside a render.
+    }
+  }
+  const formatted = value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return code === '' ? formatted : `${code} ${formatted}`;
+}
+
+function pct(value: number | null | undefined): string | null {
+  return value === null || value === undefined ? null : `${value}%`;
+}
+
+function initials(person: Identity): string {
+  const name = person.displayName ?? '';
+  const parts = name.split(/\s+/).filter(Boolean).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
+}
+
+function badgeClass(status: string | null | undefined): string {
+  const s = (status ?? '').toLowerCase();
+  if (!s) return 'eb-badge';
+  if (/(paid|complete|approved|success|resolved|closed|low)/.test(s) && !/unpaid|partially/.test(s)) return 'eb-badge eb-badge-success';
+  if (/(overdue|fail|reject|critical|high|breach)/.test(s)) return 'eb-badge eb-badge-danger';
+  if (/(partial|pending|progress|due|medium|open|new)/.test(s)) return 'eb-badge eb-badge-warning';
   return 'eb-badge';
 }
 
-function eventLabel(type: string): string {
-  return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+/* ───────────────────────────── small primitives ──────────────────────────── */
+
+function Panel({ title, tag, children }: { title: string; tag?: string; children: ReactNode }) {
+  return (
+    <div className="eb-panel">
+      <div className="eb-panel-head">
+        <span className="eb-panel-title">{title}</span>
+        {tag && <span className="eb-panel-tag">{tag}</span>}
+      </div>
+      {children}
+    </div>
+  );
 }
 
-export default function PersonIntelligence({ tenantId, personId, onBack }: { tenantId: string; personId?: string; onBack?: () => void }) {
-  const [people, setPeople] = useState<Person[]>([]);
-  const [selectedId, setSelectedId] = useState<string>(personId ?? '');
-  const [twin, setTwin] = useState<Twin | null>(null);
-  const [listLoading, setListLoading] = useState(!personId);
-  const [twinLoading, setTwinLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeCapability, setActiveCapability] = useState<string | null>(null);
-  const [activeDim, setActiveDim] = useState<typeof KASBA_DIMS[number]['key']>('knowledge');
+/**
+ * An empty state that names the thing that is missing and what would produce it.
+ *
+ * Never the response key, never the table. A reader who sees this needs to know
+ * whether to wait, to import something, or to stop looking.
+ */
+function Empty({ headline, explain }: { headline: string; explain: string }) {
+  return (
+    <div className="pp-empty">
+      <strong>{headline}</strong>
+      <p>{explain}</p>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    if (personId) { setListLoading(false); return; }
-    setListLoading(true);
-    personApi.listPeople(tenantId)
-      .then((data: Person[]) => {
-        setPeople(data);
-        if (data.length > 0) setSelectedId(data[0].id);
-      })
-      .catch((e: any) => setError(e.message))
-      .finally(() => setListLoading(false));
+/** A definition list that skips every row whose value is absent. */
+function Fields({ rows }: { rows: Array<[string, ReactNode | null | undefined, boolean?]> }) {
+  const present = rows.filter(([, value]) => value !== null && value !== undefined && value !== '');
+  if (present.length === 0) return null;
+  return (
+    <dl className="pp-fields">
+      {present.map(([label, value, mono]) => (
+        <Fragment key={label}>
+          <dt>{label}</dt>
+          <dd className={mono ? 'pp-mono' : undefined}>{value}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string | null }) {
+  return (
+    <div className="pp-stat">
+      <div className="pp-stat-label">{label}</div>
+      <div className="pp-stat-value">{value}</div>
+      {hint && <div className="pp-stat-hint">{hint}</div>}
+    </div>
+  );
+}
+
+/* ──────────────────────────────── the screen ─────────────────────────────── */
+
+type Tab = 'overview' | 'finance' | 'records' | 'intelligence' | 'timeline';
+
+export default function PersonIntelligence({
+  tenantId,
+  personId,
+  onBack,
+  backLabel = 'Back',
+  onEdit,
+  onArchive,
+  onViewSourceRecord,
+}: { tenantId: string; personId: string } & PersonProfileActions) {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('overview');
+  const [openRecord, setOpenRecord] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    personApi.getProfile(tenantId, personId)
+      .then((data: Profile) => setProfile(data))
+      .catch((e: any) => setError(e?.message ?? 'Could not load this person.'))
+      .finally(() => setLoading(false));
   }, [tenantId, personId]);
 
-  const loadTwin = () => {
-    if (!selectedId) return;
-    setTwinLoading(true);
-    setError(null);
-    personApi.getTwin(tenantId, selectedId)
-      .then((t: Twin) => {
-        setTwin(t);
-        if (t.capabilityScores.length > 0) setActiveCapability(t.capabilityScores[0].capabilityId);
-      })
-      .catch((e: any) => setError(e.message))
-      .finally(() => setTwinLoading(false));
-  };
+  // Re-runs whenever the person or the organization changes, so navigating from
+  // one person straight to another cannot leave the previous one on screen.
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { loadTwin(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tenantId, selectedId]);
+  // A person with no fee records is not a school student, and a fees tab that
+  // can only ever be empty is noise. Tabs follow the data.
+  const tabs = useMemo(() => {
+    if (!profile) return [] as Array<{ key: Tab; label: string; count?: number }>;
+    return [
+      { key: 'overview' as Tab, label: 'Overview' },
+      ...(profile.finance ? [{ key: 'finance' as Tab, label: 'Fees & payments', count: profile.finance.records }] : []),
+      { key: 'records' as Tab, label: 'Records', count: profile.activity.total },
+      { key: 'intelligence' as Tab, label: 'Intelligence', count: profile.intelligence.signalCount + profile.intelligence.capabilities.length },
+      { key: 'timeline' as Tab, label: 'Timeline', count: profile.timeline.total },
+    ];
+  }, [profile]);
 
-  if (listLoading) return <LoadingState label="Loading people..." />;
-  if (error && !twin) return <ErrorState message={error} />;
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some((t) => t.key === tab)) setTab('overview');
+  }, [tabs, tab]);
 
-  if (!personId && people.length === 0) {
-    return <div className="eb-dashed-empty">No people yet. Add someone to see their intelligence profile here.</div>;
-  }
+  if (loading && !profile) return <LoadingState label="Loading person profile..." />;
+  if (error && !profile) return <ErrorState message={error} />;
+  if (!profile) return null;
 
-  const score = twin ? twin.individualScore.score : null;
-  const selectedCapability = twin?.capabilityScores.find((c) => c.capabilityId === activeCapability) ?? twin?.capabilityScores[0] ?? null;
-  const activeDimMeta = KASBA_DIMS.find((d) => d.key === activeDim)!;
-  const activeDimValue = selectedCapability?.scores[activeDim] ?? null;
-  const activeDimGap = selectedCapability?.gaps.find((g) => g.dimension.toLowerCase() === activeDim);
+  const { person, organization, academic, contacts, finance, activity, intelligence, linkage, timeline } = profile;
+  const name = person.displayName ?? `Person ${person.id}`;
+  const currency = finance?.currency ?? null;
 
   return (
-    <div className="eb-fade-in" style={{ maxWidth: 1180, margin: '0 auto' }}>
-      {onBack && <button onClick={onBack} className="eb-pill-btn" style={{ marginBottom: 14 }}>{'\u2190 Back'}</button>}
-
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 8 }}>
-        <div>
-          <div className="eb-eyebrow">People Intelligence</div>
-          <h1 className="eb-headline" style={{ fontSize: 34 }}>{twin ? twin.person.firstName + ' ' + twin.person.lastName : 'Loading...'}</h1>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--border-default)', borderRadius: 999, padding: '8px 18px 8px 8px', background: 'var(--surface-inset)' }}>
-          <span style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--content-primary)', color: 'var(--surface-card)', display: 'grid', placeItems: 'center', fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>
-            {twin ? (twin.person.firstName[0] ?? '') + (twin.person.lastName[0] ?? '') : '\u2014'}
-          </span>
-          <span>
-            <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 15, color: 'var(--content-primary)' }}>{twin ? twin.person.firstName + ' ' + twin.person.lastName : ''}</div>
-            <div style={{ fontSize: 13, color: 'var(--content-tertiary)' }}>{twin?.person.jobTitle ?? 'No title on record'}</div>
-          </span>
-        </div>
+    <div className="pp eb-fade-in">
+      <div className="pp-actions">
+        {onBack && <button className="eb-pill-btn" onClick={onBack}>{'← '}{backLabel}</button>}
+        <span className="pp-actions-spacer" />
+        {onEdit && <button className="eb-pill-btn" onClick={onEdit}>Edit contact details</button>}
+        {onViewSourceRecord && <button className="eb-pill-btn" onClick={onViewSourceRecord}>Source record</button>}
+        <button className="eb-pill-btn" onClick={load} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
+        {onArchive && <button className="eb-pill-btn" onClick={onArchive}>Archive</button>}
       </div>
 
-      {!personId && (
-        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} style={{ marginBottom: 20 }}>
-          {people.map((p) => (
-            <option key={p.id} value={p.id}>{p.firstName} {p.lastName}{p.jobTitle ? ' \u2014 ' + p.jobTitle : ''}</option>
+      {error && <div className="pp-alert" role="alert">Could not refresh this person: {error}. The details below are from the last successful load.</div>}
+
+      <header className="pp-head">
+        <div>
+          <div className="eb-eyebrow">Person profile{organization?.name ? ` · ${organization.name}` : ''}</div>
+          <h1>{name}</h1>
+          <div className="pp-head-meta">
+            {person.role && <span className="eb-badge eb-badge-info">{person.role}</span>}
+            {person.jobTitle && <span className="eb-badge">{person.jobTitle}</span>}
+            {person.departmentName && <span className="eb-badge">{person.departmentName}</span>}
+            {person.externalRef && <span className="eb-badge">Ref {person.externalRef}</span>}
+            {academic?.academicYear && <span className="eb-badge">Academic year {academic.academicYear}</span>}
+          </div>
+        </div>
+        <span className="pp-avatar" aria-hidden="true">{initials(person)}</span>
+      </header>
+
+      {tabs.length > 1 && (
+        <div className="pp-tabs" role="tablist">
+          {tabs.map((t) => (
+            <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}>
+              {t.label}
+              {t.count !== undefined && t.count > 0 && <span className="pp-tab-count">{t.count}</span>}
+            </button>
           ))}
-        </select>
+        </div>
       )}
 
-      {twinLoading || !twin ? (
-        <LoadingState label="Loading person twin..." />
-      ) : (
+      {tab === 'overview' && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 22 }}>
-            <span className="eb-conn-pill"><span className="eb-conn-dot" />{'Live \u00B7 GET /people/' + tenantId + '/' + selectedId + '/twin'}</span>
-            <button className="eb-pill-btn" onClick={loadTwin}>{'\u21BA Re-ingest'}</button>
-          </div>
+          <Highlights profile={profile} />
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 30 }}>
-            <div className="eb-record-stat">
-              <div className="eb-record-stat-label">Individual Score</div>
-              <div className="eb-record-stat-value">{score != null ? Math.round(score) : '\u2014'}</div>
-            </div>
-            <div className="eb-record-stat">
-              <div className="eb-record-stat-label">Capabilities</div>
-              <div className="eb-record-stat-value">{twin.capabilityCount}</div>
-            </div>
-            <div className="eb-record-stat">
-              <div className="eb-record-stat-label">Decisions</div>
-              <div className="eb-record-stat-value">{twin.decisionParticipation.total}</div>
-            </div>
-            <div className="eb-record-stat">
-              <div className="eb-record-stat-label">Approved</div>
-              <div className="eb-record-stat-value">{twin.decisionParticipation.approved}</div>
-            </div>
-            <div className="eb-record-stat">
-              <div className="eb-record-stat-label">Learning</div>
-              <div className="eb-record-stat-value">{twin.learningContributions}</div>
-            </div>
-          </div>
-
-          {/* ---- KASBA capability record: three-column layout matching EB-DLS reference ---- */}
-          {twin.capabilityScores.length === 0 ? (
-            <div className="eb-panel" style={{ marginBottom: 24 }}>
-              <div className="eb-panel-head"><span className="eb-panel-title">Capability profile</span><span className="eb-panel-tag">capabilityScores[].scores</span></div>
-              <div className="eb-dashed-empty">No capability assessments on record yet \u2014 capabilityScores[] is empty.</div>
-            </div>
-          ) : (
-            <div style={{ marginBottom: 30 }}>
-              <p style={{ margin: '0 0 20px', fontSize: 14.5, lineHeight: 1.55, color: 'var(--content-secondary)', maxWidth: '78ch' }}>
-                The Capability Model \u2014 <strong style={{ color: 'var(--content-primary)' }}>KASBA</strong> \u2014 decomposes each capability into five evidenced dimensions from <span style={{ fontFamily: 'var(--mono)', fontSize: 12.5, color: 'var(--accent-evidence)' }}>capabilityScores[].scores</span>. Select a dimension to see its record.
+          <div className="pp-grid">
+            <Panel title="Profile">
+              <Fields
+                rows={[
+                  ['Full name', name],
+                  ['Reference', person.externalRef, true],
+                  ['Role', person.role],
+                  ['Job title', person.jobTitle],
+                  [person.role?.toLowerCase() === 'student' ? 'Class section' : 'Department', person.departmentName],
+                  ['Email', person.email && <a href={`mailto:${person.email}`}>{person.email}</a>],
+                  ['Phone', person.phone],
+                  ['Gender', person.gender],
+                  ['Joined', fmtDate(person.joinedDate)],
+                  ['Organization', organization?.name],
+                  ['Record created', fmtDateTime(person.createdDate)],
+                  ['Last updated', fmtDateTime(person.updatedDate)],
+                ]}
+              />
+              <p className="pp-note" style={{ margin: '16px 0 0' }}>
+                These are the fields this organization’s source system holds for a person. Fields it does
+                not hold are not shown rather than shown blank.
               </p>
-              <div className="eb-grid" style={{ gridTemplateColumns: '320px 1fr', alignItems: 'start', gap: 18 }}>
+            </Panel>
 
-                {/* profile card */}
-                <div className="eb-panel">
-                  <div style={{ marginBottom: 4 }}>
-                    <select
-                      value={selectedCapability?.capabilityId ?? ''}
-                      onChange={(e) => { setActiveCapability(e.target.value); }}
-                      style={{ width: '100%', marginBottom: 14, fontWeight: 650 }}
-                    >
-                      {twin.capabilityScores.map((cs) => (
-                        <option key={cs.capabilityId} value={cs.capabilityId}>{cs.capabilityName}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--content-tertiary)', margin: '4px 0 12px' }}>
-                    Capability state
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {KASBA_DIMS.map((d) => {
-                      const val = selectedCapability?.scores[d.key] ?? null;
-                      const isActive = activeDim === d.key;
-                      return (
-                        <button
-                          key={d.key}
-                          type="button"
-                          onClick={() => setActiveDim(d.key)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 12, background: isActive ? 'var(--surface-hover)' : 'transparent',
-                            border: 'none', boxShadow: 'none', padding: '8px 8px', borderRadius: 'var(--radius-xs)', cursor: 'pointer',
-                          }}
-                        >
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: scoreColor(val), width: 14 }}>{d.letter}</span>
-                          <span className="eb-bar-track" style={{ flex: 1 }}><span className="eb-bar-fill" style={{ width: ((val ?? 0) / 5) * 100 + '%', background: scoreColor(val) }} /></span>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 600, color: 'var(--content-primary)', width: 32, textAlign: 'right' }}>{val != null ? val.toFixed(1) : '\u2014'}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 13, color: 'var(--content-tertiary)' }}>Overall score</span>
-                    <span>
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 700, color: scoreColor(selectedCapability?.scores.overall ?? null) }}>
-                        {selectedCapability?.scores.overall != null ? selectedCapability.scores.overall.toFixed(1) : '\u2014'}
-                      </span>
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--content-tertiary)' }}> / 5</span>
-                    </span>
-                  </div>
-                </div>
+            {academic ? (
+              <Panel title="Academic record">
+                <Fields
+                  rows={[
+                    ['Student reference', academic.studentRef, true],
+                    ['Admission number', academic.admissionNo, true],
+                    ['GR number', academic.grNo, true],
+                    ['Class', academic.class],
+                    ['Section', academic.section],
+                    ['Academic year', academic.academicYear],
+                    ['Department', academic.department],
+                    ['Campus', academic.campus],
+                    ['Fee plan', academic.feePlan],
+                    ['Scholarship', academic.scholarship],
+                    ['Quota', academic.quota],
+                    ['Transport enrolled', academic.transport],
+                    ['Attendance', pct(academic.attendancePct)],
+                    ['Term average', pct(academic.examAveragePct)],
+                    ['Learning platform engagement', pct(academic.engagementPct)],
+                    ['Risk band on record', academic.riskBand && <span className={badgeClass(academic.riskBand)}>{academic.riskBand}</span>],
+                  ]}
+                />
+                {(academic.classesOnRecord ?? 0) > 1 && (
+                  <p className="pp-note" style={{ margin: '16px 0 0' }}>
+                    This student appears under {academic.classesOnRecord} different classes across their records.
+                    The values above are from the most recent one.
+                  </p>
+                )}
+              </Panel>
+            ) : (
+              <Panel title="Academic record">
+                <Empty
+                  headline="No academic record for this person."
+                  explain="Class, section and academic year come from imported student records. None of the imported records for this organization reference this person."
+                />
+              </Panel>
+            )}
+          </div>
 
-                {/* selected dimension detail */}
-                <div className="eb-panel" style={{ minHeight: 260 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                    <span style={{ fontFamily: 'var(--display)', fontSize: 26, fontWeight: 700, color: scoreColor(activeDimValue) }}>{activeDimMeta.letter}</span>
-                    <span style={{ fontFamily: 'var(--display)', fontSize: 21, fontWeight: 700, color: 'var(--content-primary)' }}>{activeDimMeta.name}</span>
-                    <span style={{ marginInlineStart: 'auto', fontFamily: 'var(--mono)', fontSize: 12, color: scoreColor(activeDimValue) }}>
-                      {activeDimValue != null ? activeDimValue.toFixed(1) + ' / 5' : 'Not assessed'}
-                    </span>
-                  </div>
-                  <p style={{ margin: '14px 0 20px', fontSize: 14.5, lineHeight: 1.5, color: 'var(--content-secondary)' }}>{activeDimMeta.desc}</p>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--content-tertiary)', marginBottom: 12 }}>capability_proficiency record</div>
-                  {selectedCapability?.assessedDate ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--border-subtle)', borderRadius: 12, background: 'var(--surface-inset)', padding: '13px 16px' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: scoreColor(activeDimValue), flexShrink: 0 }} />
-                      <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--content-secondary)' }}>Last assessed {new Date(selectedCapability.assessedDate).toLocaleDateString()}</span>
-                    </div>
-                  ) : (
-                    <div className="eb-dashed-empty">No assessment record for this dimension yet.</div>
-                  )}
-                  {activeDimGap && (
-                    <div style={{ marginTop: 14, border: '1px solid var(--feedback-warning-border)', background: 'var(--feedback-warning-surface)', borderRadius: 12, padding: '13px 16px' }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--feedback-warning-content)', marginBottom: 6 }}>Gap vs role target</div>
-                      <div style={{ fontSize: 13.5, color: 'var(--content-secondary)' }}>Current {activeDimGap.currentLevel ?? '\u2014'} vs target {activeDimGap.targetLevel} \u2014 gap of {activeDimGap.gap}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="eb-grid eb-grid-2" style={{ alignItems: 'start' }}>
-            <div className="eb-panel">
-              <div className="eb-panel-head">
-                <span className="eb-panel-title">Execution history</span>
-                <span className="eb-panel-tag">executionHistory[]</span>
-              </div>
-              {twin.executionHistory.length === 0 ? (
-                <div className="eb-dashed-empty">No ESO executions recorded yet.</div>
+          <div className="pp-grid">
+            <Panel title="Contacts">
+              {contacts.guardians.length === 0 ? (
+                <Empty
+                  headline="No additional contacts on record."
+                  explain="Guardian and next-of-kin details are read from the guardian register and from imported student records. Neither holds a contact for this person."
+                />
               ) : (
-                <table>
-                  <thead><tr><th>ESO</th><th>Status</th><th>Completed</th></tr></thead>
+                <div className="pp-table-wrap">
+                  <table className="pp-table">
+                    <thead>
+                      <tr><th>Name</th><th>Relationship</th><th>Contact</th><th>Source</th></tr>
+                    </thead>
+                    <tbody>
+                      {contacts.guardians.map((g, i) => (
+                        <tr key={i}>
+                          <td>
+                            {[g.firstName, g.lastName].filter(Boolean).join(' ') || '—'}
+                            {g.isPrimaryContact && <span className="eb-badge eb-badge-info" style={{ marginLeft: 6 }}>Primary</span>}
+                          </td>
+                          <td>{g.relationship ?? '—'}</td>
+                          <td>
+                            {g.email && <div><a href={`mailto:${g.email}`}>{g.email}</a></div>}
+                            {g.phone && <div>{g.phone}</div>}
+                            {!g.email && !g.phone && '—'}
+                          </td>
+                          <td className="pp-timeline-source">
+                            {g.origin === 'guardian_register' ? 'Guardian register' : 'Imported student record'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Panel>
+
+            <Panel title="How records are attached">
+              {linkage.matched.length === 0 ? (
+                <Empty
+                  headline="No imported records reference this person."
+                  explain={
+                    linkage.rules.length === 0
+                      ? 'Attaching records to a person needs either a reference number or a name in their source record. This person has neither.'
+                      : 'Imported records name the person they concern by reference or by name. Nothing imported for this organization carries either of this person’s.'
+                  }
+                />
+              ) : (
+                <>
+                  <p className="pp-note">
+                    Records are attached to a person only by an exact match on a value stored in the record
+                    itself. Nothing is attached by similarity.
+                  </p>
+                  <div className="pp-table-wrap">
+                    <table className="pp-table">
+                      <thead><tr><th>Match</th><th>Value</th><th className="pp-num">Records</th></tr></thead>
+                      <tbody>
+                        {linkage.rules.map((rule) => (
+                          <tr key={rule.column}>
+                            <td>{rule.label}<div className="pp-timeline-source">{rule.basis}</div></td>
+                            <td className="pp-mono">{rule.value}</td>
+                            <td className="pp-num">{rule.records.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </Panel>
+          </div>
+        </>
+      )}
+
+      {tab === 'finance' && finance && (
+        <>
+          <dl className="pp-money">
+            <div><dt>Total billed</dt><dd>{money(finance.billed, currency)}</dd></div>
+            <div><dt>Concession</dt><dd>{money(finance.concession, currency)}</dd></div>
+            <div><dt>Net payable</dt><dd>{money(finance.net, currency)}</dd></div>
+            <div><dt>Amount paid</dt><dd>{money(finance.paid, currency)}</dd></div>
+            <div><dt>Outstanding</dt><dd>{money(finance.outstanding, currency)}</dd></div>
+            <div><dt>Of which overdue</dt><dd>{money(finance.overdue, currency)}</dd></div>
+          </dl>
+
+          <div className="pp-grid">
+            <Panel title="Payment position">
+              <Fields
+                rows={[
+                  ['Invoices on record', finance.records.toLocaleString()],
+                  ['Collected', pct(finance.collectedPct)],
+                  ['Last payment', finance.lastPayment
+                    ? `${money(finance.lastPayment.amount, currency)} on ${fmtDate(finance.lastPayment.date)}${finance.lastPayment.method ? ` by ${finance.lastPayment.method}` : ''}`
+                    : null],
+                  ['Earliest unpaid due date', fmtDate(finance.nextDueDate)],
+                  ['Payment status', finance.statusCounts.length > 0 && (
+                    <span className="pp-chips">
+                      {finance.statusCounts.map((s) => (
+                        <span key={s.name} className={badgeClass(s.name)}>{s.name} · {s.count}</span>
+                      ))}
+                    </span>
+                  )],
+                  ['Payment methods used', finance.methods.length > 0 && (
+                    <span className="pp-chips">
+                      {finance.methods.map((m) => <span key={m.name} className="eb-badge">{m.name} · {m.count}</span>)}
+                    </span>
+                  )],
+                ]}
+              />
+              {finance.partial && (
+                <p className="pp-note" style={{ margin: '16px 0 0' }}>
+                  The figures above cover the {finance.covered.toLocaleString()} most recent of{' '}
+                  {finance.records.toLocaleString()} invoices for this person.
+                </p>
+              )}
+            </Panel>
+
+            <Panel title="Fee components">
+              {finance.components.length === 0 ? (
+                <Empty
+                  headline="No fee components recorded."
+                  explain="Imported invoices for this person do not name what each charge was for."
+                />
+              ) : (
+                <div className="pp-table-wrap">
+                  <table className="pp-table">
+                    <thead><tr><th>Component</th><th className="pp-num">Net</th></tr></thead>
+                    <tbody>
+                      {finance.components.map((c) => (
+                        <tr key={c.name}><td>{c.name}</td><td className="pp-num">{money(c.net, currency)}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Panel>
+          </div>
+
+          <Panel title="Invoices and payments">
+            {finance.invoices.length === 0 ? (
+              <Empty
+                headline="No payment records found for this person."
+                explain="Fee records are created when a fee export is imported for this organization. None of the imported rows reference this person."
+              />
+            ) : (
+              <div className="pp-table-wrap">
+                <table className="pp-table">
+                  <thead>
+                    <tr>
+                      <th>Reference</th><th>Period</th><th>Component</th><th>Due</th>
+                      <th className="pp-num">Net</th><th className="pp-num">Paid</th><th className="pp-num">Outstanding</th>
+                      <th>Status</th><th>Paid on</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {twin.executionHistory.map((ex) => (
-                      <tr key={ex.id}>
-                        <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{ex.esoId}</td>
-                        <td><span className={statusBadgeClass(ex.status)}>{ex.status}</span></td>
-                        <td style={{ fontSize: 12, color: 'var(--content-secondary)' }}>{ex.completedDate ? new Date(ex.completedDate).toLocaleDateString() : '\u2014'}</td>
+                    {finance.invoices.map((inv, i) => (
+                      <tr key={`${inv.reference}-${i}`}>
+                        <td className="pp-mono">{inv.reference ?? '—'}</td>
+                        <td>{inv.period ?? '—'}</td>
+                        <td>{inv.component ?? '—'}</td>
+                        <td>
+                          {fmtDate(inv.dueDate) ?? '—'}
+                          {inv.daysOverdue !== null && (
+                            <div className="pp-timeline-source">
+                              {inv.daysOverdue} {inv.daysOverdue === 1 ? 'day' : 'days'} late
+                            </div>
+                          )}
+                        </td>
+                        <td className="pp-num">{money(inv.net, currency)}</td>
+                        <td className="pp-num">{money(inv.paid, currency)}</td>
+                        <td className="pp-num">{money(inv.outstanding, currency)}</td>
+                        <td>{inv.status ? <span className={badgeClass(inv.status)}>{inv.status}</span> : '—'}</td>
+                        <td>
+                          {fmtDate(inv.paymentDate) ?? '—'}
+                          {inv.method && <div className="pp-timeline-source">{inv.method}</div>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )}
-            </div>
-
-            <div className="eb-panel">
-              <div className="eb-panel-head">
-                <span className="eb-panel-title">Recent activity</span>
-                <span className="eb-panel-tag">recentActivity[]</span>
               </div>
-              {twin.recentActivity.length === 0 ? (
-                <div className="eb-dashed-empty">No attributed activity in this twin yet.</div>
-              ) : (
-                <div>
-                  {twin.recentActivity.map((a, i) => (
-                    <div key={i} className="eb-timeline-item">
-                      <span className="eb-timeline-rail">
-                        <span className="eb-timeline-dot" />
-                        {i < twin.recentActivity.length - 1 && <span className="eb-timeline-line" />}
-                      </span>
-                      <span style={{ flex: 1 }}>
-                        <div className="eb-timeline-text">{eventLabel(a.type)} <span style={{ color: 'var(--content-tertiary)' }}>{'\u00B7 ' + a.entityType}</span></div>
-                        <div className="eb-timeline-meta">{new Date(a.createdAt).toLocaleDateString()}</div>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+            )}
+          </Panel>
+        </>
+      )}
 
-          {twin.guardians.length > 0 && (
-            <div className="eb-panel" style={{ marginTop: 20 }}>
-              <div className="eb-panel-head"><span className="eb-panel-title">Guardians</span></div>
-              <table>
-                <thead><tr><th>Name</th><th>Relationship</th><th>Contact</th></tr></thead>
+      {tab === 'records' && (
+        <>
+          {activity.datasets.length > 0 && (
+            <div className="pp-stats">
+              {activity.datasets.map((d) => (
+                <Stat
+                  key={d.dataset}
+                  label={d.label}
+                  value={d.records.toLocaleString()}
+                  hint={d.firstSeen && d.lastSeen ? `${fmtDate(d.firstSeen)} – ${fmtDate(d.lastSeen)}` : null}
+                />
+              ))}
+            </div>
+          )}
+
+          <Panel title="Imported records">
+            {activity.records.length === 0 ? (
+              <Empty
+                headline="No imported records reference this person."
+                explain="Records arrive through the Ingestion screen. Once an import contains this person’s reference or name, its rows appear here."
+              />
+            ) : (
+              <>
+                {activity.total > activity.shown && (
+                  <p className="pp-note">
+                    Showing the {activity.shown} most recent of {activity.total.toLocaleString()} records
+                    attached to this person.
+                  </p>
+                )}
+                <div className="pp-table-wrap">
+                  <table className="pp-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th><th>Record</th><th>Type</th><th>Status</th>
+                        <th className="pp-num">Amount</th><th>Attached as</th><th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activity.records.map((r) => (
+                        <tr key={r.id}>
+                          <td>{fmtDate(r.occurredAt) ?? '—'}</td>
+                          <td>
+                            <div>{r.category ?? r.datasetLabel}</div>
+                            {r.reference && <div className="pp-mono pp-timeline-source">{r.reference}</div>}
+                            {openRecord === r.id && r.detail.length > 0 && (
+                              <div className="pp-record-detail" style={{ marginTop: 10 }}>
+                                {r.detail.map((d) => (
+                                  <span key={d.label}><b>{d.label}</b><span>{d.value}</span></span>
+                                ))}
+                                {r.source.file && (
+                                  <span><b>Imported from</b><span>{r.source.file}{r.source.row ? ` row ${r.source.row}` : ''}</span></span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td>{r.datasetLabel}</td>
+                          <td>{r.status ? <span className={badgeClass(r.status)}>{r.status}</span> : '—'}</td>
+                          <td className="pp-num">{r.amount === null ? '—' : money(r.amount, r.currency)}</td>
+                          <td className="pp-timeline-source">{r.linkedBy.join(', ') || '—'}</td>
+                          <td>
+                            {r.detail.length > 0 && (
+                              <button
+                                className="pp-disclosure"
+                                aria-expanded={openRecord === r.id}
+                                onClick={() => setOpenRecord(openRecord === r.id ? null : r.id)}
+                              >
+                                {openRecord === r.id ? 'Hide' : 'Details'}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </Panel>
+        </>
+      )}
+
+      {tab === 'intelligence' && <IntelligenceTab intelligence={intelligence} personName={name} />}
+
+      {tab === 'timeline' && (
+        <Panel title="Timeline">
+          {timeline.events.length === 0 ? (
+            <Empty
+              headline="No dated events for this person yet."
+              explain="The timeline is built from their source record, the records attached to them, and anything the intelligence loop has recorded about them. None of those carries a date for this person."
+            />
+          ) : (
+            <>
+              {(timeline.total > timeline.events.length || timeline.bounded) && (
+                <p className="pp-note">
+                  Showing the {timeline.events.length} most recent events
+                  {timeline.bounded ? ', drawn from the most recent records attached to this person' : ''}.
+                </p>
+              )}
+              <div className="pp-timeline">
+                {timeline.events.map((event, i) => (
+                  <div key={`${event.at}-${i}`} className="eb-timeline-item">
+                    <span className="eb-timeline-rail">
+                      <span className="eb-timeline-dot" />
+                      {i < timeline.events.length - 1 && <span className="eb-timeline-line" />}
+                    </span>
+                    <span className="pp-timeline-date">{fmtDate(event.at)}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <div className="eb-timeline-text">
+                        {event.title}
+                        {event.amount !== null && (
+                          <span className="pp-mono" style={{ marginInlineStart: 8, color: 'var(--content-primary)' }}>
+                            {money(event.amount, event.currency)}
+                          </span>
+                        )}
+                      </div>
+                      {event.detail && <div className="eb-timeline-meta">{event.detail}</div>}
+                    </span>
+                    <span className="pp-timeline-source">{event.source}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────── overview strip ──────────────────────────── */
+
+/**
+ * The tiles at the top of the overview.
+ *
+ * Built by pushing only what exists. The screen this replaced hard-coded five
+ * tiles — Individual Score, Capabilities, Decisions, Approved, Learning — and
+ * every one of them read `—` or `0` for every tenant, because those four tables
+ * have never been written to in this installation. A tile with nothing in it is
+ * not a neutral piece of furniture; it reads as a measured zero.
+ */
+function Highlights({ profile }: { profile: Profile }) {
+  const { finance, academic, activity, intelligence, person } = profile;
+  const currency = finance?.currency ?? null;
+  const tiles: Array<{ label: string; value: string; hint?: string | null }> = [];
+
+  if (finance) {
+    tiles.push({
+      label: 'Outstanding',
+      value: money(finance.outstanding, currency),
+      hint: finance.overdue > 0 ? `${money(finance.overdue, currency)} overdue` : 'Nothing overdue',
+    });
+    if (finance.collectedPct !== null) {
+      tiles.push({ label: 'Fees collected', value: `${finance.collectedPct}%`, hint: `${money(finance.paid, currency)} of ${money(finance.net, currency)}` });
+    }
+    tiles.push({ label: 'Invoices', value: finance.records.toLocaleString(), hint: finance.lastPayment ? `Last paid ${fmtDate(finance.lastPayment.date)}` : 'No payment recorded' });
+  }
+
+  if (academic?.attendancePct !== undefined) {
+    tiles.push({ label: 'Attendance', value: `${academic.attendancePct}%`, hint: 'As recorded on the latest fee record' });
+  }
+  if (academic?.examAveragePct !== undefined) {
+    tiles.push({ label: 'Term average', value: `${academic.examAveragePct}%`, hint: 'As recorded on the latest fee record' });
+  }
+
+  if (!finance && activity.total > 0) {
+    tiles.push({ label: 'Records attached', value: activity.total.toLocaleString(), hint: activity.datasets.map((d) => d.label).join(', ') });
+  }
+
+  if (intelligence.signalCount > 0) {
+    tiles.push({ label: 'Signals', value: String(intelligence.signalCount), hint: `${intelligence.evidenceCount} pieces of evidence` });
+  }
+  if (intelligence.capabilities.length > 0) {
+    tiles.push({ label: 'Capabilities assessed', value: String(intelligence.capabilities.length), hint: intelligence.score.score !== null ? `Profile score ${intelligence.score.score}` : null });
+  }
+  if (intelligence.decisions.total > 0) {
+    tiles.push({ label: 'Decisions', value: String(intelligence.decisions.total), hint: `${intelligence.decisions.approved} approved` });
+  }
+
+  if (tiles.length === 0) {
+    return (
+      <div style={{ marginBottom: 'var(--space-5)' }}>
+        <Empty
+          headline={`Nothing measurable has been recorded for ${person.displayName ?? 'this person'} yet.`}
+          explain="Their source record exists, but no imported records reference them and the intelligence loop has produced nothing about them. Importing data that carries their reference is what fills this page."
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="pp-stats">
+      {tiles.map((t) => <Stat key={t.label} {...t} />)}
+    </div>
+  );
+}
+
+/* ───────────────────────────── intelligence tab ──────────────────────────── */
+
+const KASBA = [
+  { key: 'knowledge', letter: 'K', name: 'Knowledge' },
+  { key: 'ability', letter: 'A', name: 'Ability' },
+  { key: 'skill', letter: 'S', name: 'Skill' },
+  { key: 'behaviour', letter: 'B', name: 'Behaviour' },
+  { key: 'attitude', letter: 'A', name: 'Attitude' },
+] as const;
+
+function scoreColor(value: number | null): string {
+  if (value === null) return 'var(--conf-none)';
+  if (value >= 4) return 'var(--conf-verified)';
+  if (value >= 3) return 'var(--conf-high)';
+  if (value >= 2) return 'var(--conf-med)';
+  return 'var(--conf-low)';
+}
+
+function IntelligenceTab({ intelligence, personName }: { intelligence: Intelligence; personName: string }) {
+  const nothing =
+    intelligence.capabilities.length === 0 &&
+    intelligence.signalCount === 0 &&
+    intelligence.decisions.total === 0 &&
+    intelligence.executions.length === 0 &&
+    intelligence.learnings === 0;
+
+  if (nothing) {
+    return (
+      <Panel title="Intelligence">
+        <Empty
+          headline={`No intelligence has been generated for ${personName} yet.`}
+          explain={
+            'This section fills as the organizational intelligence loop runs against this person: when a capability is assigned to them and assessed, when a detection rule names them as the subject of a signal, or when they record a decision or run an execution. None of those has happened for this person.'
+          }
+        />
+      </Panel>
+    );
+  }
+
+  return (
+    <>
+      <Panel title="Capability profile">
+        {intelligence.capabilities.length === 0 ? (
+          <Empty
+            headline="No capability assessments are available for this person yet."
+            explain="A capability has to be assigned to a person and then assessed against the five KASBA dimensions before a profile can be shown."
+          />
+        ) : (
+          <div style={{ display: 'grid', gap: 12 }}>
+            {intelligence.capabilities.map((c) => (
+              <div key={c.capabilityId} style={{ padding: 14, border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xs)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                  <strong>{c.capabilityName}</strong>
+                  <span className="pp-mono" style={{ color: scoreColor(c.scores.overall ?? null) }}>
+                    {c.scores.overall !== null && c.scores.overall !== undefined ? `${c.scores.overall} / 5` : 'Not yet assessed'}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gap: 5, marginTop: 12 }}>
+                  {KASBA.map((dim) => {
+                    const value = c.scores[dim.key] ?? null;
+                    return (
+                      <div key={dim.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span className="pp-mono" style={{ width: 76, color: 'var(--content-secondary)' }}>{dim.name}</span>
+                        <span className="eb-bar-track" style={{ flex: 1 }}>
+                          <span className="eb-bar-fill" style={{ width: `${((value ?? 0) / 5) * 100}%`, background: scoreColor(value) }} />
+                        </span>
+                        <span className="pp-mono" style={{ width: 40, textAlign: 'right' }}>
+                          {value === null ? 'n/a' : value.toFixed(1)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {c.assessedDate && (
+                  <div className="pp-timeline-source" style={{ marginTop: 10 }}>Last assessed {fmtDate(c.assessedDate)}</div>
+                )}
+                {c.gaps.length > 0 && (
+                  <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--feedback-warning-content)' }}>
+                    {c.gaps.map((g, i) => (
+                      <div key={i}>
+                        {g.dimension}: {g.currentLevel === null ? 'not assessed' : g.currentLevel} against a target of {g.targetLevel}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <div className="pp-grid" style={{ marginTop: 'var(--space-4)' }}>
+        <Panel title="Signals about this person">
+          {intelligence.signals.length === 0 ? (
+            <Empty
+              headline="No signals name this person."
+              explain="A signal names one person only when a detection rule found exactly one affected record. Organization-wide findings are recorded against the organization instead."
+            />
+          ) : (
+            <div className="pp-table-wrap">
+              <table className="pp-table">
+                <thead><tr><th>Signal</th><th>Severity</th><th>Status</th><th>Detected</th></tr></thead>
                 <tbody>
-                  {twin.guardians.map((g, i) => (
-                    <tr key={i}>
-                      <td>{g.firstName} {g.lastName} {g.isPrimaryContact && <span className="eb-badge eb-badge-info" style={{ marginLeft: 6 }}>Primary</span>}</td>
-                      <td>{g.relationship}</td>
-                      <td style={{ fontSize: 12, color: 'var(--content-secondary)' }}>{g.email ?? g.phone ?? '\u2014'}</td>
+                  {intelligence.signals.map((s) => (
+                    <tr key={s.id}>
+                      <td>
+                        <div>{s.title ?? 'Signal'}</div>
+                        {s.classification && <div className="pp-timeline-source">{s.classification}</div>}
+                      </td>
+                      <td>{s.severity ? <span className={badgeClass(s.severity)}>{s.severity}</span> : '—'}</td>
+                      <td>{s.status ?? '—'}</td>
+                      <td>{fmtDate(s.createdAt) ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </>
-      )}
-    </div>
+          {intelligence.evidenceCount > 0 && (
+            <p className="pp-note" style={{ margin: '14px 0 0' }}>
+              {intelligence.evidenceCount.toLocaleString()} pieces of evidence support these signals.
+            </p>
+          )}
+        </Panel>
+
+        <Panel title="Cases">
+          {intelligence.cases.length === 0 ? (
+            <Empty
+              headline="No cases have been opened from this person’s signals."
+              explain="A case is opened when a signal is escalated for investigation."
+            />
+          ) : (
+            <div className="pp-table-wrap">
+              <table className="pp-table">
+                <thead><tr><th>Case</th><th>Status</th><th>Opened</th></tr></thead>
+                <tbody>
+                  {intelligence.cases.map((c) => (
+                    <tr key={c.id}>
+                      <td>{c.title ?? c.id}</td>
+                      <td>{c.status ? <span className={badgeClass(c.status)}>{c.status}</span> : '—'}</td>
+                      <td>{fmtDate(c.createdAt) ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      <div className="pp-grid" style={{ marginTop: 'var(--space-4)' }}>
+        <Panel title="Decisions">
+          {intelligence.decisions.total === 0 ? (
+            <Empty
+              headline="This person has not recorded any decisions."
+              explain="Decisions are attributed to whoever recorded them in the decision register."
+            />
+          ) : (
+            <div className="pp-table-wrap">
+              <table className="pp-table">
+                <thead><tr><th>Rationale</th><th>Status</th><th>Recorded</th></tr></thead>
+                <tbody>
+                  {intelligence.decisions.items.map((d) => (
+                    <tr key={d.id}>
+                      <td>{d.rationale ?? '—'}</td>
+                      <td>{d.status ? <span className={badgeClass(d.status)}>{d.status}</span> : '—'}</td>
+                      <td>{fmtDate(d.createdAt) ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="Execution history">
+          {intelligence.executions.length === 0 ? (
+            <Empty
+              headline="No executions have been recorded for this person."
+              explain="Executions appear here when this person runs an executable standard operation."
+            />
+          ) : (
+            <div className="pp-table-wrap">
+              <table className="pp-table">
+                <thead><tr><th>Operation</th><th>Status</th><th>Completed</th></tr></thead>
+                <tbody>
+                  {intelligence.executions.map((e) => (
+                    <tr key={e.id}>
+                      <td className="pp-mono">{e.esoId ?? e.id}</td>
+                      <td><span className={badgeClass(e.status)}>{e.status}</span></td>
+                      <td>{fmtDate(e.completedDate) ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </div>
+    </>
   );
 }

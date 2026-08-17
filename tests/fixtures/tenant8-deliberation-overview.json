@@ -1,0 +1,486 @@
+{
+    "organization": {
+        "id": "8",
+        "tenantId": "8",
+        "name": "Lions",
+        "industry": "Education",
+        "updatedDate": "2026-08-07 14:33:09"
+    },
+    "generatedAt": "2026-08-13 05:28:36",
+    "freshness": "2026-08-13 08:22:29",
+    "summary": {
+        "openCases": 5,
+        "activeInvestigations": 5,
+        "pendingRecommendations": 3,
+        "pendingDecisions": 0,
+        "averageDecisionAgeDays": null,
+        "evidenceCoverage": 0,
+        "highCriticalRisks": 0,
+        "overdueDecisions": null,
+        "overdueDecisionNote": "Insufficient data: decision due dates are not modeled in the current schema."
+    },
+    "pipeline": [
+        {
+            "label": "Signal",
+            "count": 5,
+            "pending": null,
+            "averageAgeDays": null,
+            "conversionRate": null
+        },
+        {
+            "label": "Evidence",
+            "count": 0,
+            "pending": null,
+            "averageAgeDays": null,
+            "conversionRate": 0
+        },
+        {
+            "label": "Case",
+            "count": 5,
+            "pending": null,
+            "averageAgeDays": null,
+            "conversionRate": null
+        },
+        {
+            "label": "Hypothesis",
+            "count": 0,
+            "pending": null,
+            "averageAgeDays": null,
+            "conversionRate": 0
+        },
+        {
+            "label": "Reasoning",
+            "count": 0,
+            "pending": null,
+            "averageAgeDays": null,
+            "conversionRate": null
+        },
+        {
+            "label": "Recommendation",
+            "count": 3,
+            "pending": 3,
+            "averageAgeDays": null,
+            "conversionRate": null
+        },
+        {
+            "label": "Decision",
+            "count": 0,
+            "pending": 0,
+            "averageAgeDays": null,
+            "conversionRate": 0
+        }
+    ],
+    "focus": {
+        "selectedCaseId": "4ea40c6c-de38-4c88-aa2f-4aad985b059b",
+        "biggestBottleneck": {
+            "label": "Evidence",
+            "count": 0,
+            "pending": null,
+            "averageAgeDays": null,
+            "conversionRate": 0
+        }
+    },
+    "cases": {
+        "items": [
+            {
+                "id": "4ea40c6c-de38-4c88-aa2f-4aad985b059b",
+                "title": "fee_collection_provenance: fee_missing_collector",
+                "status": "open",
+                "severity": "medium",
+                "classification": "fee_collection_provenance",
+                "ageDays": 0,
+                "owner": "brain-open-cases",
+                "evidenceCount": 0,
+                "confidence": 0.95,
+                "lastUpdated": "2026-08-12 10:52:19",
+                "currentHypothesis": null,
+                "nextAction": "Review recommendation"
+            },
+            {
+                "id": "b55ab859-485a-4cd6-8b69-f478b270723f",
+                "title": "fee_concession_review: fee_zero_amount_concessions",
+                "status": "open",
+                "severity": "medium",
+                "classification": "fee_concession_review",
+                "ageDays": 0,
+                "owner": "brain-open-cases",
+                "evidenceCount": 0,
+                "confidence": 0.9,
+                "lastUpdated": "2026-08-12 10:52:19",
+                "currentHypothesis": null,
+                "nextAction": "Review recommendation"
+            },
+            {
+                "id": "c0a9a142-f59c-4a8e-aa66-e21a926ed64c",
+                "title": "fee_collection_concentration: fee_collector_concentration",
+                "status": "open",
+                "severity": "medium",
+                "classification": "fee_collection_concentration",
+                "ageDays": 0,
+                "owner": "brain-open-cases",
+                "evidenceCount": 0,
+                "confidence": 0.95,
+                "lastUpdated": "2026-08-12 10:52:19",
+                "currentHypothesis": null,
+                "nextAction": "Review recommendation"
+            },
+            {
+                "id": "0a8bcca8-62b5-4857-a736-d93f1dbc7c01",
+                "title": "workforce: people_without_department (1 affected)",
+                "status": "open",
+                "severity": "medium",
+                "classification": "workforce",
+                "ageDays": 0,
+                "owner": "brain-open-cases",
+                "evidenceCount": 0,
+                "confidence": 1,
+                "lastUpdated": "2026-08-12 06:49:32",
+                "currentHypothesis": null,
+                "nextAction": "Collect evidence"
+            },
+            {
+                "id": "8e3cec87-54b1-442c-9067-7e350fe2d4e5",
+                "title": "leadership: departments_without_manager (10 affected)",
+                "status": "open",
+                "severity": "medium",
+                "classification": "leadership",
+                "ageDays": 0,
+                "owner": "brain-open-cases",
+                "evidenceCount": 0,
+                "confidence": 1,
+                "lastUpdated": "2026-08-12 06:49:32",
+                "currentHypothesis": null,
+                "nextAction": "Collect evidence"
+            }
+        ],
+        "detailsById": {
+            "4ea40c6c-de38-4c88-aa2f-4aad985b059b": {
+                "summary": {
+                    "caseId": "4ea40c6c-de38-4c88-aa2f-4aad985b059b",
+                    "title": "fee_collection_provenance: fee_missing_collector",
+                    "status": "open",
+                    "classification": "fee_collection_provenance",
+                    "severity": "medium",
+                    "confidence": 0.95,
+                    "ageDays": 0,
+                    "owner": "brain-open-cases",
+                    "lastUpdated": "2026-08-12 10:52:19"
+                },
+                "timeline": [
+                    {
+                        "stage": "Signal",
+                        "items": [
+                            {
+                                "id": "5f1d16da-0e9d-45c1-a4c9-bcd78cf00e62",
+                                "title": "fee_collection_provenance",
+                                "status": "new",
+                                "confidence": 1,
+                                "timestamp": "2026-08-12 13:50:53"
+                            }
+                        ]
+                    },
+                    {
+                        "stage": "Evidence",
+                        "items": []
+                    },
+                    {
+                        "stage": "Hypothesis",
+                        "items": []
+                    },
+                    {
+                        "stage": "Reasoning",
+                        "items": []
+                    },
+                    {
+                        "stage": "Recommendation",
+                        "items": [
+                            {
+                                "id": "d4286d22-ae11-46cf-8c4e-b72185c0c287",
+                                "title": "Multiple fee receipts lack collector information",
+                                "status": "pending",
+                                "confidence": 0.95,
+                                "timestamp": "2026-08-13 08:22:16"
+                            }
+                        ]
+                    },
+                    {
+                        "stage": "Decision",
+                        "items": []
+                    }
+                ],
+                "evidence": [],
+                "hypotheses": [],
+                "reasoning": [],
+                "recommendations": [
+                    {
+                        "id": "d4286d22-ae11-46cf-8c4e-b72185c0c287",
+                        "title": "Multiple fee receipts lack collector information",
+                        "description": "Five fee receipts from the import.school_fee source have no collector recorded, affecting provenance and accountability for fee collection.",
+                        "category": "investigate",
+                        "priority": "medium",
+                        "status": "pending",
+                        "confidence": 0.95,
+                        "impact": null,
+                        "updatedDate": "2026-08-13 08:22:16"
+                    }
+                ],
+                "decisions": []
+            },
+            "b55ab859-485a-4cd6-8b69-f478b270723f": {
+                "summary": {
+                    "caseId": "b55ab859-485a-4cd6-8b69-f478b270723f",
+                    "title": "fee_concession_review: fee_zero_amount_concessions",
+                    "status": "open",
+                    "classification": "fee_concession_review",
+                    "severity": "medium",
+                    "confidence": 0.9,
+                    "ageDays": 0,
+                    "owner": "brain-open-cases",
+                    "lastUpdated": "2026-08-12 10:52:19"
+                },
+                "timeline": [
+                    {
+                        "stage": "Signal",
+                        "items": [
+                            {
+                                "id": "60a73e39-e26d-4aa2-a599-475c1104d082",
+                                "title": "fee_concession_review",
+                                "status": "new",
+                                "confidence": 1,
+                                "timestamp": "2026-08-12 13:50:54"
+                            }
+                        ]
+                    },
+                    {
+                        "stage": "Evidence",
+                        "items": []
+                    },
+                    {
+                        "stage": "Hypothesis",
+                        "items": []
+                    },
+                    {
+                        "stage": "Reasoning",
+                        "items": []
+                    },
+                    {
+                        "stage": "Recommendation",
+                        "items": [
+                            {
+                                "id": "93710e85-801e-4740-8769-02cd1e52237e",
+                                "title": "Zero-amount fee receipts with concession remarks require review",
+                                "status": "pending",
+                                "confidence": 0.9,
+                                "timestamp": "2026-08-13 08:22:22"
+                            }
+                        ]
+                    },
+                    {
+                        "stage": "Decision",
+                        "items": []
+                    }
+                ],
+                "evidence": [],
+                "hypotheses": [],
+                "reasoning": [],
+                "recommendations": [
+                    {
+                        "id": "93710e85-801e-4740-8769-02cd1e52237e",
+                        "title": "Zero-amount fee receipts with concession remarks require review",
+                        "description": "Multiple imported school fee records show zero amounts with remarks indicating fee concessions (e.g., new admission, chairman concession, 50% fee waiver). These should be reviewed to confirm authorization and proper documentation.",
+                        "category": "investigate",
+                        "priority": "medium",
+                        "status": "pending",
+                        "confidence": 0.9,
+                        "impact": null,
+                        "updatedDate": "2026-08-13 08:22:22"
+                    }
+                ],
+                "decisions": []
+            },
+            "c0a9a142-f59c-4a8e-aa66-e21a926ed64c": {
+                "summary": {
+                    "caseId": "c0a9a142-f59c-4a8e-aa66-e21a926ed64c",
+                    "title": "fee_collection_concentration: fee_collector_concentration",
+                    "status": "open",
+                    "classification": "fee_collection_concentration",
+                    "severity": "medium",
+                    "confidence": 0.95,
+                    "ageDays": 0,
+                    "owner": "brain-open-cases",
+                    "lastUpdated": "2026-08-12 10:52:19"
+                },
+                "timeline": [
+                    {
+                        "stage": "Signal",
+                        "items": [
+                            {
+                                "id": "6197de55-a0df-42b9-a52d-d4e08aa393a2",
+                                "title": "fee_collection_concentration",
+                                "status": "new",
+                                "confidence": 0.9,
+                                "timestamp": "2026-08-12 13:50:54"
+                            }
+                        ]
+                    },
+                    {
+                        "stage": "Evidence",
+                        "items": []
+                    },
+                    {
+                        "stage": "Hypothesis",
+                        "items": []
+                    },
+                    {
+                        "stage": "Reasoning",
+                        "items": []
+                    },
+                    {
+                        "stage": "Recommendation",
+                        "items": [
+                            {
+                                "id": "1babbc38-f7ea-4956-b9a3-609f1989c78c",
+                                "title": "Fee collection concentrated with single collector (Raksha Raval)",
+                                "status": "pending",
+                                "confidence": 0.95,
+                                "timestamp": "2026-08-13 08:22:29"
+                            }
+                        ]
+                    },
+                    {
+                        "stage": "Decision",
+                        "items": []
+                    }
+                ],
+                "evidence": [],
+                "hypotheses": [],
+                "reasoning": [],
+                "recommendations": [
+                    {
+                        "id": "1babbc38-f7ea-4956-b9a3-609f1989c78c",
+                        "title": "Fee collection concentrated with single collector (Raksha Raval)",
+                        "description": "Multiple fee collection records (amounts 14700, 15000, 44160, 32820, 33715 INR) are all attributed to collector Raksha Raval, indicating a concentration of financial transactions in one individual. This poses a segregation-of-duties risk and warrants investigation into the handling and reconciliation of fee collections.",
+                        "category": "investigate",
+                        "priority": "medium",
+                        "status": "pending",
+                        "confidence": 0.95,
+                        "impact": null,
+                        "updatedDate": "2026-08-13 08:22:29"
+                    }
+                ],
+                "decisions": []
+            },
+            "0a8bcca8-62b5-4857-a736-d93f1dbc7c01": {
+                "summary": {
+                    "caseId": "0a8bcca8-62b5-4857-a736-d93f1dbc7c01",
+                    "title": "workforce: people_without_department (1 affected)",
+                    "status": "open",
+                    "classification": "workforce",
+                    "severity": "medium",
+                    "confidence": 1,
+                    "ageDays": 0,
+                    "owner": "brain-open-cases",
+                    "lastUpdated": "2026-08-12 06:49:32"
+                },
+                "timeline": [
+                    {
+                        "stage": "Signal",
+                        "items": [
+                            {
+                                "id": "c7d2a576-af9e-4462-9ca8-2a0bfd2ef9b8",
+                                "title": "workforce",
+                                "status": "new",
+                                "confidence": 1,
+                                "timestamp": "2026-08-12 10:51:57"
+                            }
+                        ]
+                    },
+                    {
+                        "stage": "Evidence",
+                        "items": []
+                    },
+                    {
+                        "stage": "Hypothesis",
+                        "items": []
+                    },
+                    {
+                        "stage": "Reasoning",
+                        "items": []
+                    },
+                    {
+                        "stage": "Recommendation",
+                        "items": []
+                    },
+                    {
+                        "stage": "Decision",
+                        "items": []
+                    }
+                ],
+                "evidence": [],
+                "hypotheses": [],
+                "reasoning": [],
+                "recommendations": [],
+                "decisions": []
+            },
+            "8e3cec87-54b1-442c-9067-7e350fe2d4e5": {
+                "summary": {
+                    "caseId": "8e3cec87-54b1-442c-9067-7e350fe2d4e5",
+                    "title": "leadership: departments_without_manager (10 affected)",
+                    "status": "open",
+                    "classification": "leadership",
+                    "severity": "medium",
+                    "confidence": 1,
+                    "ageDays": 0,
+                    "owner": "brain-open-cases",
+                    "lastUpdated": "2026-08-12 06:49:32"
+                },
+                "timeline": [
+                    {
+                        "stage": "Signal",
+                        "items": [
+                            {
+                                "id": "8856246d-c6e0-49d1-990e-4d46aa6e3d57",
+                                "title": "leadership",
+                                "status": "new",
+                                "confidence": 1,
+                                "timestamp": "2026-08-12 10:51:56"
+                            }
+                        ]
+                    },
+                    {
+                        "stage": "Evidence",
+                        "items": []
+                    },
+                    {
+                        "stage": "Hypothesis",
+                        "items": []
+                    },
+                    {
+                        "stage": "Reasoning",
+                        "items": []
+                    },
+                    {
+                        "stage": "Recommendation",
+                        "items": []
+                    },
+                    {
+                        "stage": "Decision",
+                        "items": []
+                    }
+                ],
+                "evidence": [],
+                "hypotheses": [],
+                "reasoning": [],
+                "recommendations": [],
+                "decisions": []
+            }
+        },
+        "total": 5,
+        "page": 1,
+        "pageSize": 8
+    },
+    "decisionQueue": {
+        "items": [],
+        "total": 0
+    }
+}

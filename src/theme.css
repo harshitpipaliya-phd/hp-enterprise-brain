@@ -962,6 +962,13 @@ a:hover { text-decoration: underline; opacity: 0.85; }
 .eb-stat-label { font-size: 12px; color: var(--content-secondary); margin-top: 4px; text-transform: uppercase; letter-spacing: var(--ls-eyebrow); }
 .eb-home-attention { border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-inset); padding: 18px; }
 .eb-home-attention h3 { font-family: var(--display); font-size: var(--fs-h3); margin: 0 0 14px; }
+.eb-fee-mini-table { text-align: left; overflow-x: auto; }
+.eb-fee-mini-table table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+.eb-fee-mini-table th, .eb-fee-mini-table td { padding: 8px 6px; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+.eb-fee-mini-table th { color: var(--content-tertiary); font-family: var(--mono); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); }
+.eb-fee-risk-list { display: grid; gap: 8px; margin: 12px 0; text-align: left; }
+.eb-fee-risk-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: center; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-base); padding: 10px; }
+.eb-fee-risk-row small { grid-column: 1 / -1; color: var(--content-secondary); }
 .eb-attention-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .eb-attention-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border-radius: var(--radius-sm); border-left: 4px solid var(--border-strong); }
 .eb-attention-high { border-left-color: var(--color-semantic-error); background: rgba(182, 92, 92, 0.05); }

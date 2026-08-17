@@ -126,7 +126,17 @@ export function onSessionExpired(callback: () => void): void {
 
 export type ApiRequestOptions = RequestInit & {
   globalLoader?: GlobalLoaderMode | 'auto';
+  cacheTtlMs?: number;
 };
+
+type CachedGet = {
+  expiresAt: number;
+  value?: any;
+  inFlight?: Promise<any>;
+};
+
+const DEFAULT_GET_CACHE_TTL_MS = 15_000;
+const getCache = new Map<string, CachedGet>();
 
 function resolveGlobalLoaderMode(options: ApiRequestOptions): GlobalLoaderMode {
   const requested = options.globalLoader ?? 'auto';
@@ -144,80 +154,99 @@ export async function request(path: string, options: ApiRequestOptions = {}, _is
   const loaderMode = resolveGlobalLoaderMode(options);
   globalLoading.requestStarted(loaderMode);
   try {
-  const { globalLoader: _globalLoader, ...requestOptions } = options;
-  const isFormData = requestOptions.body instanceof FormData;
-  const url = `${API_BASE}${path}`;
-  const method = requestOptions.method || 'GET';
+    const { globalLoader: _globalLoader, cacheTtlMs, ...requestOptions } = options;
+    const isFormData = requestOptions.body instanceof FormData;
+    const url = `${API_BASE}${path}`;
+    const method = requestOptions.method || 'GET';
+    const normalizedMethod = method.toUpperCase();
+    const cacheKey = `${authToken()} ${url}`;
+    const ttl = cacheTtlMs ?? DEFAULT_GET_CACHE_TTL_MS;
 
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    ...(requestOptions.headers as Record<string, string>),
-    Authorization: `Bearer ${authToken()}`,
-  };
-
-  let res: Response;
-  try {
-    res = await fetch(url, { ...requestOptions, headers });
-  } catch {
-    // fetch() only rejects on network-layer failure, which for this app means
-    // the Laravel server is not running. Surfacing that as-is beats the
-    // browser's opaque "Failed to fetch" reaching an error banner.
-    throw new Error(`Cannot reach the API at ${API_ORIGIN}. Is the Laravel server running?`);
-  }
-
-  if (res.status === 401 && !_isRetry) {
-    const refreshed = await tryRefresh();
-    if (refreshed) return request(path, options, true);
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    sessionExpiredCallback?.();
-    throw new Error('session_expired');
-  }
-
-  if (res.status === 204) return null;
-
-  const text = await res.text();
-
-  if (!res.ok) {
-    // Laravel returns {"error":"..."} for domain failures and {"message":"..."}
-    // for validation/500s. Unwrap either so error banners show the reason
-    // rather than a wall of HTML or JSON.
-    try {
-      const body = parseResponseJson(text) as Record<string, any> | null;
-      if (!body || typeof body !== 'object') throw new SyntaxError('Response body is not JSON');
-      // A 422 carries the useful detail in `errors`, keyed by field name —
-      // "The source id field is required." names what to fix, where the
-      // status line alone ("Unprocessable Content") names only that something
-      // was wrong. Falls through to the old order when there is no such key.
-      const fieldError =
-        body.errors && typeof body.errors === 'object'
-          ? (Object.values(body.errors as Record<string, string[]>).flat()[0] as string | undefined)
-          : undefined;
-      throw new ApiError(fieldError || body.error || body.message || res.statusText, {
-        status: res.status,
-        statusText: res.statusText,
-        url,
-        method,
-        responseText: text,
-        responseJson: body,
-      });
-    } catch (e: any) {
-      if (e instanceof SyntaxError) {
-        throw new ApiError(res.statusText || `HTTP ${res.status}`, {
-          status: res.status,
-          statusText: res.statusText,
-          url,
-          method,
-          responseText: text,
-          responseJson: null,
-        });
-      }
-      throw e;
+    if (normalizedMethod !== 'GET') {
+      getCache.clear();
+    } else if (ttl > 0) {
+      const cached = getCache.get(cacheKey);
+      if (cached?.value !== undefined && cached.expiresAt > Date.now()) return cached.value;
+      if (cached?.inFlight) return cached.inFlight;
     }
-  }
 
-  return text ? addCamelAliases(JSON.parse(text)) : null;
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(requestOptions.headers as Record<string, string>),
+      Authorization: `Bearer ${authToken()}`,
+    };
+
+    const execute = async (): Promise<any> => {
+      let res: Response;
+      try {
+        res = await fetch(url, { ...requestOptions, headers });
+      } catch {
+        throw new Error(`Cannot reach the API at ${API_ORIGIN}. Is the Laravel server running?`);
+      }
+
+      if (res.status === 401 && !_isRetry) {
+        const refreshed = await tryRefresh();
+        if (refreshed) return request(path, options, true);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        sessionExpiredCallback?.();
+        throw new Error('session_expired');
+      }
+
+      if (res.status === 204) return null;
+
+      const text = await res.text();
+
+      if (!res.ok) {
+        try {
+          const body = parseResponseJson(text) as Record<string, any> | null;
+          if (!body || typeof body !== 'object') throw new SyntaxError('Response body is not JSON');
+          const fieldError =
+            body.errors && typeof body.errors === 'object'
+              ? (Object.values(body.errors as Record<string, string[]>).flat()[0] as string | undefined)
+              : undefined;
+          throw new ApiError(fieldError || body.error || body.message || res.statusText, {
+            status: res.status,
+            statusText: res.statusText,
+            url,
+            method,
+            responseText: text,
+            responseJson: body,
+          });
+        } catch (e: any) {
+          if (e instanceof SyntaxError) {
+            throw new ApiError(res.statusText || `HTTP ${res.status}`, {
+              status: res.status,
+              statusText: res.statusText,
+              url,
+              method,
+              responseText: text,
+              responseJson: null,
+            });
+          }
+          throw e;
+        }
+      }
+
+      return text ? addCamelAliases(JSON.parse(text)) : null;
+    };
+
+    if (normalizedMethod === 'GET' && ttl > 0) {
+      const inFlight = execute()
+        .then((value) => {
+          getCache.set(cacheKey, { value, expiresAt: Date.now() + ttl });
+          return value;
+        })
+        .catch((error) => {
+          getCache.delete(cacheKey);
+          throw error;
+        });
+      getCache.set(cacheKey, { inFlight, expiresAt: Date.now() + ttl });
+      return inFlight;
+    }
+
+    return execute();
   } finally {
     globalLoading.requestFinished(loaderMode);
   }

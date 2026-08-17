@@ -308,6 +308,49 @@
   line-height: 1.55;
 }
 
+.intel-form-grid,
+.intel-outcome-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  min-width: 0;
+}
+
+.intel-form-grid label,
+.intel-outcome-form label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--content-secondary, #576273);
+}
+
+.intel-form-grid input,
+.intel-form-grid select,
+.intel-outcome-form input,
+.intel-outcome-form select,
+.intel-outcome-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-subtle, #eadfcd);
+  border-radius: 8px;
+  background: var(--surface-card, rgba(255, 255, 255, 0.88));
+  color: var(--content-primary, #142033);
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.intel-outcome-form {
+  min-width: 360px;
+  margin-top: 10px;
+}
+
+.intel-outcome-form button {
+  align-self: end;
+  white-space: nowrap;
+}
+
 .intel-list {
   list-style: none;
   margin: 0;
@@ -1272,4 +1315,191 @@
   .intel-table {
     min-width: 640px;
   }
+}
+
+/* Fee Intelligence — the recommendation the brain produced for a case, and
+   what it stood on. Sits inside .intel-case-detail, below the timeline. */
+.intel-reco-block {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle, #eadfcd);
+}
+
+.intel-reco-card {
+  border: 1px solid var(--border-subtle, #eadfcd);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 14px 16px;
+}
+
+.intel-reco-card + .intel-reco-card {
+  margin-top: 12px;
+}
+
+.intel-reco-card[data-open='true'] {
+  border-color: var(--eb-gold-400, #c9a24d);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.intel-reco-head {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.intel-reco-head strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.35;
+  margin-bottom: 8px;
+}
+
+.intel-reco-rationale {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--content-secondary, #576273);
+}
+
+.intel-decision-gate {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle, #eadfcd);
+}
+
+.intel-gate-form,
+.intel-gate-table-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.intel-gate-form textarea,
+.intel-gate-form select,
+.intel-gate-form input,
+.intel-gate-table-actions textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border-subtle, #eadfcd);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--content-primary, #142033);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.intel-gate-form textarea,
+.intel-gate-table-actions textarea {
+  min-height: 68px;
+  resize: vertical;
+}
+
+.intel-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 8px 12px;
+  border: 1px solid rgba(77, 116, 82, 0.24);
+  border-radius: 10px;
+  background: #eef7ef;
+  color: #285f37;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.intel-action-button.is-danger {
+  border-color: rgba(154, 51, 48, 0.24);
+  background: #fff0ee;
+  color: #93332f;
+}
+
+.intel-action-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.intel-gate-status {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.intel-gate-status[data-tone='good'] {
+  background: var(--feedback-success-surface, #eaf6ec);
+  color: var(--feedback-success-content, #246647);
+}
+
+.intel-gate-status[data-tone='warn'] {
+  background: var(--feedback-warning-surface, #fff4df);
+  color: var(--feedback-warning-content, #946200);
+}
+
+.intel-reco-evidence {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-subtle, #eadfcd);
+}
+
+.intel-reco-evidence-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--content-secondary, #576273);
+  word-break: break-all;
+}
+
+.intel-reco-path {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--content-tertiary, #8a8376);
+  word-break: break-word;
+}
+
+.intel-rule-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.intel-rule-review-card {
+  border: 1px solid var(--border-subtle, #eadfcd);
+  background: var(--surface-card, #fff);
+  border-radius: 8px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.intel-rule-review-card .intel-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.intel-rule-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.intel-compact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--content-secondary, #576273);
 }

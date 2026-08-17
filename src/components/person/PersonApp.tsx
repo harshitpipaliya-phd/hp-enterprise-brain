@@ -8,6 +8,7 @@ import PersonDetails from './PersonDetails';
 import PersonEdit from './PersonEdit';
 import PersonList from './PersonList';
 import PersonIntelligence from '../workspace/PersonIntelligence';
+import { loadSession, saveSession } from '../../utils/session';
 import './PersonList.css';
 
 export type PersonView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
@@ -45,6 +46,17 @@ export interface PersonDepartment {
   status?: string;
 }
 
+/**
+ * Whether the stored person may still be reopened.
+ *
+ * Consumed on the first mount after the page loads, and never set true again —
+ * so a refresh on someone's profile returns to it, while walking to People from
+ * the sidebar gets the list. Without this, the two are indistinguishable from
+ * inside the component, and every visit to People would silently reopen whoever
+ * was looked at last.
+ */
+let restorePending = true;
+
 export default function PersonApp({ organization, onBack }: { organization: Organization; onBack: () => void }) {
   const [view, setView] = useState<PersonView>('list');
   const [selected, setSelected] = useState<Person | null>(null);
@@ -61,20 +73,65 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
         api.listPeople(organization.tenantId, organization.id),
         departmentApi.listDepartments(organization.tenantId, organization.id),
       ]);
-      setPeople(Array.isArray(peopleData) ? peopleData : []);
+      const rows: Person[] = Array.isArray(peopleData) ? peopleData : [];
+      setPeople(rows);
       setDepartments(Array.isArray(departmentData) ? departmentData : []);
+      return rows;
     } catch (e: any) {
       setError(e?.message ?? 'Could not load people.');
+      return [];
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [organization.tenantId, organization.id]);
+  /**
+   * Reopen the person who was open before a refresh.
+   *
+   * This app has no router — the whole shell is driven by `view` state — so a
+   * refresh on a person's profile used to land back on the People list. The
+   * person's id is persisted alongside the view and the organization that
+   * already survive a refresh, and is resolved against the list the API returns
+   * for the CURRENT organization. That resolution is the point: it means a
+   * stored id can only ever reopen someone this tenant can see, so a stale id
+   * left over from another organization, or an archived person, or a value typed
+   * into localStorage by hand, all fall through to the list rather than opening
+   * a profile.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    load().then((rows) => {
+      // Checked AFTER the load resolves, and cleared only by the pass that
+      // survives. StrictMode mounts, tears down and remounts every effect in
+      // development, so a flag consumed at the top of the effect body would be
+      // spent by the run that is then thrown away — the restore would work in
+      // production and quietly not work while developing it.
+      if (cancelled || !restorePending) return;
+      restorePending = false;
+
+      const storedId = loadSession().personId;
+      if (!storedId) return;
+
+      const match = rows.find((person) => String(person.id) === storedId);
+      if (match) {
+        setSelected(match);
+        setView('intelligence');
+      } else {
+        saveSession({ personId: null });
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [organization.tenantId, organization.id]);
 
   const navigate = (next: PersonView, person?: Person) => {
     setSelected(person ?? null);
     setView(next);
+    // Only the profile is worth restoring. Coming back from a refresh into a
+    // half-filled edit form, or into an archive confirmation, would be worse
+    // than coming back to the person.
+    saveSession({ personId: next === 'list' || !person ? null : String(person.id) });
   };
 
   return (
@@ -103,15 +160,25 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
         />
       )}
 
+      {/*
+        The actions used to sit in a detached pill row above the profile, which
+        put Archive one careless click from the top of the page and left the
+        profile with a header that could not say what you could do with it. They
+        are now the profile's own header actions, and each one is passed only
+        when it leads somewhere real: Edit and Archive are backed by
+        PATCH/POST /people/{tenant}/{id}, and the source record view is a screen
+        that exists. Refresh is the profile's own and needs nothing from here.
+      */}
       {view === 'intelligence' && selected && (
-        <div>
-          <div className="people-inline-actions">
-            <button className="eb-pill-btn" onClick={() => navigate('details', selected)}>Raw Details</button>
-            <button className="eb-pill-btn" onClick={() => navigate('edit', selected)}>Edit</button>
-            <button className="eb-pill-btn" onClick={() => navigate('archive', selected)}>Archive</button>
-          </div>
-          <PersonIntelligence tenantId={organization.tenantId} personId={selected.id} onBack={() => navigate('list')} />
-        </div>
+        <PersonIntelligence
+          tenantId={organization.tenantId}
+          personId={selected.id}
+          onBack={() => navigate('list')}
+          backLabel="Back to People"
+          onEdit={() => navigate('edit', selected)}
+          onArchive={() => navigate('archive', selected)}
+          onViewSourceRecord={() => navigate('details', selected)}
+        />
       )}
 
       {view === 'create' && (
@@ -130,11 +197,17 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
         />
       )}
 
+      {/*
+        Edit, source record and archive all return to the profile rather than to
+        the source-record screen. The profile is where the user came from, and
+        landing them somewhere else after saving reads as the save having
+        navigated them away from their work.
+      */}
       {view === 'edit' && selected && (
         <PersonEdit
           person={selected}
-          onUpdated={(person) => { navigate('details', person); load(); }}
-          onCancel={() => navigate('details', selected)}
+          onUpdated={(person) => { navigate('intelligence', person); load(); }}
+          onCancel={() => navigate('intelligence', selected)}
         />
       )}
 
@@ -143,8 +216,7 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
           person={selected}
           onEdit={() => navigate('edit', selected)}
           onArchive={() => navigate('archive', selected)}
-          onBack={() => navigate('list')}
-          onViewTwin={() => navigate('intelligence', selected)}
+          onBack={() => navigate('intelligence', selected)}
         />
       )}
 
@@ -152,7 +224,7 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
         <PersonArchiveConfirm
           person={selected}
           onArchived={() => { navigate('list'); load(); }}
-          onCancel={() => navigate('details', selected)}
+          onCancel={() => navigate('intelligence', selected)}
         />
       )}
     </div>
