@@ -671,6 +671,74 @@
   background: var(--color-red-50);
 }
 
+/* What the deletion will actually destroy, loaded from the preview endpoint.
+   Deliberately quieter than the red warning above it: the warning is the
+   consequence, this is the evidence for it, and making both shout leaves a
+   reader with nowhere to look first. */
+.cc-delete-modal__counts {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+  font-size: 13px;
+  color: var(--content-secondary);
+}
+
+.cc-delete-modal__counts ul {
+  margin: var(--space-2) 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.cc-delete-modal__counts strong {
+  color: var(--content-primary);
+}
+
+.cc-delete-modal__note {
+  margin-top: var(--space-2);
+  font-size: 12px;
+  color: var(--content-tertiary);
+}
+
+/* The tenant holds rows in another application's tables. Amber rather than red:
+   the server has not failed, it is asking a question the Brain must not answer
+   on the administrator's behalf. */
+.cc-delete-modal__ack {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-amber-300, var(--border-strong));
+  border-radius: var(--radius-xs);
+  background: var(--color-amber-50, var(--surface-inset));
+  font-size: 13px;
+  color: var(--content-secondary);
+}
+
+.cc-delete-modal__ack ul {
+  margin: var(--space-2) 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.cc-delete-modal__ack code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.cc-delete-modal__ack label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--space-2);
+  font-weight: 700;
+  color: var(--content-primary);
+  cursor: pointer;
+}
+
 .cc-delete-modal__confirm {
   display: grid;
   gap: 9px;

@@ -18,6 +18,44 @@ export interface OrganizationRow {
   updatedDate: string;
 }
 
+/** One table in a deletion plan, as the preview endpoint reports it. */
+export interface DeletionPreviewTable {
+  table: string;
+  column: string;
+  /**
+   * 'brain'         — hpbrain_-owned, created by this application
+   * 'identity'      — the organization and its logins inside the shared ERP
+   * 'source_system' — tenant-scoped rows owned by ANOTHER application sharing
+   *                   this database; needs a separate acknowledgement
+   */
+  tier: 'brain' | 'identity' | 'source_system' | 'preserved';
+  rows: number;
+}
+
+export interface DeletionPreview {
+  tenantId: string;
+  organizationName: string;
+  totals: {
+    rows: number;
+    tables: number;
+    brain: number;
+    identity: number;
+    sourceSystem: number;
+  };
+  tables: DeletionPreviewTable[];
+  /** Expected tables discovery did not find — a migration or config warning. */
+  missingReferences: string[];
+}
+
+export interface DeletionResult {
+  ok: true;
+  tenantId: string;
+  organizationName: string;
+  tables: number;
+  rows: number;
+  deleted: Record<string, number>;
+}
+
 function normalize(row: any, _listedUnder: string): OrganizationRow {
   const id = String(row.id ?? row.sub_institute_id ?? '');
 
@@ -75,10 +113,52 @@ export const api = {
     return api.getOrganization(tenant, tenant);
   },
 
-  /** POST /api/v1/organizations/{tenantId}/{id}/archive */
+  /**
+   * POST /api/v1/organizations/{tenantId}/{id}/archive
+   *
+   * SOFT DELETE. Sets deleted_at on the organization row so it drops out of the
+   * list, and destroys nothing. Kept, unchanged, because it is still the right
+   * operation for taking an organization out of circulation — it is simply not
+   * a deletion, which is what deleteOrganizationPermanently below is for.
+   */
   archiveOrganization: (tenantId: string, _id: string) => {
     const tenant = scopedTenant(tenantId);
     return request(`/organizations/${tenant}/${tenant}/archive`, { method: 'POST' });
+  },
+
+  /**
+   * GET /api/v1/organizations/{tenantId}/{id}/deletion-preview
+   *
+   * Exactly what a permanent deletion would destroy, per table and per tier.
+   * Reads only, so it is safe to call when the confirmation dialog opens —
+   * which is the point: an administrator should see the real row counts before
+   * typing the organization's name, not after.
+   */
+  getDeletionPreview: (tenantId: string, _id?: string): Promise<DeletionPreview> => {
+    const tenant = scopedTenant(tenantId);
+    return request(`/organizations/${tenant}/${tenant}/deletion-preview`);
+  },
+
+  /**
+   * DELETE /api/v1/organizations/{tenantId}/{id}
+   *
+   * PERMANENT AND IRREVERSIBLE. Destroys the organization, every record its
+   * tenant owns, and every login belonging to it, in one transaction. A
+   * non-2xx means nothing was deleted at all.
+   *
+   * NOT the archive endpoint above, and deliberately a different function:
+   * pointing this at /archive is the exact bug this replaces.
+   */
+  deleteOrganizationPermanently: (
+    tenantId: string,
+    confirmName: string,
+    acknowledgeSourceSystemData = false,
+  ): Promise<DeletionResult> => {
+    const tenant = scopedTenant(tenantId);
+    return request(`/organizations/${tenant}/${tenant}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ confirmName, acknowledgeSourceSystemData }),
+    });
   },
 
   /** GET /api/v1/organizations/{tenantId}/{id}/audit */

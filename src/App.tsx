@@ -55,7 +55,7 @@ import { AppShell } from './shell/AppShell';
 import { NotificationBell } from './components/NotificationBell';
 import { ToastProvider, useToast } from './components/Toast';
 import { api } from './api/organization';
-import type { OrganizationRow } from './api/organization';
+import type { OrganizationRow, DeletionResult } from './api/organization';
 import { onSessionExpired } from './api/client';
 import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
 import { loadSession, saveSession, clearSession } from './utils/session';
@@ -270,9 +270,16 @@ function AuthenticatedApp() {
     saveSession({ organization: nextOrg, view: v });
   };
 
-  const logout = async () => {
+  /**
+   * @param revokeOnServer POST /auth/logout to revoke the refresh token.
+   *        Skipped after a permanent deletion: that tenant's token rows were
+   *        destroyed with it, so there is nothing left to revoke, and asking
+   *        the server to revoke a token for a tenant it can no longer find is
+   *        a round trip whose only possible outcome is a no-op.
+   */
+  const logout = async (revokeOnServer = true) => {
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = revokeOnServer ? localStorage.getItem('refreshToken') : null;
       if (refreshToken) {
         await fetch(`${API_BASE}/auth/logout`, {
           method: 'POST',
@@ -308,6 +315,45 @@ function AuthenticatedApp() {
   const reloadAfter = async (message?: string, tone: 'success' | 'warning' = 'success') => {
     await load();
     if (message) showToast(tone, message);
+  };
+
+  /**
+   * An organization was PERMANENTLY deleted — SIGN OUT COMPLETELY.
+   *
+   * WHY A FULL LOGOUT AND NOT A REDIRECT TO THE LIST. EnsureTenantScope refuses
+   * any request whose route tenant differs from the tenant in the verified
+   * token, so an administrator can only ever delete THEIR OWN organization.
+   * There is no case where someone deletes one organization and still has
+   * another to go back to — the tenant they were authenticated as no longer
+   * exists. Returning them to the organization list would leave the browser
+   * holding tokens for a dead tenant, and every request from that screen 404s.
+   *
+   * So the session is torn down the same way signing out tears it down:
+   * accessToken, refreshToken, remembered organization id, persisted workspace
+   * session, and all in-memory state. `hpbrain-user` is left alone — it holds
+   * only the remembered email for the sign-in form, and re-registering with the
+   * same address is the very next thing this workflow expects.
+   *
+   * The toast survives the transition because ToastProvider sits ABOVE the
+   * authenticated tree, so the confirmation is read on the login screen rather
+   * than flashing on a workspace that is being unmounted.
+   */
+  const handleOrganizationDeleted = async (org: Organization, result: DeletionResult) => {
+    // Clear the tenant-scoped state first so nothing re-renders against the
+    // dead tenant during the teardown, then drop authentication entirely.
+    setSelected(null);
+    setOrganizations([]);
+    clearSelectedOrgId();
+    clearSession();
+
+    await logout(false);
+
+    showToast(
+      'warning',
+      `"${org.name}" was permanently deleted — ${result.rows.toLocaleString()} record`
+      + `${result.rows === 1 ? '' : 's'} across ${result.tables} table`
+      + `${result.tables === 1 ? '' : 's'} removed. Please sign in again.`,
+    );
   };
 
   return (
@@ -385,7 +431,7 @@ function AuthenticatedApp() {
                 onNavigate={(v) => navigate(v, selected)}
                 onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
                 onArchive={() => navigate('archive', selected)}
-                onArchived={(org) => { setSelected(null); setView('list'); reloadAfter(`Organization "${org.name}" archived`, 'warning'); }}
+                onDeleted={handleOrganizationDeleted}
               />
             )}
             {view === 'list' && (
@@ -420,7 +466,7 @@ function AuthenticatedApp() {
                 onNavigate={(v) => navigate(v, selected)}
                 onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
                 onArchive={() => navigate('archive', selected)}
-                onArchived={(org) => { setSelected(null); setView('list'); reloadAfter(`Organization "${org.name}" archived`, 'warning'); }}
+                onDeleted={handleOrganizationDeleted}
               />
             )}
             {view === 'departments' && selected && (

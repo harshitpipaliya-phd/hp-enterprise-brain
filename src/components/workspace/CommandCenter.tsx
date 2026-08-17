@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/intelligence';
 import { api as organizationApi } from '../../api/organization';
+import type { DeletionPreview, DeletionResult } from '../../api/organization';
 import { api as capabilityApi } from '../../api/capability';
 import { api as departmentApi } from '../../api/department';
 import { ingestionApi } from '../../api/ingestion';
@@ -41,8 +42,21 @@ interface CommandCenterProps {
   organization?: Organization;
   onNavigate: (view: View) => void;
   onUpdated?: (organization: Organization) => void;
+  /**
+   * Navigate to the dedicated archive screen. Archive is still a real, separate
+   * operation reachable from the overview — it soft-deletes the organization
+   * row and destroys nothing — so this stays.
+   *
+   * There is no onArchived here any more: the overview's own confirmation
+   * dialog now performs a PERMANENT deletion, and archiving is completed on the
+   * archive screen, which reports its own result.
+   */
   onArchive?: () => void;
-  onArchived?: (organization: Organization) => void;
+  /**
+   * The organization was PERMANENTLY deleted. There is no tenant left to
+   * render afterwards, so the caller must clear its selection and leave.
+   */
+  onDeleted?: (organization: Organization, result: DeletionResult) => void;
 }
 
 type Health = 'good' | 'warn' | 'crit';
@@ -105,7 +119,7 @@ const LOOP_STAGES: Array<{ key: string; label: string; icon: ReactNode; view: Vi
   { key: 'learnings', label: 'Learnings', icon: <GraduationCap size={17} />, view: 'mentalmodels', meaning: 'Reusable knowledge kept from outcomes.' },
 ];
 
-export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onArchived }: CommandCenterProps) {
+export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onDeleted }: CommandCenterProps) {
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics | null>(null);
   const [capabilityCount, setCapabilityCount] = useState<number | null>(null);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -126,6 +140,17 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // What the deletion would actually destroy, fetched when the dialog opens.
+  // Read-only: opening the dialog must never be able to delete anything.
+  const [deletePreview, setDeletePreview] = useState<DeletionPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  // Set when the server refuses because this tenant holds rows in tables owned
+  // by other applications sharing the database. The administrator has to say so
+  // explicitly; the Brain will not decide that on their behalf.
+  const [acknowledgeSourceData, setAcknowledgeSourceData] = useState(false);
+  const [sourceSystemPrompt, setSourceSystemPrompt] = useState<
+    { message: string; tables: { table: string; rows: number }[]; rows: number } | null
+  >(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -237,16 +262,90 @@ export default function CommandCenter({ tenantId, organizationName, organization
     }
   };
 
-  const archiveFromOverview = async () => {
-    if (!organization || deleteConfirm !== organization.name) return;
+  /**
+   * Open the confirmation dialog and load the plan.
+   *
+   * The preview is a GET and writes nothing, so this is safe to run on open —
+   * which matters, because the alternative is asking someone to type an
+   * organization's name to authorise a deletion whose size they cannot see.
+   */
+  const openDeleteDialog = async () => {
+    if (!organization) return;
+    setDeleteOpen(true);
+    setDeleteConfirm('');
+    setDeleteError(null);
+    setAcknowledgeSourceData(false);
+    setSourceSystemPrompt(null);
+    setDeletePreview(null);
+    setPreviewLoading(true);
+    try {
+      setDeletePreview(await organizationApi.getDeletionPreview(organization.tenantId, organization.id));
+    } catch (e: any) {
+      // A preview that fails to load does not block the deletion — the server
+      // re-derives the plan on the real request anyway. It is reported so the
+      // figures being absent does not read as "there is nothing to delete".
+      setDeleteError(e.message || 'Could not load the deletion summary. The counts below are unavailable.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  /**
+   * THE ONE CANONICAL NAME, and the only string this dialog may display or
+   * compare against.
+   *
+   * It comes from the deletion preview, which reads it through the same
+   * EntityResolver path TenantPurgeService uses to check the confirmation. That
+   * shared origin is the entire point.
+   *
+   * It is deliberately NOT `organization.name`. That value arrives from the
+   * login payload and is persisted in session state, and for an ARCHIVED
+   * organization it used to be a placeholder the server manufactured
+   * ("Organization 8") rather than the real name ("Lions"). The dialog then
+   * displayed the placeholder, asked the administrator to type the placeholder,
+   * and sent the placeholder to a server that was comparing against the real
+   * name — so the confirmation could never succeed no matter what was typed.
+   *
+   * null until the preview resolves, which is what keeps the confirm button
+   * disabled: with no canonical name there is nothing safe to compare against,
+   * and guessing one is exactly the bug being fixed.
+   */
+  const canonicalName = deletePreview?.organizationName ?? null;
+
+  /**
+   * PERMANENT deletion. Not the archive.
+   *
+   * The button that calls this is disabled until the typed name matches the
+   * canonical name exactly, and the server checks the same thing again — the
+   * disabled button is a courtesy, the server-side compare is the control.
+   */
+  const deletePermanently = async () => {
+    if (!organization || canonicalName === null || deleteConfirm !== canonicalName) return;
     setDeleting(true);
     setDeleteError(null);
     try {
-      await organizationApi.archiveOrganization(organization.tenantId, organization.id);
+      const result = await organizationApi.deleteOrganizationPermanently(
+        organization.tenantId,
+        deleteConfirm,
+        acknowledgeSourceData,
+      );
       setDeleteOpen(false);
-      onArchived?.({ ...organization, status: 'archived' });
+      onDeleted?.(organization, result);
     } catch (e: any) {
-      setDeleteError(e.message || 'Unable to archive organization.');
+      // ApiError carries the parsed body on responseJson. The top-level
+      // `message` is only the error CODE for these responses, so the readable
+      // sentence has to come off the body or the dialog shows the user a slug.
+      const body = e?.responseJson ?? null;
+      const detail = body?.message || e?.message || 'Unable to delete organization.';
+
+      if (e?.status === 409 && body?.error === 'source_system_data_present') {
+        // Not a failure — a question. The checkbox rendered below is the answer,
+        // and nothing was deleted.
+        setSourceSystemPrompt({ message: detail, tables: body.tables ?? [], rows: body.rows ?? 0 });
+        setDeleteError(null);
+      } else {
+        setDeleteError(detail);
+      }
     } finally {
       setDeleting(false);
     }
@@ -322,7 +421,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
             <RefreshCw size={15} className={refreshing ? 'cc-spin' : ''} /> Refresh
           </button>
           {organization && (
-            <button type="button" className="eb-pill-btn cc-danger-outline" onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); setDeleteError(null); }}>
+            <button type="button" className="eb-pill-btn cc-danger-outline" onClick={openDeleteDialog}>
               <Trash2 size={15} /> Delete
             </button>
           )}
@@ -560,27 +659,102 @@ export default function CommandCenter({ tenantId, organizationName, organization
             <div className="cc-delete-modal__head">
               <span><AlertTriangle size={26} /></span>
               <div>
-                <h2 id="cc-delete-title">Delete organization</h2>
-                <p>Are you sure you want to delete <strong>{organization.name}</strong>?</p>
+                <h2 id="cc-delete-title">Delete Organization?</h2>
+                {/* The canonical name, never the session's copy — see canonicalName. */}
+                <p>
+                  Are you sure you want to permanently delete{' '}
+                  <strong>{canonicalName ?? '…'}</strong>?
+                </p>
               </div>
             </div>
             <p className="cc-delete-modal__warning">
-              This archives the organization through the tenant-scoped archive endpoint. Data owned by the connected source system is not deleted.
+              This will permanently delete the organization and all of its associated tenant data,
+              including users and organization-specific records. This action cannot be undone.
             </p>
+
+            {/* What is actually about to be destroyed. Loaded from a read-only
+                preview endpoint when the dialog opened — asking someone to type
+                an organization's name to authorise a deletion whose size they
+                cannot see is a confirmation in form only. */}
+            {previewLoading && <p className="cc-delete-modal__counts">Calculating what will be deleted…</p>}
+            {deletePreview && (
+              <div className="cc-delete-modal__counts">
+                <p>
+                  <strong>{deletePreview.totals.rows.toLocaleString()}</strong> record
+                  {deletePreview.totals.rows === 1 ? '' : 's'} across{' '}
+                  <strong>{deletePreview.totals.tables}</strong> table
+                  {deletePreview.totals.tables === 1 ? '' : 's'} will be destroyed:
+                </p>
+                <ul>
+                  <li>{deletePreview.totals.identity.toLocaleString()} organization, people and login records</li>
+                  <li>{deletePreview.totals.brain.toLocaleString()} intelligence, ingestion and configuration records</li>
+                  {deletePreview.totals.sourceSystem > 0 && (
+                    <li>{deletePreview.totals.sourceSystem.toLocaleString()} records held by other connected systems</li>
+                  )}
+                </ul>
+                <p className="cc-delete-modal__note">
+                  Everyone in this organization will lose access immediately. Other organizations are not affected.
+                </p>
+              </div>
+            )}
+
+            {/* The tenant owns rows in tables belonging to other applications on
+                this shared database. The server refused rather than guess, and
+                this is where the administrator answers. */}
+            {sourceSystemPrompt && (
+              <div className="cc-delete-modal__ack">
+                <p>{sourceSystemPrompt.message}</p>
+                <ul>
+                  {sourceSystemPrompt.tables.slice(0, 8).map((t) => (
+                    <li key={t.table}><code>{t.table}</code> — {t.rows.toLocaleString()} rows</li>
+                  ))}
+                  {sourceSystemPrompt.tables.length > 8 && (
+                    <li>…and {sourceSystemPrompt.tables.length - 8} more</li>
+                  )}
+                </ul>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={acknowledgeSourceData}
+                    onChange={(event) => setAcknowledgeSourceData(event.target.checked)}
+                    disabled={deleting}
+                  />
+                  Also permanently delete these {sourceSystemPrompt.rows.toLocaleString()} records
+                </label>
+              </div>
+            )}
+
+            {/* The string shown here and the string compared below are the same
+                variable. They cannot drift apart, which is the whole fix. */}
             <label className="cc-delete-modal__confirm">
-              To confirm, type the organization name below.
+              {canonicalName === null
+                ? 'Loading the organization name…'
+                : <>To confirm, type <strong>{canonicalName}</strong> below.</>}
               <input
                 value={deleteConfirm}
                 onChange={(event) => setDeleteConfirm(event.target.value)}
                 placeholder="Type organization name"
-                disabled={deleting}
+                disabled={deleting || canonicalName === null}
+                autoComplete="off"
               />
             </label>
             {deleteError && <p className="cc-record__error">{deleteError}</p>}
             <div className="cc-delete-modal__actions">
               <button type="button" className="eb-pill-btn" onClick={() => setDeleteOpen(false)} disabled={deleting}>Cancel</button>
-              <button type="button" className="cc-delete-submit" disabled={deleteConfirm !== organization.name || deleting} onClick={archiveFromOverview}>
-                <Trash2 size={15} /> {deleting ? 'Deleting…' : 'Delete organization'}
+              <button
+                type="button"
+                className="cc-delete-submit"
+                disabled={
+                  // No canonical name yet means nothing safe to compare against.
+                  canonicalName === null
+                  || deleteConfirm !== canonicalName
+                  || deleting
+                  // Blocked until the extra records are explicitly accepted.
+                  || (sourceSystemPrompt !== null && !acknowledgeSourceData)
+                }
+                onClick={deletePermanently}
+              >
+                <Trash2 size={15} /> {deleting ? 'Deleting…' : 'Delete Permanently'}
               </button>
             </div>
           </div>
