@@ -1,1 +1,141 @@
-.global-loader{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:var(--surface-ground);cursor:wait}.global-loader__brand{position:relative;display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--color-gold-500);color:var(--color-ink-950);font-family:var(--display);font-size:15px;font-weight:900;letter-spacing:-.04em}.global-loader__brand::after{content:'';position:absolute;top:calc(100% + 10px);left:4px;width:34px;height:2px;border-radius:999px;background:linear-gradient(90deg,transparent,var(--color-gold-600),transparent);animation:global-loader-pulse .7s ease-in-out infinite}@keyframes global-loader-pulse{50%{transform:scaleX(.45);opacity:.45}}@media(prefers-reduced-motion:reduce){.global-loader__brand::after{animation:none}}
+.global-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--surface-ground) 74%, transparent);
+  backdrop-filter: blur(16px);
+  cursor: wait;
+}
+
+.global-loader-compact {
+  inset: auto 20px 20px auto;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+  place-items: end;
+}
+
+.global-loader__panel,
+.global-loader__chip {
+  display: grid;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border-subtle);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--eb-gold-100) 70%, transparent), transparent 38%),
+    var(--surface-card);
+  box-shadow: var(--shadow-lg);
+}
+
+.global-loader__panel {
+  width: min(480px, 100%);
+  justify-items: center;
+  text-align: center;
+  padding: 28px 26px;
+  border-radius: 24px;
+}
+
+.global-loader__chip {
+  grid-auto-flow: column;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 14px 16px;
+  border-radius: 18px;
+}
+
+.global-loader__brand {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--eb-gold-300), var(--eb-gold-500));
+  color: var(--eb-text-900);
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.global-loader__brand::after {
+  content: '';
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 4px;
+  width: 34px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--color-gold-600), transparent);
+  animation: global-loader-pulse 0.7s ease-in-out infinite;
+}
+
+.global-loader-compact .global-loader__brand::after {
+  top: auto;
+  bottom: -10px;
+}
+
+.global-loader__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.global-loader__copy strong {
+  color: var(--content-primary);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.global-loader__copy span {
+  color: var(--content-secondary);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.global-loader__skeleton {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.global-loader__skeleton span {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--surface-inset) 25%, var(--border-subtle) 37%, var(--surface-inset) 63%);
+  background-size: 400% 100%;
+  animation: global-loader-shimmer 1.2s ease infinite;
+}
+
+.global-loader__skeleton span:nth-child(1) { width: 44%; justify-self: center; }
+.global-loader__skeleton span:nth-child(2) { width: 100%; height: 56px; border-radius: 16px; }
+.global-loader__skeleton span:nth-child(3) { width: 82%; justify-self: center; }
+
+@keyframes global-loader-pulse {
+  50% { transform: scaleX(0.45); opacity: 0.45; }
+}
+
+@keyframes global-loader-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@media (max-width: 640px) {
+  .global-loader-compact {
+    inset: auto 12px 12px 12px;
+  }
+
+  .global-loader__chip {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-loader__brand::after,
+  .global-loader__skeleton span {
+    animation: none;
+  }
+}

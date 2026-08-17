@@ -1,4 +1,6 @@
 import React from 'react';
+import { Inbox } from 'lucide-react';
+import { EmptyState as UiEmptyState } from '../../ui';
 
 interface EmptyStateProps {
   icon?: string;
@@ -9,11 +11,13 @@ interface EmptyStateProps {
 
 export const EmptyState: React.FC<EmptyStateProps> = ({ icon = 'inbox', title, description, action }) => {
   return (
-    <div className="flex flex-col items-center justify-center p-8 text-center">
-      <span className="mb-4 text-6xl opacity-50">{icon}</span>
-      <h3 className="mb-2 text-lg font-semibold text-gray-900">{title}</h3>
-      {description && <p className="mb-4 max-w-md text-sm text-gray-500">{description}</p>}
-      {action}
+    <div className="u-state-shell">
+      <UiEmptyState
+        title={title}
+        description={description}
+        action={action}
+        icon={icon === 'inbox' ? <Inbox size={22} aria-hidden="true" /> : <span aria-hidden="true">{icon}</span>}
+      />
     </div>
   );
 };

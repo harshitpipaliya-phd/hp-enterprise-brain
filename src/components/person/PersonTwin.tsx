@@ -59,7 +59,7 @@ export default function PersonTwin({ tenantId, personId, onBack }: { tenantId: s
   if (!twin) return null;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 800, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 800, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <button onClick={onBack} style={{ marginBottom: 16 }}>← Back</button>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>

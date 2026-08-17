@@ -46,7 +46,7 @@ export default function AgentMonitor({ tenantId }: { tenantId: string }) {
   if (error) return <div style={{ padding: 24, color: 'var(--status-crit)' }}>Error: {error}</div>;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <h1>Multi-Agent Monitor</h1>
         <button onClick={load}>Refresh</button>

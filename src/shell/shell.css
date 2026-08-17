@@ -49,7 +49,7 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: var(--surface-inset);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 84%, var(--surface-inset)) 0%, var(--surface-card) 100%);
   color: var(--content-secondary);
   border-right: 1px solid var(--border-default);
   overflow: hidden;
@@ -58,107 +58,119 @@
 .s-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 16px 14px;
-  border-bottom: 1px solid var(--border-default);
-  min-height: var(--topbar-height);
+  gap: 12px;
+  padding: 18px 18px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 72px;
 }
 .s-brand-mark {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--eb-gold-300), var(--eb-gold-500));
-  color: var(--eb-text-900);
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, var(--eb-gold-400), var(--eb-gold-600));
+  color: var(--eb-white);
   font-weight: 800;
-  font-size: 13px;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  letter-spacing: 0.08em;
 }
 .s-brand-text { display: flex; flex-direction: column; min-width: 0; }
 .s-brand-name {
-  font-size: 13.5px; font-weight: 700; color: var(--content-primary);
+  font-size: 14px; font-weight: 700; color: var(--content-primary); letter-spacing: -0.02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .s-brand-sub {
-  font-size: 10.5px; color: var(--content-tertiary);
+  font-size: 11px; color: var(--content-tertiary); letter-spacing: -0.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .s-brand-btn {
   margin-left: auto; flex-shrink: 0;
   display: grid; place-items: center;
-  width: 28px; height: 28px; padding: 0;
-  border-radius: 7px;
-  border: 1px solid var(--border-default);
-  background: var(--surface-card);
+  width: 32px; height: 32px; padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
   color: var(--content-secondary);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
+  transition: background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
 }
-.s-brand-btn:hover { background: var(--surface-hover); color: var(--content-primary); }
+.s-brand-btn:hover { background: var(--surface-card); border-color: var(--border-default); color: var(--content-primary); }
 .s-brand-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 /* Collapsed: the brand centres and the toggle moves below the mark, because a
    34px logo and a 28px button will not sit side by side in 76px. */
-.s-sidebar-collapsed .s-brand { flex-direction: column; gap: 8px; padding: 14px 8px; }
+.s-sidebar-collapsed .s-brand { flex-direction: column; gap: 8px; padding: 16px 8px; }
 .s-sidebar-collapsed .s-brand-btn { margin-left: 0; }
 
 .s-scroll {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 10px 0 16px;
+  padding: 14px 0 18px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
 }
 .s-scroll::-webkit-scrollbar { width: 6px; }
 .s-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; }
 
-.s-section { margin-bottom: 6px; }
+.s-section { margin-bottom: 12px; }
 .s-section-title {
-  margin: 14px 0 6px;
-  padding: 0 16px;
-  font-size: 10px;
-  font-weight: 700;
+  margin: 16px 0 10px;
+  padding: 0 18px;
+  font-size: 11px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--content-primary);
+  letter-spacing: 0.14em;
+  color: var(--content-secondary);
 }
 /* Collapsed sections get a rule instead of a heading — the words will not fit
    and truncating them to three letters communicates nothing. */
 .s-section-rule {
   display: block;
-  margin: 12px 18px;
+  margin: 14px 18px;
   height: 1px;
-  background: var(--border-default);
+  background: var(--border-subtle);
 }
 
-.s-list { list-style: none; margin: 0; padding: 0 8px; display: flex; flex-direction: column; gap: 1px; }
+.s-list { list-style: none; margin: 0; padding: 0 10px; display: flex; flex-direction: column; gap: 6px; }
 
 .s-item {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   width: 100%;
-  min-height: 38px;
-  padding: 8px 10px;
+  min-height: 48px;
+  padding: 11px 14px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 16px;
   background: transparent;
   color: var(--content-secondary);
   font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   text-align: left;
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
+  transition: background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard);
 }
-.s-item:hover:not(:disabled) { background: var(--surface-hover); color: var(--content-primary); }
+.s-item:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-card) 70%, var(--surface-inset));
+  color: var(--content-primary);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
 .s-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; color: var(--content-primary); }
 
-.s-item-icon { display: grid; place-items: center; width: 20px; flex-shrink: 0; }
+.s-item-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  flex-shrink: 0;
+  color: var(--content-secondary);
+}
 /* Long labels stay on one line and ellipsise. Wrapping would make rows
    different heights and turn the menu into a ragged column. */
 .s-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -171,13 +183,13 @@
 .s-item-active {
   background: var(--surface-card);
   color: var(--content-primary);
-  font-weight: 650;
-  box-shadow: var(--shadow-sm);
+  font-weight: 700;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 .s-item-active::before {
   content: '';
   position: absolute;
-  left: -8px; top: 7px; bottom: 7px;
+  left: 0; top: 9px; bottom: 9px;
   width: 3px;
   border-radius: 0 3px 3px 0;
   /*
@@ -188,7 +200,7 @@
     weight change, aria-current), so the rail was never the sole signal — but a
     3px mark nobody can see is not worth drawing.
   */
-  background: #A8823A;
+  background: var(--accent-intelligence);
 }
 /*
   The active icon is champagne, one step down from the brand #C9A24D.
@@ -197,13 +209,13 @@
   colour and clears it. The 3px rail beside it stays the full brand champagne,
   because it sits on cream rather than white and passes there.
 */
-.s-item-active .s-item-icon { color: var(--eb-gold-600); }
+.s-item-active .s-item-icon { color: var(--accent-intelligence); }
 
 /* Disabled means no organization is selected. No hover response: it would
    promise a click that does nothing. */
 .s-item:disabled { color: var(--content-tertiary); opacity: 0.65; cursor: not-allowed; }
 
-.s-sidebar-collapsed .s-item { justify-content: center; padding: 9px 0; }
+.s-sidebar-collapsed .s-item { justify-content: center; padding: 12px 0; border-radius: 14px; }
 .s-sidebar-collapsed .s-item-active::before { left: 0; }
 
 /* Collapsed tooltip. CSS-only and pointer-events:none so it can never sit
@@ -232,17 +244,26 @@
 
 .s-profile {
   flex-shrink: 0;
-  padding: 10px 8px 12px;
-  border-top: 1px solid var(--border-default);
+  padding: 14px 10px 14px;
+  border-top: 1px solid var(--border-subtle);
 }
-.s-profile-row { display: flex; align-items: center; gap: 10px; padding: 4px 8px 8px; min-width: 0; }
+.s-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 12px;
+  min-width: 0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 88%, var(--surface-inset)), var(--surface-card));
+  border: 1px solid var(--border-subtle);
+}
 .s-profile-text { display: flex; flex-direction: column; min-width: 0; }
 .s-profile-name {
-  font-size: 13px; font-weight: 600; color: var(--content-primary);
+  font-size: 14px; font-weight: 700; color: var(--content-primary); letter-spacing: -0.02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.s-profile-role { font-size: 11px; color: var(--content-tertiary); text-transform: capitalize; }
-.s-sidebar-collapsed .s-profile-row { justify-content: center; padding: 4px 0 8px; }
+.s-profile-role { font-size: 12px; color: var(--content-tertiary); text-transform: capitalize; }
+.s-sidebar-collapsed .s-profile-row { justify-content: center; padding: 10px 0; }
 .s-logout:hover { background: var(--feedback-error-surface); color: var(--feedback-error-content); }
 
 /* =============================================================================

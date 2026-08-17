@@ -63,7 +63,7 @@ export default function CapabilityApp({ organization, onBack }: { organization: 
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1320, margin: '0 auto', padding: 24 }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1320, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <button onClick={onBack}>← Back to Organizations</button>

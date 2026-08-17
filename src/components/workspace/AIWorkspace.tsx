@@ -53,7 +53,7 @@ export default function AIWorkspace({ tenantId }: { tenantId: string }) {
   const avgLatency = executions.length ? Math.round(totalLatency / executions.length) : 0;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1000, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1000, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <h1>AI Workspace</h1>
         <button onClick={load}>Refresh</button>

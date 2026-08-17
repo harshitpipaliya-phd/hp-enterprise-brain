@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button, ErrorState as UiErrorState } from '../../ui';
 
 interface ErrorStateProps {
   title?: string;
@@ -8,14 +9,12 @@ interface ErrorStateProps {
 
 export const ErrorState: React.FC<ErrorStateProps> = ({ title = 'Something went wrong', message, onRetry }) => {
   return (
-    <div className="flex flex-col items-center justify-center p-8 text-center">
-      <span className="mb-4 text-6xl">⚠️</span>
-      <h3 className="mb-2 text-lg font-semibold text-red-600">{title}</h3>
-      {message && <p className="mb-4 max-w-md text-sm text-gray-500">{message}</p>}
-      {onRetry && (
-        <button onClick={onRetry} className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-          Try Again
-        </button>
+    <div className="u-state-shell">
+      <UiErrorState message={message || title} onRetry={onRetry} />
+      {!onRetry && message && (
+        <Button variant="secondary" onClick={() => window.location.reload()}>
+          Refresh page
+        </Button>
       )}
     </div>
   );
