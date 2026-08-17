@@ -63,13 +63,10 @@ export default function CapabilityApp({ organization, onBack }: { organization: 
   };
 
   return (
-<<<<<<< HEAD
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1320, margin: '0 auto', padding: 24 }}>
       <header className="cap-app-header">
-=======
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1320, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
->>>>>>> c1b5d1e22fa3e9cc3da1affe22c96c82b72c13e0
         <div>
           <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
           <h1>Capabilities</h1>
@@ -134,5 +131,7 @@ export default function CapabilityApp({ organization, onBack }: { organization: 
         />
       )}
     </div>
+    </header>
+  </div>
   );
 }
