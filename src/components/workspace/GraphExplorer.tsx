@@ -86,7 +86,7 @@ export default function GraphExplorer({ tenantId }: { tenantId: string }) {
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <h1 style={{ marginBottom: 16 }}>Knowledge Graph Explorer</h1>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>

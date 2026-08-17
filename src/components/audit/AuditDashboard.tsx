@@ -39,7 +39,7 @@ export default function AuditDashboard() {
   useEffect(() => { load(); }, []);
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1400, margin: '0 auto', padding: 24 }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1400, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1>Audit Dashboard</h1>
         <button onClick={load}>Refresh</button>

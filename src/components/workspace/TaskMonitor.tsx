@@ -43,7 +43,7 @@ export default function TaskMonitor({ tenantId }: { tenantId: string }) {
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1000, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1000, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <h1 style={{ marginBottom: 8 }}>Task Orchestrator</h1>
       <p style={{ color: theme.textMuted, marginBottom: 24, fontSize: 13 }}>
         Deterministic tasks wrapping existing services — not AI reasoning agents. Select tasks, run them in sequence, watch each step's real result.

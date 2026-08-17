@@ -34,7 +34,7 @@ export default function ActivityTimeline() {
   if (loading) return <div>Loading activity timeline...</div>;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 800, margin: '0 auto', padding: 24 }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 800, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1>Activity Timeline</h1>
         <button onClick={load}>Refresh</button>

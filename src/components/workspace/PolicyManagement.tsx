@@ -75,7 +75,7 @@ export default function PolicyManagement({ tenantId }: { tenantId: string }) {
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 900, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 900, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <h1>Policy Management</h1>
         <button onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ New Policy'}</button>

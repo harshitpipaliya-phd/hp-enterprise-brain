@@ -62,7 +62,7 @@ export default function GlobalSearch({ tenantId }: { tenantId: string }) {
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 800, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 800, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <h1 style={{ marginBottom: 16 }}>Global Search</h1>
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
         <input

@@ -19,6 +19,11 @@ export type GlobalLoaderMode = 'none' | 'page' | 'mutation';
 export const globalLoading = {
   subscribe(listener: () => void) { listeners.add(listener); return () => listeners.delete(listener); },
   snapshot: () => pageRequests > 0 || mutationRequests > 0 || navigationPending,
+  mode(): GlobalLoaderMode {
+    if (navigationPending || pageRequests > 0) return 'page';
+    if (mutationRequests > 0) return 'mutation';
+    return 'none';
+  },
   requestStarted(mode: GlobalLoaderMode) {
     if (mode === 'page') pageRequests += 1;
     if (mode === 'mutation') mutationRequests += 1;

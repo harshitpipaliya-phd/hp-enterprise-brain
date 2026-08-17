@@ -122,7 +122,7 @@ export default function KasbaExplorer({ tenantId }: { tenantId: string }) {
   if (loading) return <div style={{ padding: 24 }}>Loading KASBA data...</div>;
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1100, margin: '0 auto', padding: 24, backgroundColor: 'var(--surface-ground)', color: 'var(--content-primary)', minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1100, margin: '0 auto', padding: 24, backgroundColor: 'var(--surface-ground)', color: 'var(--content-primary)', minHeight: '100vh' }}>
       <h1 style={{ marginBottom: 4 }}>KASBA Explorer</h1>
       <p style={{ color: 'var(--content-tertiary)', marginBottom: 24, fontSize: 13 }}>
         Organization-wide capability heatmap and task decomposition. Department-level aggregates only — no individual is ever identifiable from this screen.
