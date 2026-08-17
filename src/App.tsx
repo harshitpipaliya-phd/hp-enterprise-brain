@@ -59,7 +59,7 @@ import type { OrganizationRow } from './api/organization';
 import { onSessionExpired } from './api/client';
 import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
 import { loadSession, saveSession, clearSession } from './utils/session';
-import { LazyView } from './ui';
+import { Alert, Button, EmptyState, ErrorState as ViewErrorState, LazyView } from './ui';
 import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
 import { globalLoading } from './ui/globalLoading';
@@ -326,7 +326,11 @@ function AuthenticatedApp() {
       notificationSlot={selected ? <NotificationBell tenantId={selected.tenantId} /> : undefined}
     >
       <ErrorBoundary key={view} label={view}>
-            {error && <div style={{ color: 'red' }}>{error}</div>}
+            {error && (
+              <Alert tone="danger" title="Workspace data is partially unavailable">
+                {error}
+              </Alert>
+            )}
 
             {/*
               Nothing selected and nothing to select yet. Every view below is
@@ -337,25 +341,38 @@ function AuthenticatedApp() {
               indistinguishable from a broken one, so say which it is.
             */}
             {!selected && (
-              <div style={{ padding: 32, color: '#666' }}>
-                {loading ? (
-                  <p>Loading your organization…</p>
-                ) : organizations.length > 0 ? (
-                  <>
-                    <p>Select an organization to continue.</p>
-                    <button onClick={() => navigate('list')}>Choose organization</button>
-                  </>
-                ) : (
-                  <>
-                    <p>
-                      {error
-                        ? 'Could not reach the server to load your organization.'
-                        : 'No organization is available for this account.'}
-                    </p>
-                    <button onClick={() => load()}>Retry</button>
-                  </>
-                )}
-              </div>
+              loading ? (
+                <div className="u-state-shell" role="status" aria-live="polite">
+                  <div className="u-card u-card-pad u-state-card">
+                    <div className="u-state-card__eyebrow">Loading organization</div>
+                    <div className="u-state-card__stack" aria-hidden="true">
+                      <span className="u-skeleton" style={{ display: 'block', width: '38%', height: 12, borderRadius: 999 }} />
+                      <span className="u-skeleton" style={{ display: 'block', width: '100%', height: 72, borderRadius: 16 }} />
+                    </div>
+                    <p className="u-state-card__label">Restoring your organization context…</p>
+                  </div>
+                </div>
+              ) : organizations.length > 0 ? (
+                <EmptyState
+                  title="Select an organization to continue"
+                  description="Your account can access more than one organization. Choose one to open its dashboards, workspaces, and management screens."
+                  action={(
+                    <Button variant="secondary" onClick={() => navigate('list')}>
+                      Choose organization
+                    </Button>
+                  )}
+                />
+              ) : error ? (
+                <ViewErrorState
+                  message="Could not reach the server to restore your organization."
+                  onRetry={() => { void load(); }}
+                />
+              ) : (
+                <EmptyState
+                  title="No organization is available"
+                  description="This account does not currently have an organization context attached."
+                />
+              )
             )}
 
             {/* Home IS Command Center. Both names render it so a view

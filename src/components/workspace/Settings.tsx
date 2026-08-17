@@ -75,7 +75,7 @@ export default function Settings({ tenantId }: { tenantId: string }) {
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 600, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 600, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <h1 style={{ marginBottom: 24 }}>Settings</h1>
 
       <section style={{ marginBottom: 32 }}>

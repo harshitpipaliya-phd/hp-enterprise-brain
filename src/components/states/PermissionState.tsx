@@ -1,4 +1,6 @@
 import React from 'react';
+import { Lock } from 'lucide-react';
+import { PermissionDeniedState } from '../../ui';
 
 interface PermissionStateProps {
   requiredPermission?: string;
@@ -6,13 +8,11 @@ interface PermissionStateProps {
 
 export const PermissionState: React.FC<PermissionStateProps> = ({ requiredPermission }) => {
   return (
-    <div className="flex flex-col items-center justify-center p-8 text-center">
-      <span className="mb-4 text-6xl">🔒</span>
-      <h3 className="mb-2 text-lg font-semibold text-gray-900">Permission Denied</h3>
-      <p className="max-w-md text-sm text-gray-500">
-        You don't have permission to access this resource.
-        {requiredPermission && <span className="block mt-1 text-xs">Required: {requiredPermission}</span>}
-      </p>
+    <div className="u-state-shell">
+      <PermissionDeniedState requiredPermission={requiredPermission} />
+      <div className="u-sr-only" aria-hidden="true">
+        <Lock />
+      </div>
     </div>
   );
 };

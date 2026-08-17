@@ -57,7 +57,7 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1320, margin: '0 auto', padding: view === 'list' ? 0 : 24 }}>
+    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1320, margin: '0 auto', padding: view === 'list' ? 0 : 24 }}>
       {view !== 'list' && (
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
