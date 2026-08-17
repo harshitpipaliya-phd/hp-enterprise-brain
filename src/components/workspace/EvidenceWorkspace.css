@@ -776,20 +776,32 @@
 }
 
 .evidence-intel__ledger-foot {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 12px;
   margin-top: auto;
   color: var(--content-tertiary);
   font-family: var(--mono);
   font-size: 11px;
 }
 
-.evidence-intel__ledger-foot span:first-child {
+.evidence-intel__ledger-foot span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.evidence-intel__unattached {
+  color: var(--color-amber-700);
+}
+
+.evidence-intel__ledger-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--content-tertiary);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .evidence-intel__ledger-foot button {

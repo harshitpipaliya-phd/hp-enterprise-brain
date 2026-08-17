@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect } from 'react';
 import type { Person } from './PersonApp';
 import { api } from '../../api/person';
+import { formatDateTime } from '../workspace/intelligenceShared';
 
 interface Props {
   person: Person;
@@ -113,7 +114,7 @@ export default function PersonDetails({ person, onEdit, onArchive, onBack }: Pro
         ) : (
         <ul>
           {auditLogs.map((log: any) => (
-            <li key={log.id}>{log.action} by {log.actorName ?? 'an unnamed actor'} on {new Date(log.createdAt).toLocaleString()}</li>
+            <li key={log.id}>{log.action} by {log.actorName ?? 'an unnamed actor'} on {formatDateTime(log.createdAt)}</li>
           ))}
         </ul>
       )}

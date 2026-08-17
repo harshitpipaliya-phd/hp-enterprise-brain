@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect } from 'react';
 import type { Department } from './DepartmentApp';
 import { api } from '../../api/department';
+import { formatDateTime } from '../workspace/intelligenceShared';
 
 interface Props {
   department: Department;
@@ -36,8 +37,8 @@ export default function DepartmentDetails({ department, onEdit, onArchive, onBac
     ['Organization', department.orgId],
     ['Status', department.status],
     ['Created By', department.createdBy],
-    ['Created Date', new Date(department.createdDate).toLocaleString()],
-    ['Updated Date', new Date(department.updatedDate).toLocaleString()],
+    ['Created', formatDateTime(department.createdDate)],
+    ['Last updated', formatDateTime(department.updatedDate)],
   ];
 
   const copyId = () => { navigator.clipboard.writeText(department.id); };
@@ -71,7 +72,7 @@ export default function DepartmentDetails({ department, onEdit, onArchive, onBac
         : auditLogs.length === 0 ? <p>No audit logs.</p> : (
         <ul>
           {auditLogs.map((log: any) => (
-            <li key={log.id}>{log.action} by {log.actorName} on {new Date(log.createdAt).toLocaleString()}</li>
+            <li key={log.id}>{log.action} by {log.actorName} on {formatDateTime(log.createdAt)}</li>
           ))}
         </ul>
       )}

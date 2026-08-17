@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect } from 'react';
 import type { Capability } from './CapabilityApp';
 import { api } from '../../api/capability';
+import { formatDateTime } from '../workspace/intelligenceShared';
 
 interface Props {
   capability: Capability;
@@ -41,8 +42,8 @@ export default function CapabilityDetails({ capability, onEdit, onArchive, onAss
     ['Version', `v${capability.version}`],
     ['Status', capability.status],
     ['Created By', capability.createdBy],
-    ['Created Date', new Date(capability.createdDate).toLocaleString()],
-    ['Updated Date', new Date(capability.updatedDate).toLocaleString()],
+    ['Created', formatDateTime(capability.createdDate)],
+    ['Last updated', formatDateTime(capability.updatedDate)],
   ];
 
   return (
@@ -75,7 +76,7 @@ export default function CapabilityDetails({ capability, onEdit, onArchive, onAss
         : auditLogs.length === 0 ? <p>No audit logs.</p> : (
         <ul>
           {auditLogs.map((log: any) => (
-            <li key={log.id}>{log.action} by {log.actorName} on {new Date(log.createdAt).toLocaleString()}</li>
+            <li key={log.id}>{log.action} by {log.actorName} on {formatDateTime(log.createdAt)}</li>
           ))}
         </ul>
       )}

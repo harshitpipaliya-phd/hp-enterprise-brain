@@ -12,8 +12,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Activity, AlertTriangle, Clock3, RefreshCw, Signal as SignalIcon, Sparkles } from 'lucide-react';
+import { Activity, AlertTriangle, Clock3, FileSearch, RefreshCw, Signal as SignalIcon } from 'lucide-react';
 import { api } from '../../api/signal';
+import type { View } from '../../App';
 import './SignalDashboard.css';
 import { CHART_PALETTE, SEVERITY_COLOR, STATUS_COLOR } from '../../ui/palette';
 
@@ -28,6 +29,8 @@ export interface Signal {
   relatedEntityId: string | null;
   status: 'new' | 'triaged' | 'investigating' | 'evidenced' | 'resolved' | 'closed' | 'dismissed' | string;
   classification: string | null;
+  /** Present on rule-derived signals; null on imported rows. */
+  ruleKey?: string | null;
   metadata: Record<string, unknown>;
   createdDate: string;
   updatedDate?: string | null;
@@ -35,7 +38,7 @@ export interface Signal {
 
 type DateWindow = '7' | '30' | '90' | 'all';
 type DistributionRow = { name: string; value: number; percent: number };
-type TrendRow = { label: string; date: string; total: number } & Record<string, string | number>;
+type TrendRow = { label: string; date: string; total: number };
 
 const OPEN_STATUSES = new Set(['new', 'triaged', 'investigating', 'evidenced']);
 const CLOSED_STATUSES = new Set(['resolved', 'closed', 'dismissed']);
@@ -57,7 +60,67 @@ function normalizeKey(value: unknown, fallback: string): string {
 }
 
 function displayLabel(value: string): string {
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  return value.replace(/[_.]/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+/**
+ * What to call a signal on screen.
+ *
+ * A signal has no title column. Imported rows carry the mapped source title in
+ * `metadata.title`; rule-derived findings carry only their classification, which
+ * is a machine token like `attendance_below_threshold`. The screen previously
+ * showed the raw classification for both, so every imported row — the majority
+ * of this installation's signals — displayed as its category rather than as
+ * itself, and thousands of rows in the queue read identically.
+ */
+function signalTitle(signal: Signal): string {
+  // An imported row carries the title its source column held.
+  const title = signal.metadata?.title;
+  if (typeof title === 'string' && title.trim()) return title.trim();
+
+  // A rule-derived finding carries no title, but its rule key describes what was
+  // found — `people_without_department` — where its classification only names the
+  // bucket the finding falls into: `workforce`. Preferring the classification, as
+  // this did, meant sixteen unrelated findings all displayed as "Workforce".
+  const rule = signal.ruleKey ?? (typeof signal.metadata?.rule === 'string' ? signal.metadata.rule : null);
+  if (rule) return displayLabel(String(rule));
+
+  const classification = String(signal.classification ?? '').trim();
+  if (classification && classification.toUpperCase() !== 'UNDETERMINED') return displayLabel(classification);
+  return 'Untitled signal';
+}
+
+/** Who or what this signal is about, in words rather than as a foreign key. */
+function signalSubject(signal: Signal): string | null {
+  const owner = signal.metadata?.owner;
+  if (typeof owner === 'string' && owner.trim()) return owner.trim();
+
+  const ref = signal.metadata?.externalRef;
+  if (typeof ref === 'string' && ref.trim()) return ref.trim();
+
+  if (signal.relatedEntityType) {
+    const type = displayLabel(String(signal.relatedEntityType));
+    // The id alone tells the reader nothing, but "Person 4417" at least names
+    // the kind of thing, and is the only handle this row carries.
+    return signal.relatedEntityId ? `${type} ${signal.relatedEntityId}` : type;
+  }
+
+  return null;
+}
+
+/** Where it came from, and whether a rule found it or a file carried it in. */
+function signalOrigin(signal: Signal): { label: string; detail: string } {
+  const rule = signal.ruleKey ?? (typeof signal.metadata?.rule === 'string' ? signal.metadata.rule : null);
+  return {
+    label: displayLabel(String(signal.source ?? 'unknown')),
+    detail: rule ? 'Found by a detection rule' : 'Came in with an imported file',
+  };
+}
+
+/** How many source rows a rule-derived signal covers, when it says so. */
+function affectedCount(signal: Signal): number | null {
+  const value = Number(signal.metadata?.affectedCount);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function parseDate(value: string | null | undefined): Date | null {
@@ -107,22 +170,28 @@ function distribution(counts: Record<string, number>, order?: string[]): Distrib
 }
 
 function formatPercent(value: number | null, digits = 0): string {
-  return value === null ? '-' : `${(value * 100).toFixed(digits)}%`;
+  return value === null ? '—' : `${(value * 100).toFixed(digits)}%`;
 }
 
 function formatHours(hours: number | null): string {
-  if (hours === null) return '-';
+  if (hours === null) return '—';
   if (hours < 24) return `${hours.toFixed(hours < 10 ? 1 : 0)}h`;
   return `${(hours / 24).toFixed(hours < 240 ? 1 : 0)}d`;
 }
 
-function formatDelta(value: number | null): string {
-  if (value === null) return 'no prior baseline';
-  if (value === 0) return 'flat vs previous week';
-  return `${value > 0 ? '+' : ''}${value.toFixed(1)}% vs previous week`;
+function formatWhen(value: string | null | undefined): string {
+  const date = parseDate(value);
+  if (!date) return '—';
+  return date.toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function buildTrend(signals: Signal[], dateWindow: DateWindow): { rows: TrendRow[]; keys: string[] } {
+function formatDelta(value: number | null): string {
+  if (value === null) return 'no previous week to compare with';
+  if (value === 0) return 'the same as the previous week';
+  return `${Math.abs(value).toFixed(0)}% ${value > 0 ? 'more' : 'fewer'} than the previous week`;
+}
+
+function buildTrend(signals: Signal[], dateWindow: DateWindow): TrendRow[] {
   const now = new Date();
   const createdDates = signals.map((s) => parseDate(s.createdDate)).filter((d): d is Date => d !== null);
   const earliest = createdDates.length ? new Date(Math.min(...createdDates.map((d) => d.getTime()))) : now;
@@ -131,10 +200,6 @@ function buildTrend(signals: Signal[], dateWindow: DateWindow): { rows: TrendRow
   const bucketSizeDays = Math.max(1, Math.ceil(requestedDays / bucketCount));
   const start = new Date(now.getTime() - (bucketCount - 1) * bucketSizeDays * 86_400_000);
   start.setHours(0, 0, 0, 0);
-  const classifications = Object.entries(countBy(signals, (s) => normalizeKey(s.classification, 'unclassified')))
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([key]) => key);
 
   const rows: TrendRow[] = Array.from({ length: bucketCount }, (_, i) => {
     const d = new Date(start);
@@ -143,7 +208,6 @@ function buildTrend(signals: Signal[], dateWindow: DateWindow): { rows: TrendRow
       label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
       date: d.toISOString().slice(0, 10),
       total: 0,
-      ...Object.fromEntries(classifications.map((key) => [key, 0])),
     };
   });
 
@@ -151,14 +215,10 @@ function buildTrend(signals: Signal[], dateWindow: DateWindow): { rows: TrendRow
     const created = parseDate(signal.createdDate);
     if (!created || created < start || created > now) return;
     const index = Math.floor(daysBetween(start, created) / bucketSizeDays);
-    const row = rows[index];
-    if (!row) return;
-    const key = normalizeKey(signal.classification, 'unclassified');
-    row.total += 1;
-    if (classifications.includes(key)) row[key] = Number(row[key] ?? 0) + 1;
+    if (rows[index]) rows[index].total += 1;
   });
 
-  return { rows, keys: classifications };
+  return rows;
 }
 
 function buildMttrByClassification(signals: Signal[]): DistributionRow[] {
@@ -185,21 +245,36 @@ function buildMttrByClassification(signals: Signal[]): DistributionRow[] {
     .slice(0, 6);
 }
 
-export default function SignalDashboard({ tenantId }: { tenantId: string }) {
+const PAGE_SIZE = 25;
+
+export default function SignalDashboard({ tenantId, onNavigate }: { tenantId: string; onNavigate?: (view: View) => void }) {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [severityFilter, setSeverityFilter] = useState('');
   const [classificationFilter, setClassificationFilter] = useState('');
   const [dateWindow, setDateWindow] = useState<DateWindow>('90');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * The window is a server-side predicate now.
+   *
+   * It used to fetch every signal the tenant had and then drop the ones outside
+   * the window in the browser. On the school tenant that is 15,002 rows
+   * transferred to display 90 days of them, on every visit.
+   */
   const loadSignals = async () => {
     setRefreshing(true);
     setError(null);
     try {
-      const data = await api.listSignals(tenantId);
+      const params: Record<string, string> = {};
+      if (dateWindow !== 'all') {
+        const since = new Date(Date.now() - Number(dateWindow) * 86_400_000);
+        params.since = since.toISOString();
+      }
+      const data = await api.listSignals(tenantId, params);
       setSignals(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Unable to load signals.');
@@ -211,24 +286,19 @@ export default function SignalDashboard({ tenantId }: { tenantId: string }) {
 
   useEffect(() => {
     setLoading(true);
-    loadSignals();
-  }, [tenantId]);
+    void loadSignals();
+  }, [tenantId, dateWindow]);
 
-  const filteredSignals = useMemo(() => {
-    const now = new Date();
-    const from = dateWindow === 'all' ? null : new Date(now.getTime() - Number(dateWindow) * 86_400_000);
-    return signals.filter((signal) => {
-      const status = normalizeKey(signal.status, 'unknown');
-      const severity = normalizeKey(signal.severity, 'unknown');
-      const classification = normalizeKey(signal.classification, 'unclassified');
-      const created = parseDate(signal.createdDate);
-      if (statusFilter && status !== statusFilter) return false;
-      if (severityFilter && severity !== severityFilter) return false;
-      if (classificationFilter && classification !== classificationFilter) return false;
-      if (from && (!created || created < from)) return false;
-      return true;
-    });
-  }, [signals, statusFilter, severityFilter, classificationFilter, dateWindow]);
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [statusFilter, severityFilter, classificationFilter, dateWindow]);
+
+  const filteredSignals = useMemo(() => signals.filter((signal) => {
+    if (statusFilter && normalizeKey(signal.status, 'unknown') !== statusFilter) return false;
+    if (severityFilter && normalizeKey(signal.severity, 'unknown') !== severityFilter) return false;
+    if (classificationFilter && normalizeKey(signal.classification, 'unclassified') !== classificationFilter) return false;
+    return true;
+  }), [signals, statusFilter, severityFilter, classificationFilter]);
 
   const model = useMemo(() => {
     const now = new Date();
@@ -248,55 +318,21 @@ export default function SignalDashboard({ tenantId }: { tenantId: string }) {
       return created !== null && created >= lastWeekStart && created < thisWeekStart;
     });
     const confidences = filteredSignals.map(confidenceValue).filter((v): v is number => v !== null);
-    const avgConfidence = confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : null;
     const mttrRows = buildMttrByClassification(filteredSignals);
-    const mttrHours = mttrRows.length
-      ? mttrRows.reduce((sum, row) => sum + row.value, 0) / mttrRows.length
-      : null;
-    const weeklyGrowth = lastWeek.length === 0 ? null : ((newThisWeek.length - lastWeek.length) / lastWeek.length) * 100;
-    const closureRate = filteredSignals.length ? closed.length / filteredSignals.length : null;
-    const severityRows = distribution(countBy(filteredSignals, (s) => normalizeKey(s.severity, 'unknown')), SEVERITY_ORDER);
-    const statusRows = distribution(countBy(filteredSignals, (s) => normalizeKey(s.status, 'unknown')));
-    const classificationRows = distribution(countBy(filteredSignals, (s) => normalizeKey(s.classification, 'unclassified')));
-    const sourceRows = distribution(countBy(filteredSignals, (s) => normalizeKey(s.source, 'unknown'))).slice(0, 6);
-    const confidenceRows = distribution(countBy(filteredSignals, (s) => {
-      const confidence = confidenceValue(s);
-      if (confidence === null) return 'unknown';
-      if (confidence >= 0.75) return 'high';
-      if (confidence >= 0.45) return 'medium';
-      return 'low';
-    }), ['high', 'medium', 'low', 'unknown']);
-    const trend = buildTrend(filteredSignals, dateWindow);
-    const dominantClassification = classificationRows[0] ?? null;
-    const dominantSeverity = severityRows[0] ?? null;
-    const oldestOpen = open.reduce<Signal | null>((oldest, signal) => {
-      const created = parseDate(signal.createdDate);
-      const oldestCreated = parseDate(oldest?.createdDate);
-      if (!created) return oldest;
-      return !oldest || !oldestCreated || created < oldestCreated ? signal : oldest;
-    }, null);
-    const oldestOpenDays = oldestOpen ? daysBetween(parseDate(oldestOpen.createdDate) ?? now, now) : null;
 
     return {
       open,
       closed,
       highOpen,
       newThisWeek,
-      lastWeek,
-      avgConfidence,
+      avgConfidence: confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : null,
       mttrRows,
-      mttrHours,
-      weeklyGrowth,
-      closureRate,
-      severityRows,
-      statusRows,
-      classificationRows,
-      sourceRows,
-      confidenceRows,
-      trend,
-      dominantClassification,
-      dominantSeverity,
-      oldestOpenDays,
+      mttrHours: mttrRows.length ? mttrRows.reduce((sum, row) => sum + row.value, 0) / mttrRows.length : null,
+      weeklyGrowth: lastWeek.length === 0 ? null : ((newThisWeek.length - lastWeek.length) / lastWeek.length) * 100,
+      severityRows: distribution(countBy(filteredSignals, (s) => normalizeKey(s.severity, 'unknown')), SEVERITY_ORDER),
+      statusRows: distribution(countBy(filteredSignals, (s) => normalizeKey(s.status, 'unknown'))),
+      classificationRows: distribution(countBy(filteredSignals, (s) => normalizeKey(s.classification, 'unclassified'))),
+      trend: buildTrend(filteredSignals, dateWindow),
     };
   }, [filteredSignals, dateWindow]);
 
@@ -310,39 +346,6 @@ export default function SignalDashboard({ tenantId }: { tenantId: string }) {
     classifications: Object.keys(countBy(signals, (s) => normalizeKey(s.classification, 'unclassified'))).sort(),
   }), [signals]);
 
-  const generatedInsights = useMemo(() => {
-    const insights: Array<{ title: string; body: string; tone: 'state' | 'movement' | 'impact' }> = [];
-    insights.push({
-      title: 'Current system state',
-      body: model.open.length === 0
-        ? `No open signals in the current filtered view. ${model.closed.length.toLocaleString()} signals are closed or dismissed.`
-        : `${model.open.length.toLocaleString()} open signals remain active; ${model.highOpen.length.toLocaleString()} are high or critical severity.`,
-      tone: 'state',
-    });
-    insights.push({
-      title: 'Movement analysis',
-      body: model.weeklyGrowth === null
-        ? `${model.newThisWeek.length.toLocaleString()} signals arrived this week; there is no previous-week baseline in the current filter.`
-        : `Arrivals are ${Math.abs(model.weeklyGrowth).toFixed(1)}% ${model.weeklyGrowth > 0 ? 'higher' : model.weeklyGrowth < 0 ? 'lower' : 'unchanged'} than the previous week.`,
-      tone: 'movement',
-    });
-    insights.push({
-      title: 'Consequence analysis',
-      body: model.dominantClassification
-        ? `${displayLabel(model.dominantClassification.name)} accounts for ${(model.dominantClassification.percent * 100).toFixed(0)}% of the filtered volume, with ${displayLabel(model.dominantSeverity?.name ?? 'unknown')} as the largest severity band.`
-        : 'No classification pattern is available for the current filters.',
-      tone: 'impact',
-    });
-    if (model.oldestOpenDays !== null) {
-      insights.push({
-        title: 'Resolution pressure',
-        body: `The oldest open signal has been active for ${model.oldestOpenDays.toFixed(model.oldestOpenDays < 10 ? 1 : 0)} days in the current filter.`,
-        tone: model.highOpen.length > 0 ? 'impact' : 'state',
-      });
-    }
-    return insights;
-  }, [model]);
-
   const clearFilters = () => {
     setStatusFilter('');
     setSeverityFilter('');
@@ -355,18 +358,17 @@ export default function SignalDashboard({ tenantId }: { tenantId: string }) {
     await loadSignals();
   };
 
-  const filteredLabel = `${filteredSignals.length.toLocaleString()} of ${signals.length.toLocaleString()} signals`;
+  const windowLabel = dateWindow === 'all' ? 'all time' : `the last ${dateWindow} days`;
+  const visible = filteredSignals.slice(0, visibleCount);
 
   return (
     <div className="signal-intel">
       <header className="signal-intel__header">
         <div>
-          <div className="signal-intel__eyebrow">Intelligence Loop</div>
           <h1>Signals</h1>
-          <p>What is this organization&apos;s problem-arrival pattern, and is it getting worse?</p>
+          <p>Everything this organization&apos;s data has flagged: what was noticed, what raised it, and who it concerns.</p>
         </div>
         <div className="signal-intel__actions">
-          {/* <span className="signal-intel__live"><span /> API Live</span> */}
           <button className="signal-intel__refresh" onClick={loadSignals} disabled={refreshing} title="Refresh signals">
             <RefreshCw size={15} />
             {refreshing ? 'Refreshing' : 'Refresh'}
@@ -375,59 +377,169 @@ export default function SignalDashboard({ tenantId }: { tenantId: string }) {
       </header>
 
       <section className="signal-intel__filters" aria-label="Signal filters">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All statuses</option>
-          {filterOptions.statuses.map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
-        </select>
-        <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}>
-          <option value="">All severities</option>
-          {filterOptions.severities.map((severity) => <option key={severity} value={severity}>{displayLabel(severity)}</option>)}
-        </select>
-        <select value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
-          <option value="">All classifications</option>
-          {filterOptions.classifications.map((classification) => <option key={classification} value={classification}>{displayLabel(classification)}</option>)}
-        </select>
-        <select value={dateWindow} onChange={(e) => setDateWindow(e.target.value as DateWindow)}>
+        <select value={dateWindow} onChange={(e) => setDateWindow(e.target.value as DateWindow)} aria-label="Time window">
           <option value="7">Last 7 days</option>
           <option value="30">Last 30 days</option>
           <option value="90">Last 90 days</option>
           <option value="all">All time</option>
         </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status filter">
+          <option value="">All statuses</option>
+          {filterOptions.statuses.map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
+        </select>
+        <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} aria-label="Severity filter">
+          <option value="">All severities</option>
+          {filterOptions.severities.map((severity) => <option key={severity} value={severity}>{displayLabel(severity)}</option>)}
+        </select>
+        <select value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)} aria-label="Category filter">
+          <option value="">All categories</option>
+          {filterOptions.classifications.map((classification) => <option key={classification} value={classification}>{displayLabel(classification)}</option>)}
+        </select>
         <button className="signal-intel__ghost" onClick={clearFilters}>Reset</button>
-        <span className="signal-intel__count">{filteredLabel}</span>
+        <span className="signal-intel__count">
+          {filteredSignals.length.toLocaleString()} signal{filteredSignals.length === 1 ? '' : 's'} in {windowLabel}
+        </span>
       </section>
 
       {error && <div className="signal-intel__error">{error}</div>}
 
       {loading ? (
-        <div className="signal-intel__loading">Loading signals...</div>
+        <div className="signal-intel__loading">Loading signals…</div>
+      ) : signals.length === 0 ? (
+        <div className="signal-intel__empty signal-intel__empty--page">
+          <SignalIcon size={26} />
+          <strong>No signals in {windowLabel}</strong>
+          <p>
+            Signals are raised when a detection rule matches this organization&apos;s data, or when a file is
+            imported through the Ingestion Engine. Widen the time window, or import data, and they will appear here.
+          </p>
+        </div>
       ) : (
         <>
-          <section className="signal-intel__command">
-            <div className="signal-intel__pulse">
-              <div className="signal-intel__pulse-ring">
-                <strong>{model.open.length.toLocaleString()}</strong>
-                <span>open</span>
-              </div>
-              <div className="signal-intel__pulse-copy">
-                <div className="signal-intel__eyebrow">Signal Pressure</div>
-                <h2>{model.highOpen.length.toLocaleString()} high-severity signals in the active queue</h2>
-                <p>{formatDelta(model.weeklyGrowth)}. Average confidence is {formatPercent(model.avgConfidence)} across this filtered view.</p>
-              </div>
-            </div>
-            <div className="signal-intel__metric-strip">
-              <KpiCard icon={<SignalIcon size={18} />} label="Open" value={model.open.length.toLocaleString()} hint={`${model.closed.length.toLocaleString()} closed`} tone={model.open.length > 0 ? 'warn' : 'good'} />
-              <KpiCard icon={<AlertTriangle size={18} />} label="High Severity" value={model.highOpen.length.toLocaleString()} hint="High and critical open" tone={model.highOpen.length > 0 ? 'crit' : 'good'} />
-              <KpiCard icon={<Activity size={18} />} label="New This Week" value={model.newThisWeek.length.toLocaleString()} hint={formatDelta(model.weeklyGrowth)} tone={model.weeklyGrowth !== null && model.weeklyGrowth > 0 ? 'warn' : 'good'} />
-              <KpiCard icon={<Clock3 size={18} />} label="MTTR" value={formatHours(model.mttrHours)} hint="Resolved only" tone={model.mttrHours !== null && model.mttrHours > 72 ? 'warn' : 'good'} />
-            </div>
+          <section className="signal-intel__metric-strip">
+            <KpiCard
+              icon={<SignalIcon size={18} />}
+              label="Open"
+              value={model.open.length.toLocaleString()}
+              hint={`${model.closed.length.toLocaleString()} closed or dismissed`}
+              tone={model.open.length > 0 ? 'warn' : 'good'}
+            />
+            <KpiCard
+              icon={<AlertTriangle size={18} />}
+              label="High severity and open"
+              value={model.highOpen.length.toLocaleString()}
+              hint="Needs attention first"
+              tone={model.highOpen.length > 0 ? 'crit' : 'good'}
+            />
+            <KpiCard
+              icon={<Activity size={18} />}
+              label="Raised this week"
+              value={model.newThisWeek.length.toLocaleString()}
+              hint={formatDelta(model.weeklyGrowth)}
+              tone={model.weeklyGrowth !== null && model.weeklyGrowth > 0 ? 'warn' : 'good'}
+            />
+            <KpiCard
+              icon={<Clock3 size={18} />}
+              label="Typical time to resolve"
+              value={formatHours(model.mttrHours)}
+              hint={model.mttrHours === null ? 'Nothing resolved yet in this window' : 'Across resolved signals only'}
+              tone={model.mttrHours !== null && model.mttrHours > 72 ? 'warn' : 'good'}
+            />
           </section>
 
-          <section className="signal-intel__ops-grid">
-            <ChartCard title="Detection Timeline" meta={dateWindow === 'all' ? 'all records' : `last ${dateWindow} days`} footer={model.dominantClassification ? `${displayLabel(model.dominantClassification.name)} is the dominant detected pattern.` : 'No detection pattern available.'}>
-              {model.trend.rows.length > 1 ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={model.trend.rows}>
+          <section className="signal-intel__queue-panel">
+            <div className="signal-intel__card-head">
+              <h2>Signal queue</h2>
+              <span>newest first</span>
+            </div>
+            <div className="signal-intel__table-wrap">
+              <table className="signal-intel__table">
+                <thead>
+                  <tr>
+                    <th>What was noticed</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Raised by</th>
+                    <th>Concerns</th>
+                    <th>When</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((signal) => {
+                    const severity = normalizeKey(signal.severity, 'unknown');
+                    const status = normalizeKey(signal.status, 'unknown');
+                    const origin = signalOrigin(signal);
+                    const subject = signalSubject(signal);
+                    const affected = affectedCount(signal);
+                    return (
+                      <tr key={signal.id}>
+                        <td>
+                          <strong className="signal-intel__title">{signalTitle(signal)}</strong>
+                          <small>
+                            {displayLabel(normalizeKey(signal.classification, 'uncategorised'))}
+                            {affected !== null ? ` · ${affected.toLocaleString()} records affected` : ''}
+                          </small>
+                        </td>
+                        <td>
+                          <span
+                            className="signal-intel__pill"
+                            style={{
+                              color: SEVERITY_COLORS[severity] ?? SEVERITY_COLORS.unknown,
+                              backgroundColor: `${SEVERITY_COLORS[severity] ?? SEVERITY_COLORS.unknown}1f`,
+                            }}
+                          >
+                            {displayLabel(severity)}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="signal-intel__pill" style={{ color: STATUS_COLORS[status] ?? 'var(--content-secondary)', backgroundColor: `${STATUS_COLORS[status] ?? 'var(--content-tertiary)'}1f` }}>
+                            {displayLabel(status)}
+                          </span>
+                        </td>
+                        <td>
+                          <strong className="signal-intel__origin">{origin.label}</strong>
+                          <small>{origin.detail}</small>
+                        </td>
+                        <td>{subject ?? <span className="signal-intel__muted">Not recorded</span>}</td>
+                        <td className="signal-intel__when">{formatWhen(signal.createdDate)}</td>
+                        <td>
+                          <div className="signal-intel__row-actions">
+                            {status === 'new' && <button onClick={() => advance(signal, 'triaged')}>Triage</button>}
+                            {!['dismissed', 'resolved', 'closed'].includes(status) && <button onClick={() => advance(signal, 'dismissed')}>Dismiss</button>}
+                            {onNavigate && (
+                              <button onClick={() => onNavigate('evidence')} title="Open the Evidence screen">
+                                <FileSearch size={13} /> Evidence
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {visible.length === 0 && (
+                    <tr><td colSpan={7}><div className="signal-intel__empty">No signals match the current filters.</div></td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {visibleCount < filteredSignals.length && (
+              <div className="signal-intel__more">
+                <span>Showing {visible.length.toLocaleString()} of {filteredSignals.length.toLocaleString()}</span>
+                <button className="signal-intel__ghost" onClick={() => setVisibleCount((n) => n + PAGE_SIZE * 4)}>Show more</button>
+              </div>
+            )}
+          </section>
+
+          <section className="signal-intel__analysis-board">
+            <ChartCard
+              title="When signals were raised"
+              meta={windowLabel}
+              footer={model.classificationRows[0] ? `${displayLabel(model.classificationRows[0].name)} is the most common category, at ${(model.classificationRows[0].percent * 100).toFixed(0)}% of this window.` : undefined}
+            >
+              {model.trend.length > 1 ? (
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={model.trend}>
                     <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
                     <XAxis dataKey="label" tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -438,49 +550,16 @@ export default function SignalDashboard({ tenantId }: { tenantId: string }) {
               ) : <EmptyChart />}
             </ChartCard>
 
-            <div className="signal-intel__triage">
-              <div className="signal-intel__card-head">
-                <h2>Live Triage Queue</h2>
-                <span>{filteredSignals.length.toLocaleString()} signals</span>
-              </div>
-              <div className="signal-intel__queue">
-                {filteredSignals.slice(0, 8).map((signal) => {
-                  const severity = normalizeKey(signal.severity, 'unknown');
-                  const status = normalizeKey(signal.status, 'unknown');
-                  return (
-                    <article className="signal-intel__queue-item" key={signal.id}>
-                      <span className="signal-intel__severity-dot" style={{ backgroundColor: SEVERITY_COLORS[severity] ?? SEVERITY_COLORS.unknown }} />
-                      <div>
-                        <strong>{displayLabel(normalizeKey(signal.classification, 'unclassified'))}</strong>
-                        <p>{displayLabel(status)} - {formatPercent(confidenceValue(signal))} confidence - {new Date(signal.createdDate).toLocaleString()}</p>
-                      </div>
-                      <div className="signal-intel__queue-actions">
-                        {status === 'new' && <button onClick={() => advance(signal, 'triaged')}>Triage</button>}
-                        {!['dismissed', 'resolved', 'closed'].includes(status) && <button onClick={() => advance(signal, 'dismissed')}>Dismiss</button>}
-                      </div>
-                    </article>
-                  );
-                })}
-                {filteredSignals.length === 0 && <EmptyChart />}
-              </div>
-            </div>
-          </section>
+            <DistributionCard title="By category" rows={model.classificationRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} />
+            <PieCard title="By severity" rows={model.severityRows} colorFor={(name) => SEVERITY_COLORS[name] ?? SEVERITY_COLORS.unknown} />
+            <PieCard title="By status" rows={model.statusRows} colorFor={(name) => STATUS_COLORS[name] ?? 'var(--content-tertiary)'} />
 
-          <section className="signal-intel__analysis-board">
-            <div className="signal-intel__insight-stack">
-              {generatedInsights.map((insight) => (
-                <article className={`signal-intel__summary-card signal-intel__summary-card--${insight.tone}`} key={insight.title}>
-                  <div className="signal-intel__summary-label">{insight.tone === 'state' ? 'State' : insight.tone === 'movement' ? 'Movement' : 'Consequence'}</div>
-                  <h2>{insight.title}</h2>
-                  <p>{insight.body}</p>
-                </article>
-              ))}
-            </div>
-            <DistributionCard title="Classification Intelligence" rows={model.classificationRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} />
-            <PieCard title="Severity Mix" rows={model.severityRows} colorFor={(name) => SEVERITY_COLORS[name] ?? SEVERITY_COLORS.unknown} />
-            <PieCard title="Response State" rows={model.statusRows} colorFor={(name) => STATUS_COLORS[name] ?? 'var(--content-tertiary)'} />
-            <ChartCard title="Resolution Drag" meta="MTTR by classification" footer={model.mttrRows[0] ? `${displayLabel(model.mttrRows[0].name)} is slowest at ${formatHours(model.mttrRows[0].value)}.` : 'No resolved timestamps available.'}>
-              {model.mttrRows.length > 0 ? (
+            {model.mttrRows.length > 0 && (
+              <ChartCard
+                title="Slowest to resolve"
+                meta="average, by category"
+                footer={`${displayLabel(model.mttrRows[0].name)} takes longest, at ${formatHours(model.mttrRows[0].value)}.`}
+              >
                 <div className="signal-intel__mttr-list">
                   {model.mttrRows.map((row, index) => (
                     <div className="signal-intel__bar-row" key={row.name}>
@@ -490,9 +569,14 @@ export default function SignalDashboard({ tenantId }: { tenantId: string }) {
                     </div>
                   ))}
                 </div>
-              ) : <EmptyChart />}
-            </ChartCard>
+              </ChartCard>
+            )}
           </section>
+
+          <p className="signal-intel__footnote">
+            Average stated confidence across this window is {formatPercent(model.avgConfidence)}. Imported rows are
+            recorded at full confidence because they report what the source said, not whether it was right.
+          </p>
         </>
       )}
     </div>
@@ -518,14 +602,14 @@ function ChartCard({ title, meta, footer, children }: { title: string; meta: str
         <span>{meta}</span>
       </div>
       <div className="signal-intel__chart">{children}</div>
-      {footer && <div className="signal-intel__card-foot"><Sparkles size={14} /> {footer}</div>}
+      {footer && <div className="signal-intel__card-foot">{footer}</div>}
     </article>
   );
 }
 
 function DistributionCard({ title, rows, colorFor }: { title: string; rows: DistributionRow[]; colorFor: (name: string, index: number) => string }) {
   return (
-    <ChartCard title={title} meta={`${rows.length.toLocaleString()} groups`}>
+    <ChartCard title={title} meta={`${rows.length.toLocaleString()} group${rows.length === 1 ? '' : 's'}`}>
       {rows.length === 0 ? <EmptyChart /> : (
         <div className="signal-intel__distribution">
           {rows.slice(0, 8).map((row, index) => (
@@ -548,9 +632,9 @@ function PieCard({ title, rows, colorFor }: { title: string; rows: DistributionR
   return (
     <ChartCard title={title} meta={`${rows.reduce((sum, row) => sum + row.value, 0).toLocaleString()} signals`}>
       {rows.length === 0 ? <EmptyChart /> : (
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height={240}>
           <PieChart>
-            <Pie data={rows} dataKey="value" nameKey="name" innerRadius={55} outerRadius={88} paddingAngle={2}>
+            <Pie data={rows} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
               {rows.map((row, index) => <Cell key={row.name} fill={colorFor(row.name, index)} />)}
             </Pie>
             <Tooltip
@@ -567,5 +651,5 @@ function PieCard({ title, rows, colorFor }: { title: string; rows: DistributionR
 }
 
 function EmptyChart() {
-  return <div className="signal-intel__empty">No data in the current filter.</div>;
+  return <div className="signal-intel__empty">Not enough data in this window to draw this.</div>;
 }

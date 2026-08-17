@@ -1,4 +1,7 @@
+import { Building2 } from 'lucide-react';
 import type { Organization } from '../../App';
+import { DataTable, EmptyState, PageHeader, StatusBadge } from '../../ui';
+import type { Column } from '../../ui';
 
 interface Props {
   organizations: Organization[];
@@ -8,37 +11,92 @@ interface Props {
   onArchive: (org: Organization) => void;
 }
 
+/**
+ * The organization chooser.
+ *
+ * TWO THINGS WERE WRONG HERE. The name cell was an `<a href="#">` with a
+ * preventDefault handler — a link that goes nowhere, announced to a screen
+ * reader as a link, and offering a middle-click that opens a blank tab. And the
+ * Edit button navigated to the `edit` view, which App.tsx stopped rendering when
+ * organization editing moved inline onto the organization page: there is no
+ * `view === 'edit'` branch left, so the button reliably produced an empty
+ * content pane. It now opens the organization, which is where the edit form
+ * lives.
+ *
+ * The hand-rolled table with inline `#ddd` borders is replaced by the shared
+ * DataTable, so this screen inherits the same header, spacing, empty state,
+ * loading skeleton and small-screen restacking as every other list in the
+ * product.
+ */
 export default function OrganizationList({ organizations, loading, onSelect, onEdit, onArchive }: Props) {
-  if (loading) return <div>Loading...</div>;
+  const columns: Array<Column<Organization>> = [
+    {
+      key: 'name',
+      header: 'Organization',
+      render: (org) => (
+        <button type="button" className="eb-link-btn" onClick={() => onSelect(org)}>{org.name}</button>
+      ),
+    },
+    {
+      key: 'orgCode',
+      header: 'Code',
+      secondary: true,
+      render: (org) => org.orgCode || <span className="u-muted">Not set</span>,
+    },
+    {
+      key: 'industry',
+      header: 'Industry',
+      secondary: true,
+      render: (org) => org.industry || <span className="u-muted">Not recorded</span>,
+    },
+    {
+      key: 'country',
+      header: 'Country',
+      secondary: true,
+      render: (org) => org.country || <span className="u-muted">Not recorded</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (org) => (
+        <StatusBadge tone={String(org.status).toLowerCase() === 'active' ? 'success' : 'warning'}>
+          {org.status || 'unknown'}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (org) => (
+        <div className="u-row u-gap-2">
+          <button type="button" className="eb-pill-btn" onClick={() => onSelect(org)}>Open</button>
+          <button type="button" className="eb-pill-btn" onClick={() => onEdit(org)}>Edit</button>
+          <button type="button" className="eb-pill-btn" onClick={() => onArchive(org)}>Archive</button>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-      <thead>
-        <tr>
-          <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>Name</th>
-          <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>Code</th>
-          <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>Industry</th>
-          <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>Country</th>
-          <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>Status</th>
-          <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #ddd' }}>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {organizations.map((org) => (
-          <tr key={org.id}>
-            <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-              <a href="#" onClick={(e) => { e.preventDefault(); onSelect(org); }}>{org.name}</a>
-            </td>
-            <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{org.orgCode}</td>
-            <td style={{ padding: 8, borderBottom: '1px solid #ddd' }}>{org.industry}</td>
-            <td style={{ padding: 8, borderBottom: '1px solid #ddd' }}>{org.country}</td>
-            <td style={{ padding: 8, borderBottom: '1px solid #ddd' }}>{org.status}</td>
-            <td style={{ padding: 8, borderBottom: '1px solid #ddd' }}>
-              <button onClick={() => onEdit(org)}>Edit</button>
-              <button onClick={() => onArchive(org)} style={{ marginLeft: 8 }}>Archive</button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div>
+      <PageHeader
+        title="Organizations"
+        description="Every organization this account can reach. Open one to work with its data."
+      />
+      <DataTable
+        rows={organizations}
+        columns={columns}
+        rowKey={(org) => org.id}
+        loading={loading}
+        caption="Organizations available to this account"
+        empty={(
+          <EmptyState
+            icon={<Building2 />}
+            title="No organization is available for this account"
+            description="Organizations come from the connected source system. If you expected one here, check that this account is linked to it."
+          />
+        )}
+      />
+    </div>
   );
 }

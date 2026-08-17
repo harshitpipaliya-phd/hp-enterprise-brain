@@ -64,12 +64,13 @@ export default function CapabilityApp({ organization, onBack }: { organization: 
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1320, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <header className="cap-app-header">
         <div>
-          <button onClick={onBack}>← Back to Organizations</button>
-          <h1 style={{ display: 'inline', marginLeft: 12 }}>Capabilities — {organization.name}</h1>
+          <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
+          <h1>Capabilities</h1>
+          <p>What {organization.name} needs its people to be able to do, and who is currently assigned to each.</p>
         </div>
-        <button onClick={() => navigate('create')}>+ New Capability</button>
+        {view === 'list' && <button onClick={() => navigate('create')}>+ New Capability</button>}
       </header>
       {error && <div style={{ color: 'red' }}>{error}</div>}
       {view === 'list' && (

@@ -1,37 +1,45 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Bot, CheckCircle2, Database, FileArchive, FileCode2, FileImage, FileJson, FileSpreadsheet, FileText, GitBranch, Layers3, RefreshCw, SearchCheck, Sparkles, UploadCloud, Wand2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ClipboardCheck, FileArchive, FileCode2, FileImage, FileJson, FileSpreadsheet, FileText, ListChecks, Radio, RefreshCw, SearchCheck, ShieldCheck, UploadCloud, Wand2 } from 'lucide-react';
 import { CANONICAL_FIELDS, REQUIRED_FIELDS, ingestionApi } from '../../api/ingestion';
 import type { CanonicalField, CommitResponse, DataSourceRow, IngestionPreview } from '../../api/ingestion';
 import { ApiError } from '../../api/client';
 import { useToast } from '../Toast';
+import type { View } from '../../App';
 import './IngestionWorkspace.css';
 
 const ACCEPTED = '.csv,.xls,.xlsx,.pdf,.doc,.docx,.txt,.json,.xml,.html,.htm,.md,.markdown,.zip,.sql,.png,.jpg,.jpeg';
-const NOT_MAPPED = '';
 
-const FILE_GROUPS = [
-  { label: 'Sheets', exts: ['CSV', 'XLS', 'XLSX'], icon: <FileSpreadsheet /> },
-  { label: 'Documents', exts: ['PDF', 'DOC', 'DOCX', 'TXT', 'MD'], icon: <FileText /> },
-  { label: 'Structured', exts: ['JSON', 'XML', 'HTML', 'SQL'], icon: <FileJson /> },
-  { label: 'Media + Archives', exts: ['PNG', 'JPG', 'ZIP'], icon: <FileArchive /> },
+/**
+ * The steps this engine actually performs, in the order it performs them.
+ *
+ * WHAT WAS HERE BEFORE: a six-stage strip reading Extract → Clean → Detect
+ * Schema → Relationships → Embeddings → AI Insights, lit progressively as the
+ * user moved through the form. Three of those six stages do not exist. Nothing
+ * in this codebase computes an embedding, infers a relationship graph or
+ * generates an AI insight during ingestion; `upload()` parses the file and
+ * proposes a field map, and `commit()` writes Signals and Evidence. So the strip
+ * showed a user their file passing through an embedding stage that was never
+ * reached, and lit "AI Insights" green on a commit that produced none.
+ *
+ * These six are the six the code runs, and each one names the thing the user
+ * does or sees at that point.
+ */
+const STEPS = [
+  { id: 'choose', label: 'Choose a file', icon: <UploadCloud />, detail: 'Pick the file and name the source it belongs to.' },
+  { id: 'preview', label: 'Preview', icon: <SearchCheck />, detail: 'We read the file and show you its columns and first rows.' },
+  { id: 'map', label: 'Map fields', icon: <Wand2 />, detail: 'Tell us which of your columns holds each piece of information.' },
+  { id: 'validate', label: 'Validate', icon: <ShieldCheck />, detail: 'Required fields must be mapped before anything is written.' },
+  { id: 'commit', label: 'Import', icon: <ClipboardCheck />, detail: 'Rows are written as Signals with their Evidence attached.' },
+  { id: 'result', label: 'Result', icon: <ListChecks />, detail: 'How many rows were imported, skipped or rejected.' },
 ];
 
-const PIPELINE = [
-  { id: 'extract', label: 'Extract', icon: <UploadCloud /> },
-  { id: 'clean', label: 'Clean', icon: <Wand2 /> },
-  { id: 'schema', label: 'Detect Schema', icon: <Database /> },
-  { id: 'relationships', label: 'Relationships', icon: <GitBranch /> },
-  { id: 'embeddings', label: 'Embeddings', icon: <Layers3 /> },
-  { id: 'insights', label: 'AI Insights', icon: <Bot /> },
-];
-
-const FIELD_HELP: Record<CanonicalField, string> = {
-  title: 'Signal title and deduplication key.',
-  state: 'Signal classification from the source.',
-  owner: 'Owner or accountable party.',
-  evidence_text: 'Evidence content created with the signal.',
-  evidence_timestamp: 'Observation timestamp.',
-  external_ref: 'Stable source reference.',
+const FIELD_LABELS: Record<CanonicalField, { name: string; help: string }> = {
+  title: { name: 'Title', help: 'Names the signal, and is used to detect duplicates.' },
+  state: { name: 'Category', help: 'How the signal is classified.' },
+  owner: { name: 'Owner', help: 'Who is accountable for this row.' },
+  evidence_text: { name: 'Evidence text', help: 'The supporting detail stored with the signal.' },
+  evidence_timestamp: { name: 'Observed at', help: 'When this was observed, used for freshness.' },
+  external_ref: { name: 'Source reference', help: 'A stable id in your system, so re-imports match.' },
 };
 
 type Phase = 'idle' | 'uploading' | 'previewed' | 'committing' | 'committed';
@@ -69,17 +77,17 @@ function describeStageFailure(e: unknown, assumedStage: 'upload' | 'ingestion' =
   ];
 
   if (uploadCodes.includes(code)) return `Upload failed — ${detail}`;
-  if (code === 'unreadable_upload') return `Parsing failed — ${detail}`;
+  if (code === 'unreadable_upload') return `Could not read the file — ${detail}`;
   if (code === 'incomplete_field_map') return `Validation failed — ${detail}`;
   if (code === 'database_unavailable') return `Database unavailable — ${detail}`;
-  if (code === 'source_unavailable') return `Ingestion failed — ${detail}`;
-  if (code === 'job_not_previewed') return `Ingestion failed — ${detail}`;
+  if (code === 'source_unavailable') return `Import failed — ${detail}`;
+  if (code === 'job_not_previewed') return `Import failed — ${detail}`;
 
   // A 422 with field errors is validation, whatever stage we thought we were in.
   if (api?.status === 422) return `Validation failed — ${detail}`;
   if (api?.status === 401 || api?.status === 403) return `Not authorised — ${detail}`;
 
-  const stage = assumedStage === 'ingestion' ? 'Ingestion failed' : 'Upload failed';
+  const stage = assumedStage === 'ingestion' ? 'Import failed' : 'Upload failed';
 
   return api ? `${stage} (${api.status}) — ${detail}` : `${stage} — ${detail}`;
 }
@@ -108,7 +116,7 @@ function normalizePreview(value: unknown): IngestionPreview {
   };
 }
 
-export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
+export default function IngestionWorkspace({ tenantId, onNavigate }: { tenantId: string; onNavigate?: (view: View) => void }) {
   const { showToast } = useToast();
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [sources, setSources] = useState<DataSourceRow[]>([]);
@@ -116,7 +124,6 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [sourceId, setSourceId] = useState('');
-  const [importMode, setImportMode] = useState<'append' | 'merge' | 'replace' | 'new_dataset'>('append');
   const [phase, setPhase] = useState<Phase>('idle');
   const [jobId, setJobId] = useState<string | null>(null);
   const [preview, setPreview] = useState<IngestionPreview | null>(null);
@@ -135,34 +142,34 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
       .catch((e: any) => {
         if (cancelled) return;
         setSources([]);
-        setSourcesError(e?.message ?? 'Could not load saved ingestion sources.');
+        setSourcesError(e?.message ?? 'Could not load previously used sources.');
       });
     return () => { cancelled = true; };
   }, [tenantId]);
 
   const fileKind = useMemo(() => {
     const ext = file?.name.split('.').pop()?.toUpperCase() || 'FILE';
-    if (['CSV', 'XLS', 'XLSX'].includes(ext)) return { ext, icon: <FileSpreadsheet />, label: 'tabular dataset' };
+    if (['CSV', 'XLS', 'XLSX'].includes(ext)) return { ext, icon: <FileSpreadsheet />, label: 'spreadsheet' };
     if (['JSON'].includes(ext)) return { ext, icon: <FileJson />, label: 'structured document' };
     if (['XML', 'HTML', 'HTM', 'SQL'].includes(ext)) return { ext, icon: <FileCode2 />, label: 'structured text' };
-    if (['PNG', 'JPG', 'JPEG'].includes(ext)) return { ext, icon: <FileImage />, label: 'image asset' };
+    if (['PNG', 'JPG', 'JPEG'].includes(ext)) return { ext, icon: <FileImage />, label: 'image' };
     if (['ZIP'].includes(ext)) return { ext, icon: <FileArchive />, label: 'archive' };
     return { ext, icon: <FileText />, label: 'document' };
   }, [file]);
 
+  const missingRequired = useMemo(
+    () => REQUIRED_FIELDS.filter((field) => !map[field]),
+    [map],
+  );
+
   const profile = useMemo(() => {
     if (!preview) return null;
-    const requiredMapped = REQUIRED_FIELDS.filter((field) => map[field]).length;
-    const mapped = CANONICAL_FIELDS.filter((field) => map[field]).length;
-    const duplicateHeaders = preview.headers.length - new Set(preview.headers).size;
     return {
-      requiredMapped,
-      mapped,
-      duplicateHeaders,
-      quality: Math.round((mapped / CANONICAL_FIELDS.length) * 100),
-      committable: REQUIRED_FIELDS.every((field) => !!map[field]),
+      mapped: CANONICAL_FIELDS.filter((field) => map[field]).length,
+      duplicateHeaders: preview.headers.length - new Set(preview.headers).size,
+      committable: missingRequired.length === 0,
     };
-  }, [map, preview]);
+  }, [map, missingRequired, preview]);
 
   const schemaColumns = useMemo(() => {
     if (!preview?.schema?.columns) return [];
@@ -196,12 +203,12 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
       const data = await ingestionApi.upload(file, sourceId.trim());
       const normalizedPreview = normalizePreview(data.preview);
       const seeded: Record<string, string> = {};
-      for (const field of CANONICAL_FIELDS) seeded[field] = normalizedPreview.suggested_map?.[field] ?? NOT_MAPPED;
+      for (const field of CANONICAL_FIELDS) seeded[field] = normalizedPreview.suggested_map?.[field] ?? '';
       setJobId(data.job_id);
       setPreview(normalizedPreview);
       setMap(seeded);
       setPhase('previewed');
-      showToast('info', `Previewed ${normalizedPreview.row_count} row${normalizedPreview.row_count === 1 ? '' : 's'}.`);
+      showToast('info', `Read ${normalizedPreview.row_count.toLocaleString()} row${normalizedPreview.row_count === 1 ? '' : 's'}. Nothing has been imported yet.`);
     } catch (e: any) {
       setPhase('idle');
       showToast('error', describeStageFailure(e));
@@ -211,7 +218,7 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
   const autoMap = () => {
     if (!preview) return;
     const next: Record<string, string> = {};
-    for (const field of CANONICAL_FIELDS) next[field] = preview.suggested_map?.[field] ?? NOT_MAPPED;
+    for (const field of CANONICAL_FIELDS) next[field] = preview.suggested_map?.[field] ?? '';
     setMap(next);
   };
 
@@ -224,44 +231,54 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
       const data = await ingestionApi.commit(tenantId, jobId, payload, saveMap);
       setResult(data);
       setPhase('committed');
-      showToast('success', data.status === 'queued' ? `Queued ${data.total_rows ?? preview?.row_count ?? 0} rows for commit.` : `Committed ${data.committed} signals.`);
+      showToast(
+        'success',
+        data.status === 'queued'
+          ? `${(data.total_rows ?? preview?.row_count ?? 0).toLocaleString()} rows queued for import.`
+          : `Imported ${data.committed.toLocaleString()} signals.`,
+      );
     } catch (e: any) {
       setPhase('previewed');
       showToast('error', describeStageFailure(e, 'ingestion'));
     }
   };
 
-  const activeStep = phase === 'idle' ? -1 : phase === 'uploading' ? 1 : phase === 'previewed' ? 3 : phase === 'committing' ? 4 : 5;
+  // Which of the six steps the user has reached. Derived from the phase the
+  // engine is actually in, so no step lights up before its work has run.
+  const activeStep = phase === 'committed'
+    ? 5
+    : phase === 'committing'
+      ? 4
+      : phase === 'previewed'
+        ? (profile?.committable ? 3 : 2)
+        : phase === 'uploading'
+          ? 1
+          : 0;
 
   return (
     <div className="ingestion-page">
       <section className="ingestion-hero">
         <div>
-          <span className="ingestion-eyebrow">Universal AI Ingestion Engine</span>
-          <h1>Turn operational files into trusted intelligence.</h1>
-          <p>Preview source structure, validate mappings, detect quality gaps, and commit only reviewed signals and evidence.</p>
-        </div>
-        <div className="ingestion-ai-chip">
-          <Sparkles size={18} />
-          DeepSeek-ready extraction pipeline
+          <h1>Ingestion Engine</h1>
+          <p>
+            Bring this organization&apos;s data in from a file. Every row you import becomes a Signal with its
+            Evidence attached, which is what the rest of the workspace reasons over. Nothing is written until
+            you have seen the preview and confirmed the field mapping.
+          </p>
         </div>
       </section>
 
-      <section className="ingestion-format-grid">
-        {FILE_GROUPS.map((group) => (
-          <article key={group.label}>
-            <span>{group.icon}</span>
-            <strong>{group.label}</strong>
-            <small>{group.exts.join(' / ')}</small>
-          </article>
-        ))}
-      </section>
-
-      <section className="ingestion-pipeline" aria-label="AI ingestion pipeline">
-        {PIPELINE.map((step, index) => (
-          <div key={step.id} className="ingestion-pipeline-step" data-active={index <= activeStep ? 'true' : undefined}>
+      <section className="ingestion-pipeline" aria-label="Import steps">
+        {STEPS.map((step, index) => (
+          <div
+            key={step.id}
+            className="ingestion-pipeline-step"
+            data-active={index <= activeStep ? 'true' : undefined}
+            data-current={index === activeStep ? 'true' : undefined}
+          >
             <span>{step.icon}</span>
-            <strong>{step.label}</strong>
+            <strong>{index + 1}. {step.label}</strong>
+            <small>{step.detail}</small>
           </div>
         ))}
       </section>
@@ -270,11 +287,11 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
         <section className="ingestion-card ingestion-upload-card">
           <div className="ingestion-card-head">
             <div>
-              <span>Source intake</span>
-              <h2>Upload workspace</h2>
+              <span>Step 1</span>
+              <h2>Choose a file</h2>
             </div>
             <button className="eb-pill-btn" onClick={reset} disabled={phase === 'uploading' || phase === 'committing'}>
-              <RefreshCw size={14} /> Reset
+              <RefreshCw size={14} /> Start over
             </button>
           </div>
 
@@ -292,33 +309,35 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
           >
             <input ref={fileInput} type="file" accept={ACCEPTED} onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
             <span className="ingestion-drop-icon">{fileKind.icon}</span>
-            <strong>{file ? file.name : 'Drop a file or browse'}</strong>
-            <small>{file ? `${fileKind.ext} ${fileKind.label} - ${(file.size / 1024).toFixed(1)} KB` : 'CSV, XLSX, PDF, DOCX, JSON, XML, HTML, Markdown, SQL, images and archives'}</small>
+            <strong>{file ? file.name : 'Drop a file here, or click to browse'}</strong>
+            <small>
+              {file
+                ? `${fileKind.ext} ${fileKind.label} · ${(file.size / 1024).toFixed(1)} KB`
+                : 'CSV, Excel, PDF, Word, JSON, XML, HTML, Markdown, SQL, images and ZIP archives'}
+            </small>
           </button>
 
-          <div className="ingestion-form-grid">
-            <label>
-              <span>Source ID</span>
-              <input list="ingestion-source-ids" value={sourceId} onChange={(event) => setSourceId(event.target.value)} placeholder="finance-monthly-upload" />
-              <datalist id="ingestion-source-ids">
-                {sources.map((source) => <option key={source.source_key} value={source.source_key}>{source.display_name}</option>)}
-              </datalist>
-            </label>
-            <label>
-              <span>Import mode</span>
-              <select value={importMode} onChange={(event) => setImportMode(event.target.value as typeof importMode)}>
-                <option value="append">Append</option>
-                <option value="merge">Merge</option>
-                <option value="replace">Replace</option>
-                <option value="new_dataset">Create New Dataset</option>
-              </select>
-            </label>
-          </div>
+          <label className="ingestion-source-field">
+            <span>Source name</span>
+            <input
+              list="ingestion-source-ids"
+              value={sourceId}
+              onChange={(event) => setSourceId(event.target.value)}
+              placeholder="monthly-fee-export"
+            />
+            <datalist id="ingestion-source-ids">
+              {sources.map((source) => <option key={source.source_key} value={source.source_key}>{source.display_name}</option>)}
+            </datalist>
+            <small>
+              Groups this file with previous imports of the same kind, so a saved field mapping can be reused.
+              {sources.length > 0 ? ` ${sources.length} source${sources.length === 1 ? '' : 's'} already used here.` : ''}
+            </small>
+          </label>
 
-          {sourcesError && <p className="ingestion-warning">{sourcesError}. You can still type a source id.</p>}
+          {sourcesError && <p className="ingestion-warning">{sourcesError} You can still type a new source name.</p>}
 
           <button className="ingestion-primary" onClick={upload} disabled={!file || !sourceId.trim() || phase === 'uploading' || phase === 'committing'}>
-            {phase === 'uploading' ? 'Analyzing source...' : 'Upload and preview'}
+            {phase === 'uploading' ? 'Reading the file…' : 'Upload and preview'}
             <ArrowRight size={16} />
           </button>
         </section>
@@ -326,52 +345,43 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
         <section className="ingestion-card">
           <div className="ingestion-card-head">
             <div>
-              <span>AI analysis</span>
-              <h2>Schema profile</h2>
+              <span>Step 2</span>
+              <h2>What we found in the file</h2>
             </div>
-            {preview && <span className="ingestion-status">Preview only</span>}
+            {preview && <span className="ingestion-status">Nothing imported yet</span>}
           </div>
 
           {!preview ? (
             <div className="ingestion-empty">
               <SearchCheck size={30} />
-              <strong>No source analyzed yet</strong>
-              <p>The pipeline will show schema, duplicate header checks, mapping quality, and sample rows after upload.</p>
+              <strong>No file read yet</strong>
+              <p>Upload a file and this panel will show how many rows and columns it holds, what kind of data it looks like, and how complete each column is.</p>
             </div>
           ) : (
             <div className="ingestion-analysis">
               <div className="ingestion-profile">
-                <div><strong>{preview.row_count}</strong><span>Rows detected</span></div>
-                <div><strong>{preview.headers.length}</strong><span>Fields detected</span></div>
-                <div><strong>{profile?.quality ?? 0}%</strong><span>Auto-map coverage</span></div>
-                <div><strong>{profile?.duplicateHeaders ?? 0}</strong><span>Duplicate headers</span></div>
+                <div><strong>{preview.row_count.toLocaleString()}</strong><span>Rows in the file</span></div>
+                <div><strong>{preview.headers.length}</strong><span>Columns found</span></div>
+                <div><strong>{profile?.mapped ?? 0} / {CANONICAL_FIELDS.length}</strong><span>Fields mapped</span></div>
+                <div><strong>{profile?.duplicateHeaders ?? 0}</strong><span>Repeated column names</span></div>
               </div>
 
               {preview.schema && (
                 <>
                   <div className="ingestion-schema-summary">
                     <div>
-                      <span>Dataset</span>
-                      <strong>{preview.schema.dataset_type}</strong>
+                      <span>Looks like</span>
+                      <strong>{preview.schema.dataset_type || 'Unrecognised'}</strong>
                     </div>
                     <div>
-                      <span>Domain</span>
-                      <strong>{preview.schema.domain}</strong>
+                      <span>Subject area</span>
+                      <strong>{preview.schema.domain || 'Unrecognised'}</strong>
                     </div>
                     <div>
-                      <span>Confidence</span>
-                      <strong>{Math.round(preview.schema.confidence * 100)}%</strong>
+                      <span>How sure</span>
+                      <strong>{Math.round((preview.schema.confidence ?? 0) * 100)}%</strong>
                     </div>
                   </div>
-
-                  {preview.schema.primary_key_candidates.length > 0 && (
-                    <div className="ingestion-schema-block">
-                      <span>Primary key candidates</span>
-                      <div className="ingestion-chip-row">
-                        {preview.schema.primary_key_candidates.map((candidate) => <code key={candidate}>{candidate}</code>)}
-                      </div>
-                    </div>
-                  )}
 
                   {schemaColumns.length > 0 && (
                     <div className="ingestion-column-list">
@@ -381,7 +391,7 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
                             <strong>{name}</strong>
                             <span>{column.inferred_type}</span>
                           </div>
-                          <small>{column.unique_count} unique, {Math.round(column.null_fraction * 100)}% empty</small>
+                          <small>{column.unique_count.toLocaleString()} distinct values · {Math.round(column.null_fraction * 100)}% empty</small>
                         </article>
                       ))}
                     </div>
@@ -397,10 +407,10 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
         <section className="ingestion-card">
           <div className="ingestion-card-head">
             <div>
-              <span>Mapping studio</span>
-              <h2>Auto mapping and validation</h2>
+              <span>Step 3</span>
+              <h2>Map your columns to the fields we store</h2>
             </div>
-            <button className="eb-pill-btn" onClick={autoMap}><Wand2 size={14} /> Auto Mapping</button>
+            <button className="eb-pill-btn" onClick={autoMap}><Wand2 size={14} /> Use suggested mapping</button>
           </div>
 
           <div className="ingestion-mapping-grid">
@@ -410,11 +420,11 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
               return (
                 <label key={field} data-missing={missing ? 'true' : undefined}>
                   <span>
-                    {field}{required ? ' *' : ''}
-                    <small>{FIELD_HELP[field]}</small>
+                    {FIELD_LABELS[field].name}{required ? ' (required)' : ''}
+                    <small>{FIELD_LABELS[field].help}</small>
                   </span>
-                  <select value={map[field] ?? NOT_MAPPED} onChange={(event) => setMap((current) => ({ ...current, [field]: event.target.value }))}>
-                    <option value={NOT_MAPPED}>Not mapped</option>
+                  <select value={map[field] ?? ''} onChange={(event) => setMap((current) => ({ ...current, [field]: event.target.value }))}>
+                    <option value="">Not mapped</option>
                     {preview.headers.map((header) => <option key={header} value={header}>{header}</option>)}
                   </select>
                 </label>
@@ -425,9 +435,13 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
           <div className="ingestion-validation-row">
             <label>
               <input type="checkbox" checked={saveMap} onChange={(event) => setSaveMap(event.target.checked)} />
-              Save mapping for this source
+              Remember this mapping for the next file from this source
             </label>
-            <span>{profile?.committable ? 'Required fields mapped' : `Map ${REQUIRED_FIELDS.filter((field) => !map[field]).join(' and ')} before commit`}</span>
+            <span data-ok={profile?.committable ? 'true' : undefined}>
+              {profile?.committable
+                ? 'All required fields are mapped. You can import.'
+                : `Map ${missingRequired.map((f) => FIELD_LABELS[f].name).join(' and ')} before importing.`}
+            </span>
           </div>
         </section>
       )}
@@ -436,10 +450,10 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
         <section className="ingestion-card">
           <div className="ingestion-card-head">
             <div>
-              <span>Preview</span>
-              <h2>Sample records</h2>
+              <span>Steps 4 and 5</span>
+              <h2>Check the first rows, then import</h2>
             </div>
-            <span className="ingestion-status">{preview.sync_type}</span>
+            {preview.sync_type && <span className="ingestion-status">{preview.sync_type}</span>}
           </div>
           <div className="ingestion-preview-table">
             <table>
@@ -456,9 +470,12 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
             </table>
           </div>
           <div className="ingestion-commit-row">
-            <p>Mode: <strong>{importMode.replace('_', ' ')}</strong>. Current backend commits reviewed rows into Signals and Evidence; dataset/table creation remains a governed backend workflow.</p>
+            <p>
+              Importing writes one Signal per row, with the mapped evidence text attached to it. Rows that
+              already exist under the same source reference are skipped rather than duplicated.
+            </p>
             <button className="ingestion-primary" onClick={commit} disabled={!profile?.committable || phase === 'committing'}>
-              {phase === 'committing' ? 'Committing...' : `Commit ${preview.row_count} rows`}
+              {phase === 'committing' ? 'Importing…' : `Import ${preview.row_count.toLocaleString()} rows`}
               <CheckCircle2 size={16} />
             </button>
           </div>
@@ -468,13 +485,23 @@ export default function IngestionWorkspace({ tenantId }: { tenantId: string }) {
       {result && (
         <section className="ingestion-card ingestion-result">
           <div>
-            <span>{result.status === 'queued' ? 'Queued' : 'Completed'}</span>
-            <h2>{result.status === 'queued' ? `${result.total_rows ?? 0} rows queued` : `${result.committed} committed, ${result.errors} errors, ${result.skipped} skipped`}</h2>
-            <p>{result.status === 'queued' ? result.message ?? 'Track this import job from the import center.' : `Job ${jobId}. Created signal ids are shown for traceability.`}</p>
+            <span>Step 6</span>
+            <h2>
+              {result.status === 'queued'
+                ? `${(result.total_rows ?? 0).toLocaleString()} rows queued for import`
+                : `${result.committed.toLocaleString()} imported`}
+            </h2>
+            <p>
+              {result.status === 'queued'
+                ? result.message ?? 'This file is large enough to import in the background. It will keep going after you leave this page.'
+                : `${result.skipped.toLocaleString()} skipped as already present, ${result.errors.toLocaleString()} rejected.`}
+            </p>
           </div>
-          <div className="ingestion-signal-list">
-            {result.signal_ids.length > 0 ? result.signal_ids.map((id) => <code key={id}>{id}</code>) : <span>No signal ids returned yet.</span>}
-          </div>
+          {result.status !== 'queued' && result.committed > 0 && onNavigate && (
+            <button className="ingestion-primary" onClick={() => onNavigate('signals')}>
+              <Radio size={16} /> View the imported signals
+            </button>
+          )}
         </section>
       )}
     </div>

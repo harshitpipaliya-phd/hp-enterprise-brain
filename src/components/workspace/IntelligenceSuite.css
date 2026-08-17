@@ -65,7 +65,6 @@
 .intel-stat-grid,
 .intel-summary-list,
 .intel-trend-grid,
-.intel-execution-pipeline,
 .intel-funnel,
 .intel-loop-grid,
 .intel-value-summary,
@@ -492,10 +491,6 @@
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border-subtle, #eadfcd);
-}
-
-.intel-execution-pipeline {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .intel-execution-layout {
@@ -1502,4 +1497,76 @@
   flex-direction: column;
   gap: 4px;
   color: var(--content-secondary, #576273);
+}
+
+/**
+ * Absence in a table cell.
+ *
+ * These cells used to read "Insufficient data", which is a sentence about the
+ * dataset sitting where the reader expects a value, and it is wrong besides:
+ * an execution with no recorded owner is not a data-sufficiency problem, it is
+ * an owner nobody filled in. The cell now names the absence and stays visually
+ * quiet, so a column of them scans as gaps rather than as errors.
+ */
+.intel-muted {
+  color: var(--content-tertiary);
+  font-style: italic;
+}
+
+/**
+ * The whole-page empty state, for an organization that has produced no
+ * intelligence at all.
+ *
+ * One paragraph explaining why, and the action that changes it — rather than
+ * eleven panels each separately reporting that its own corner is empty, which
+ * is what a section-by-section empty state produced on a fresh tenant.
+ */
+.intel-blank-slate {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: clamp(40px, 8vw, 88px) var(--space-5, 16px);
+  text-align: center;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+}
+
+.intel-blank-slate svg {
+  color: var(--content-tertiary);
+}
+
+.intel-blank-slate h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.intel-blank-slate p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--content-secondary);
+  line-height: 1.65;
+}
+
+.intel-blank-slate button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A sentence drawing the conclusion from the figures directly above it. */
+.intel-section-note {
+  max-width: 92ch;
+  margin: var(--space-4, 16px) 0 0;
+  color: var(--content-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.intel-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
 }

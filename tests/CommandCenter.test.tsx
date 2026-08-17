@@ -1,16 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CommandCenter from '../src/components/workspace/CommandCenter';
 
-const getExecutiveSummary = vi.fn();
 const getHomeMetrics = vi.fn();
-const missingEvidence = vi.fn();
-const duplicateSignals = vi.fn();
-const unreadCount = vi.fn();
-const executions = vi.fn();
-const providers = vi.fn();
-const listRegistry = vi.fn();
 const listCapabilities = vi.fn();
 const listDepartments = vi.fn();
 const getStructure = vi.fn();
@@ -19,40 +12,10 @@ const getAuditLogs = vi.fn();
 const updateOrganization = vi.fn();
 const archiveOrganization = vi.fn();
 const listSources = vi.fn();
-const listSignals = vi.fn();
 
 vi.mock('../src/api/intelligence', () => ({
   api: {
     getHomeMetrics: (...args: unknown[]) => getHomeMetrics(...args),
-  },
-  decisionIntelligenceApi: {
-    getExecutiveSummary: (...args: unknown[]) => getExecutiveSummary(...args),
-  },
-}));
-
-vi.mock('../src/api/reasoning-engine', () => ({
-  reasoningEngineApi: {
-    missingEvidence: (...args: unknown[]) => missingEvidence(...args),
-    duplicateSignals: (...args: unknown[]) => duplicateSignals(...args),
-  },
-}));
-
-vi.mock('../src/api/notification', () => ({
-  notificationApi: {
-    unreadCount: (...args: unknown[]) => unreadCount(...args),
-  },
-}));
-
-vi.mock('../src/api/ai', () => ({
-  aiApi: {
-    executions: (...args: unknown[]) => executions(...args),
-    providers: (...args: unknown[]) => providers(...args),
-  },
-}));
-
-vi.mock('../src/api/task', () => ({
-  taskApi: {
-    listRegistry: (...args: unknown[]) => listRegistry(...args),
   },
 }));
 
@@ -84,12 +47,6 @@ vi.mock('../src/api/ingestion', () => ({
   },
 }));
 
-vi.mock('../src/api/signal', () => ({
-  api: {
-    listSignals: (...args: unknown[]) => listSignals(...args),
-  },
-}));
-
 const organization = {
   id: '1000000',
   tenantId: '1000000',
@@ -107,61 +64,67 @@ const organization = {
   updatedDate: '2026-08-10T00:00:00Z',
 };
 
+/** The loop counts the server returns for this tenant, verbatim. */
+const PIPELINE_COUNTS = {
+  operationalRecords: 27000,
+  signals: 15002,
+  evidence: 375,
+  cases: 0,
+  hypotheses: 0,
+  recommendations: 0,
+  decisions: 0,
+  executions: 0,
+  outcomes: 0,
+  learnings: 0,
+};
+
 describe('CommandCenter organization overview', () => {
   beforeEach(() => {
-    getExecutiveSummary.mockReset().mockResolvedValue({
-      intelligenceScore: {
-        score: null,
-        measuredComponents: 0,
-        unmeasuredComponents: 4,
-        basis: null,
-      },
-      pendingRecommendations: [],
-      openDecisionsCount: 0,
-      topRisks: [],
-    });
     getHomeMetrics.mockReset().mockResolvedValue({
       erp: {
-        activePeople: 0,
-        activeDepartments: 0,
-        peopleWithoutDepartment: 0,
+        activePeople: 1001,
+        activeDepartments: 12,
+        peopleWithoutDepartment: 4,
         departmentsWithoutManager: 0,
         peopleWithoutProfile: 0,
       },
-      intelligence: {
-        openSignals: 0,
-        highSignals: 0,
-        pendingRecommendations: 0,
-        openDecisions: 0,
+      pipeline: {
+        stage: 'signals_detected',
+        blocker: 'Signals exist, but no case has been opened yet.',
+        nextAction: 'Open cases for the real fired signals.',
+        counts: PIPELINE_COUNTS,
       },
-      attention: [],
-      dataFreshness: {
-        erp: 'live',
-        brain: '2026-08-14 00:00:00',
-      },
+      attention: [
+        {
+          id: 'people-without-dept',
+          title: '4 students without a class section',
+          description: 'Students with no class section sit outside every rollup this system produces.',
+          severity: 'medium',
+          link: 'people',
+          metric: 4,
+        },
+      ],
+      dataFreshness: { erp: 'live', brain: '2026-08-14 00:00:00' },
     });
-    missingEvidence.mockReset().mockResolvedValue({ count: 0 });
-    duplicateSignals.mockReset().mockResolvedValue({ count: 0 });
-    unreadCount.mockReset().mockResolvedValue({ count: 0 });
-    executions.mockReset().mockResolvedValue([]);
-    providers.mockReset().mockResolvedValue({ providers: [] });
-    listRegistry.mockReset().mockResolvedValue([]);
-    listCapabilities.mockReset().mockResolvedValue([]);
-    listDepartments.mockReset().mockResolvedValue([]);
+    listCapabilities.mockReset().mockResolvedValue([{ id: 'cap-1', name: 'Fee collection' }]);
+    listDepartments.mockReset().mockResolvedValue([{ id: 'dept-1', name: 'Administration', status: 'active' }]);
     getStructure.mockReset().mockResolvedValue({
       departments: [{ id: 'dept-1', name: 'Administration', status: 'active' }],
       peopleByDepartment: { 'dept-1': 3 },
       heads: {},
     });
     getDataQuality.mockReset().mockResolvedValue({ score: 88, totalPeople: 3, totalDepartments: 1, issues: [] });
-    getAuditLogs.mockReset().mockResolvedValue([{ id: 'audit-1', action: 'Organization updated', actorName: 'Admin', createdDate: '2026-08-12T00:00:00Z' }]);
-    listSources.mockReset().mockResolvedValue([{ source_key: 'fees', display_name: 'Fees Data', source_type: 'csv', is_active: true }]);
-    listSignals.mockReset().mockResolvedValue([{ id: 'sig-1', title: 'Low attendance', severity: 'medium', status: 'open' }]);
+    getAuditLogs.mockReset().mockResolvedValue([
+      { id: 'audit-1', action: 'organization_updated', actorName: 'Admin', createdDate: '2026-08-12T00:00:00Z' },
+    ]);
+    listSources.mockReset().mockResolvedValue([
+      { source_key: 'fees', display_name: 'Fees Data', source_type: 'csv', is_active: true },
+    ]);
     archiveOrganization.mockReset().mockResolvedValue({ ok: true });
     updateOrganization.mockReset();
   });
 
-  it('keeps the full organization overview visible when intelligence data is empty and opens ingestion in the same tenant context', async () => {
+  it('renders the organization, its real counts and its attention queue, and opens ingestion in the same tenant context', async () => {
     const onNavigate = vi.fn();
 
     render(
@@ -174,28 +137,104 @@ describe('CommandCenter organization overview', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Sunrise International School' })).toBeTruthy();
-    expect(screen.getByLabelText('Organization overview KPIs')).toBeTruthy();
-    expect(screen.getByText('Organization information')).toBeTruthy();
-    expect(screen.getByText('Administration')).toBeTruthy();
-    expect(screen.getByText('Fees Data')).toBeTruthy();
-    expect(screen.getByText('Low attendance')).toBeTruthy();
-    expect(screen.getByText('Structure, coverage, and operating completeness')).toBeTruthy();
-    expect(screen.getByLabelText('Operational pulse')).toBeTruthy();
-    expect(screen.getByText('Signal to execution pipeline')).toBeTruthy();
-    expect(screen.getByText('Profile, structure, quality, and audit')).toBeTruthy();
-    expect(screen.queryByText('Welcome to Enterprise Brain')).toBeNull();
-    expect(screen.queryByText('No organizational intelligence has been generated yet.')).toBeNull();
+
+    // Identity and the record card, each appearing exactly once on the page.
+    expect(screen.getByText('Sunrise International School Trust')).toBeTruthy();
+    expect(screen.getByLabelText('What this organization contains')).toBeTruthy();
+
+    // Supporting collections resolved from their own endpoints, each in its own
+    // panel. Scoped rather than global, because the department also appears in
+    // the structure table below and a bare text query cannot tell them apart.
+    expect(within(await screen.findByLabelText('Departments')).getByText('Administration')).toBeTruthy();
+    expect(within(screen.getByLabelText('Data sources')).getByText('Fees Data')).toBeTruthy();
+
+    // The attention queue is the server's, including its tenant vocabulary.
+    expect(screen.getByText('4 students without a class section')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /Open Ingestion Engine/i }));
-
     expect(onNavigate).toHaveBeenCalledWith('ingestion');
+
     await waitFor(() => expect(getHomeMetrics).toHaveBeenCalledWith('1000000'));
     expect(listCapabilities).toHaveBeenCalledWith('1000000', '1000000');
     expect(listDepartments).toHaveBeenCalledWith('1000000', '1000000');
     expect(getStructure).toHaveBeenCalledWith('1000000', '1000000');
-    expect(getDataQuality).toHaveBeenCalledWith('1000000', '1000000');
-    expect(getAuditLogs).toHaveBeenCalledWith('1000000', '1000000');
     expect(listSources).toHaveBeenCalledWith('1000000');
-    expect(listSignals).toHaveBeenCalledWith('1000000');
+  });
+
+  /**
+   * The regression this file exists for.
+   *
+   * The strip used to be captioned "Signal to execution pipeline" and its
+   * Signals box showed `risks + qualityAlerts + pendingRecommendations` — for
+   * this tenant, 0 — while the tenant actually held 15,002 signals. Asserting
+   * the published number equals the server's count is what stops a figure from
+   * drifting away from its own label again.
+   */
+  it('publishes the loop counts the server returned, not figures assembled on the client', async () => {
+    render(
+      <CommandCenter
+        tenantId="1000000"
+        organizationName="Sunrise International School"
+        organization={organization}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    const strip = await screen.findByLabelText('Progress through the intelligence loop');
+
+    for (const [label, count] of [
+      ['Records', PIPELINE_COUNTS.operationalRecords],
+      ['Signals', PIPELINE_COUNTS.signals],
+      ['Evidence', PIPELINE_COUNTS.evidence],
+      ['Cases', PIPELINE_COUNTS.cases],
+    ] as Array<[string, number]>) {
+      const stage = within(strip).getByRole('button', { name: new RegExp(`^${label}`) });
+      expect(stage.textContent).toContain(count.toLocaleString());
+    }
+
+    // The server's own next step, rather than a status sentence invented here.
+    expect(screen.getByText(/Open cases for the real fired signals/)).toBeTruthy();
+  });
+
+  it('navigates from a loop stage to the screen that owns it', async () => {
+    const onNavigate = vi.fn();
+
+    render(
+      <CommandCenter
+        tenantId="1000000"
+        organizationName="Sunrise International School"
+        organization={organization}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    const strip = await screen.findByLabelText('Progress through the intelligence loop');
+    fireEvent.click(within(strip).getByRole('button', { name: /^Signals/ }));
+
+    expect(onNavigate).toHaveBeenCalledWith('signals');
+  });
+
+  it('loads data quality and audit only when their tab is opened', async () => {
+    render(
+      <CommandCenter
+        tenantId="1000000"
+        organizationName="Sunrise International School"
+        organization={organization}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole('heading', { name: 'Sunrise International School' });
+    expect(getDataQuality).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Data quality' }));
+    await waitFor(() => expect(getDataQuality).toHaveBeenCalledWith('1000000', '1000000'));
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Audit' }));
+    await waitFor(() => expect(getAuditLogs).toHaveBeenCalledWith('1000000', '1000000'));
+
+    // Column names never reach the reader: `organization_updated` is shown as a
+    // sentence, not as the string the audit table stores.
+    expect(await screen.findByText('Organization updated')).toBeTruthy();
   });
 });

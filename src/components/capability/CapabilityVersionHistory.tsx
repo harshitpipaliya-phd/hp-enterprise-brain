@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Capability } from './CapabilityApp';
 import { api } from '../../api/capability';
+import { formatDateTime } from '../workspace/intelligenceShared';
 
 interface Props {
   capability: Capability;
@@ -35,7 +36,7 @@ export default function CapabilityVersionHistory({ capability, onBack }: Props) 
               <tr key={v.version}>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>v{v.version}</td>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{v.name}</td>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{new Date(v.createdDate).toLocaleString()}</td>
+                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{formatDateTime(v.createdDate)}</td>
               </tr>
             ))}
           </tbody>

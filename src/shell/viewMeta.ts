@@ -46,7 +46,7 @@ export const SECTIONS: SectionId[] = [
 
 /** Every one of the 31 View values, exhaustively — the Record type enforces it. */
 export const VIEW_META: Record<View, ViewMeta> = {
-  home:             { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, description: 'Organization health, structure, intelligence, quality, and audit in one view.' },
+  home:             { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, description: 'What this organization contains, and how far its data has travelled through the loop.' },
   // Retained as an alias so a session persisted by an earlier build still
   // resolves. Hidden, because Command Center already has a nav entry as 'home'.
   commandcenter:    { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, hidden: true },
@@ -56,16 +56,16 @@ export const VIEW_META: Record<View, ViewMeta> = {
   edit:             { label: 'Edit Organization', section: 'Foundation', icon: Building2, requiresOrg: true, hidden: true, parent: 'list' },
   details:          { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, hidden: true },
   archive:          { label: 'Archive Organization', section: 'Foundation', icon: Building2, requiresOrg: true, hidden: true, parent: 'list' },
-  departments:      { label: 'Departments', section: 'Foundation', icon: FolderTree, requiresOrg: true, description: 'Organizational units and their reporting structure.' },
-  people:           { label: 'People', section: 'Foundation', icon: Users, requiresOrg: true, description: 'Everyone recorded in this organization.' },
-  capabilities:     { label: 'Capabilities', section: 'Foundation', icon: Target, requiresOrg: true, description: 'Capabilities, competencies and proficiency.' },
-  ingestion:        { label: 'Ingestion', section: 'Foundation', icon: Upload, requiresOrg: true, description: 'Bring a CSV in as Signals and Evidence.' },
+  departments:      { label: 'Departments', section: 'Foundation', icon: FolderTree, requiresOrg: true, description: 'How the organization is structured, and who leads each unit.' },
+  people:           { label: 'People', section: 'Foundation', icon: Users, requiresOrg: true, description: 'Everyone recorded in this organization, and whose record is incomplete.' },
+  capabilities:     { label: 'Capabilities', section: 'Foundation', icon: Target, requiresOrg: true, description: 'What people need to be able to do, and who is assigned to each.' },
+  ingestion:        { label: 'Ingestion', section: 'Foundation', icon: Upload, requiresOrg: true, description: 'Bring this organization’s data in from a file.' },
 
-  signals:          { label: 'Signals', section: 'Intelligence Loop', icon: Radio, requiresOrg: true, description: 'Raw observations entering the loop.' },
-  evidence:         { label: 'Evidence', section: 'Intelligence Loop', icon: FileSearch, requiresOrg: true, description: 'What supports each claim, and how firmly.' },
-  deliberation:     { label: 'Deliberation', section: 'Intelligence Loop', icon: Scale, requiresOrg: true, description: 'Cases under active reasoning.' },
-  workspace:        { label: 'Intelligence Workspace', section: 'Intelligence Loop', icon: Brain, requiresOrg: true, description: 'The working surface for the reasoning loop.' },
-  executions:       { label: 'Execution Center', section: 'Intelligence Loop', icon: Workflow, requiresOrg: true, description: 'Approved actions and their progress.' },
+  signals:          { label: 'Signals', section: 'Intelligence Loop', icon: Radio, requiresOrg: true, description: 'What the data has flagged, and who it concerns.' },
+  evidence:         { label: 'Evidence', section: 'Intelligence Loop', icon: FileSearch, requiresOrg: true, description: 'What supports each signal, and how firmly it is held.' },
+  deliberation:     { label: 'Deliberation', section: 'Intelligence Loop', icon: Scale, requiresOrg: true, description: 'Open investigations and the decisions waiting on them.' },
+  workspace:        { label: 'Intelligence Workspace', section: 'Intelligence Loop', icon: Brain, requiresOrg: true, description: 'What this organization currently knows about itself.' },
+  executions:       { label: 'Execution Center', section: 'Intelligence Loop', icon: Workflow, requiresOrg: true, description: 'What has been done about approved decisions, and the result.' },
 
   executive:        { label: 'Executive Dashboard', section: 'Analytics', icon: Gauge, requiresOrg: true, description: 'Organization health at a glance.' },
   analytics:        { label: 'Decision Analytics', section: 'Analytics', icon: ChartNoAxesColumn, requiresOrg: true, description: 'How decisions are performing over time.' },

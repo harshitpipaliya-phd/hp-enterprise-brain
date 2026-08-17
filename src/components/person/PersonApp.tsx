@@ -138,9 +138,9 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
     <div className="people-app">
       <header className="people-app-header">
         <div>
-          <button className="eb-pill-btn" onClick={onBack}>Back to Organizations</button>
-          <h1>People Intelligence</h1>
-          <p>{organization.name}</p>
+          <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
+          <h1>People</h1>
+          <p>Everyone recorded in {organization.name}. Open a person to see their profile, department and recorded activity.</p>
         </div>
         {view === 'list' && <button onClick={() => navigate('create')}>+ New Person</button>}
       </header>

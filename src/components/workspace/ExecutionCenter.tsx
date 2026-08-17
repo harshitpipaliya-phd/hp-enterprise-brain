@@ -10,6 +10,33 @@ import './IntelligenceSuite.css';
 type ExecutionOverview = any;
 type EsoDefinition = { id: string; name: string; esoCode?: string; status?: string };
 
+/**
+ * A measurement map read out as a sentence.
+ *
+ * The endpoint returns whatever metric names the outcome was recorded against —
+ * `{ "collection rate": { target: 0.8, actual: 0.62 } }` or a flat
+ * `{ "collection rate": 0.62 }` — because the metric is chosen per execution by
+ * the person recording it. Neither shape is known ahead of time, which is how
+ * `JSON.stringify` came to be the renderer here.
+ */
+function describeMeasurements(value: unknown): string {
+  if (!value || typeof value !== 'object') return 'No measurement was recorded for this execution.';
+
+  const parts = Object.entries(value as Record<string, unknown>).map(([metric, reading]) => {
+    if (reading && typeof reading === 'object') {
+      const row = reading as Record<string, unknown>;
+      const target = row.target ?? row.expected ?? row.predicted;
+      const actual = row.actual ?? row.realized ?? row.value;
+      if (target !== undefined && actual !== undefined) return `${metric}: ${formatNumber(actual)} against a target of ${formatNumber(target)}`;
+      if (actual !== undefined) return `${metric}: ${formatNumber(actual)}`;
+      return null;
+    }
+    return reading === null || reading === undefined ? null : `${metric}: ${formatNumber(reading)}`;
+  }).filter((part): part is string => part !== null);
+
+  return parts.length > 0 ? parts.join(' · ') : 'No measurement was recorded for this execution.';
+}
+
 export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
   const [data, setData] = useState<ExecutionOverview | null>(null);
   const [definitions, setDefinitions] = useState<EsoDefinition[]>([]);
@@ -186,9 +213,9 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
     <div className="intel-page intel-execution">
       <header className="intel-header">
         <div>
-          <span className="intel-eyebrow"><PlayCircle size={14} /> Operations Control Room</span>
+          <span className="intel-eyebrow"><PlayCircle size={14} /> Intelligence Loop</span>
           <h1>Execution Center</h1>
-          <p>Monitor whether approved decisions become real execution, whether execution stays healthy, and whether outcomes are measured before success is claimed.</p>
+          <p>What has actually been done about the decisions this organization approved, and what the result was.</p>
           <div className="intel-meta">
             <div className="intel-meta-card">
               <span>Organization</span>
@@ -197,7 +224,7 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
             </div>
             <div className="intel-meta-card">
               <span>Primary Bottleneck</span>
-              <strong>{data.bottlenecks?.primary?.label || 'Insufficient data'}</strong>
+              <strong>{data.bottlenecks?.primary?.label || 'Nothing is blocked'}</strong>
               <small>{formatNumber(data.bottlenecks?.primary?.count)} affected</small>
             </div>
             <div className="intel-meta-card">
@@ -208,24 +235,29 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
           </div>
         </div>
 
+        {/* A bare "NA" in 48pt type reads as a measured value. When nothing has
+            completed, say so in words instead. */}
         <div className="intel-score-card">
-          <span className="intel-subtle">Execution Success Rate</span>
-          <strong>{data.summary?.successRate != null ? `${Math.round(data.summary.successRate * 100)}` : 'NA'}</strong>
-          <p>{data.summary?.outcomeMeasurementRate != null ? `${formatPercent(data.summary.outcomeMeasurementRate)} of completed runs have measured outcomes` : 'Outcome measurement rate is not available yet.'}</p>
+          <span className="intel-subtle">Executions that succeeded</span>
+          {data.summary?.successRate != null ? (
+            <>
+              <strong>{Math.round(data.summary.successRate * 100)}%</strong>
+              <p>
+                {data.summary?.outcomeMeasurementRate != null
+                  ? `${formatPercent(data.summary.outcomeMeasurementRate)} of completed runs have a measured outcome.`
+                  : 'No completed run has a measured outcome yet.'}
+              </p>
+            </>
+          ) : (
+            <p>Nothing has completed yet, so there is no success rate to report.</p>
+          )}
           {refreshing && <div className="intel-refresh-chip" data-variant="execution">Refreshing execution pipeline…</div>}
         </div>
       </header>
 
-      <section className="intel-section">
-        <div className="intel-execution-pipeline">
-          {data.pipeline?.map((stage: any) => (
-            <div key={stage.label} className="intel-status-card" data-tone={badgeTone(stage.label === 'Completed' ? 'completed' : stage.label === 'Running' ? 'running' : 'pending')}>
-              <span className="intel-kpi-label">{stage.label}</span>
-              <strong className="intel-number">{formatNumber(stage.count)}</strong>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* The pipeline strip that stood here showed Queued / Running / Completed,
+          which the Execution Health grid below already reports alongside the
+          four counts it does not. One of the two had to go. */}
 
       {(actionError || actionMessage) && (
         <section className="intel-section">
@@ -329,7 +361,7 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
             })}
           </div>
         ) : (
-          <EmptyState icon="O" message="No approved decisions are waiting for execution." />
+          <EmptyState icon="○" message="No approved decision is waiting to be carried out. Approve one in Deliberation and it will appear here." />
         )}
       </section>
 
@@ -348,8 +380,8 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
             ['Completed', data.summary?.completedExecutions],
             ['Failed', data.summary?.failedExecutions],
             ['Rolled Back', data.summary?.rolledBackExecutions],
-            ['Average Execution Time', data.summary?.averageExecutionHours != null ? `${data.summary.averageExecutionHours}h` : 'Insufficient data'],
-            ['Outcome Measurement', data.summary?.outcomeMeasurementRate != null ? formatPercent(data.summary.outcomeMeasurementRate) : 'Insufficient data'],
+            ['Average Execution Time', data.summary?.averageExecutionHours != null ? `${data.summary.averageExecutionHours}h` : 'Nothing completed yet'],
+            ['Outcome Measurement', data.summary?.outcomeMeasurementRate != null ? formatPercent(data.summary.outcomeMeasurementRate) : 'Nothing measured yet'],
           ].map(([label, value]) => (
             <article key={String(label)} className="intel-kpi" data-tone={badgeTone(String(label).includes('Failed') ? 'failed' : String(label).includes('Completed') ? 'completed' : 'running')}>
               <span className="intel-kpi-label">{label}</span>
@@ -396,14 +428,14 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
                   <tr key={row.id}>
                     <td>{row.execution}</td>
                     <td>{row.decision}</td>
-                    <td>{row.owner || 'Insufficient data'}</td>
-                    <td>{row.department || 'Insufficient data'}</td>
+                    <td>{row.owner || <span className="intel-muted">Not recorded</span>}</td>
+                    <td>{row.department || <span className="intel-muted">Not recorded</span>}</td>
                     <td><span className="intel-pill" data-tone={badgeTone(row.status)}>{row.status}</span></td>
-                    <td>{row.progress != null ? formatPercent(row.progress) : 'Insufficient data'}</td>
+                    <td>{row.progress != null ? formatPercent(row.progress) : <span className="intel-muted">—</span>}</td>
                     <td>{formatDateTime(row.started)}</td>
-                    <td>{row.durationDays != null ? `${row.durationDays} days` : 'Insufficient data'}</td>
+                    <td>{row.durationDays != null ? `${row.durationDays} days` : <span className="intel-muted">—</span>}</td>
                     <td><span className="intel-mini-badge" data-tone={badgeTone(row.risk)}>{row.risk}</span></td>
-                    <td>{row.outcomeStatus || 'Outcome not measured'}</td>
+                    <td>{row.outcomeStatus || <span className="intel-muted">Not measured yet</span>}</td>
                     <td>
                       <div className="intel-inline-actions">
                         {row.status === 'running' && <button type="button" onClick={() => completeExecution(row.id)}><CheckCircle2 size={14} /> Complete</button>}
@@ -482,7 +514,7 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={11}>No executions match the current filter.</td>
+                    <td colSpan={11}>No execution matches this filter.</td>
                   </tr>
                 )}
               </tbody>
@@ -564,13 +596,19 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
             {data.outcomeLoop?.length ? data.outcomeLoop.map((item: any) => (
               <article key={item.executionId} className="intel-summary-item">
                 <div className="intel-inline-list">
-                  <strong>{item.executionId}</strong>
+                  <strong>{item.label || item.decision || `Execution ${String(item.executionId).slice(0, 8)}`}</strong>
                   <span className="intel-pill" data-tone={badgeTone(item.outcome)}>{item.outcome}</span>
                 </div>
-                <p>{item.targetVsActual ? JSON.stringify(item.targetVsActual) : 'Outcome not measured'}</p>
-                <small>{formatNumber(item.learningCount)} learning record(s), {formatNumber(item.reusableLearningCount)} reusable</small>
+                {/* Was `JSON.stringify(item.targetVsActual)`, which put a raw
+                    object literal on screen — {"collection rate":0.62} — in the
+                    one place a reader is looking for the result. */}
+                <p>{describeMeasurements(item.targetVsActual)}</p>
+                <small>
+                  {formatNumber(item.learningCount)} learning record{Number(item.learningCount) === 1 ? '' : 's'} kept
+                  {Number(item.reusableLearningCount) > 0 ? `, ${formatNumber(item.reusableLearningCount)} reusable elsewhere` : ''}
+                </small>
               </article>
-            )) : <EmptyState icon="○" message="No completed execution outcomes are available yet." />}
+            )) : <EmptyState icon="○" message="No execution has been completed and measured yet. Results appear here once an outcome is recorded above." />}
           </div>
         </div>
       </section>

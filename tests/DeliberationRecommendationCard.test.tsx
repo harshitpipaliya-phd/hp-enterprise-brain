@@ -263,7 +263,7 @@ describe('Deliberation workspace — Fee Intelligence card', () => {
     render(<DeliberationWorkspace tenantId="8" />);
 
     expect(
-      await screen.findByText('No recommendation has been produced for this case yet.'),
+      await screen.findByText('Nothing has been recommended for this case yet.'),
     ).toBeInTheDocument();
   });
 });

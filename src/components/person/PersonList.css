@@ -71,58 +71,6 @@
   gap: var(--space-5);
 }
 
-.people-hero {
-  position: relative;
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-5);
-  min-height: 220px;
-  padding: clamp(28px, 4vw, 44px);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 86% 20%, rgba(201, 162, 77, 0.16), transparent 34%),
-    linear-gradient(135deg, var(--eb-white) 0%, var(--eb-cream-100) 54%, var(--eb-cream-200) 100%);
-  color: var(--content-primary);
-  border: 1px solid var(--border-default);
-  box-shadow: var(--shadow-sm);
-}
-
-.people-hero::before,
-.people-hero::after {
-  content: '';
-  position: absolute;
-  pointer-events: none;
-}
-
-.people-hero::before {
-  inset: 18px 18px auto auto;
-  width: 210px;
-  height: 210px;
-  border-radius: 999px;
-  border: 1px solid rgba(201, 162, 77, 0.18);
-  box-shadow: inset 0 0 0 28px rgba(201, 162, 77, 0.04);
-}
-
-.people-hero::after {
-  inset: -30% auto -30% 42%;
-  width: 420px;
-  background: linear-gradient(105deg, transparent 18%, rgba(255,255,255,0.10), transparent 62%);
-  transform: translateX(-100%);
-  animation: people-sheen 8s ease-in-out infinite;
-}
-
-@keyframes people-sheen {
-  0%, 55% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.people-hero > * {
-  position: relative;
-  z-index: 1;
-}
-
 .people-eyebrow {
   display: block;
   margin-bottom: 8px;
@@ -134,53 +82,6 @@
   color: var(--content-secondary);
 }
 
-.people-hero h2 {
-  max-width: 760px;
-  margin: 0 0 10px;
-  color: #ffffff;
-  font-size: clamp(30px, 4vw, 48px);
-  line-height: 1.08;
-  letter-spacing: 0;
-}
-
-.people-hero p {
-  max-width: 62ch;
-  margin: 0;
-  color: var(--content-secondary);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.people-hero-score {
-  position: relative;
-  width: 150px;
-  height: 150px;
-  display: grid;
-  place-content: center;
-  text-align: center;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at center, rgba(7, 20, 38, 0.92) 0 58%, transparent 59%),
-    conic-gradient(var(--color-gold-500) calc(var(--people-readiness, 0) * 1%), var(--chart-track) 0);
-  border: 1px solid var(--border-default);
-  box-shadow: 0 18px 38px rgba(74, 64, 53, 0.098), 0 0 0 10px rgba(255,255,255,0.04);
-}
-
-.people-hero-score span {
-  font-family: var(--mono);
-  font-size: 42px;
-  font-weight: 800;
-  color: var(--color-gold-300);
-  line-height: 1;
-}
-
-.people-hero-score small {
-  margin-top: 7px;
-  color: var(--content-secondary);
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .people-kpi-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -188,7 +89,6 @@
 }
 
 .people-kpi,
-.people-insight-card,
 .people-workspace {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
@@ -217,8 +117,7 @@
   height: 18px;
 }
 
-.people-kpi span,
-.people-insight-card span {
+.people-kpi span {
   display: block;
   font-family: var(--mono);
   font-size: 10px;
@@ -236,8 +135,7 @@
   color: var(--content-primary);
 }
 
-.people-kpi small,
-.people-insight-card p {
+.people-kpi small {
   color: var(--content-tertiary);
   font-size: 12px;
 }
@@ -245,22 +143,6 @@
 .people-kpi[data-danger='true'] div {
   background: var(--feedback-error-surface);
   color: var(--feedback-error-content);
-}
-
-.people-insight-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: var(--space-3);
-}
-
-.people-insight-card {
-  padding: var(--space-4);
-}
-
-.people-insight-card strong {
-  display: block;
-  margin: 8px 0;
-  line-height: 1.35;
 }
 
 .people-workspace {
@@ -404,33 +286,6 @@
   color: var(--color-gold-800);
 }
 
-.people-score {
-  display: grid;
-  grid-template-columns: 88px 42px;
-  gap: 8px;
-  align-items: center;
-  font-family: var(--mono);
-  font-size: 12px;
-}
-
-.people-score > span {
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--surface-inset);
-}
-
-.people-score > span > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent-intelligence);
-}
-
-.people-score[data-tone='risk'] > span > span {
-  background: var(--feedback-error-content);
-}
-
 .people-row-actions {
   display: flex;
   gap: 6px;
@@ -480,19 +335,78 @@
 @media (max-width: 760px) {
   .people-app { padding: var(--space-4); }
   .people-app-header,
-  .people-hero,
   .people-pagination,
   .people-pagination > div {
     align-items: stretch;
     flex-direction: column;
   }
   .people-kpi-grid,
-  .people-insight-grid,
   .people-toolbar {
     grid-template-columns: 1fr;
   }
-  .people-hero-score {
-    width: 110px;
-    height: 110px;
-  }
+}
+
+/**
+ * Absence, stated plainly.
+ *
+ * A blank cell and a cell reading "Not assigned" carry different information:
+ * the first could equally mean the column failed to load. These three say which
+ * field is missing, in the same muted weight, so a scan down the column shows
+ * the gaps without any of them reading as an error.
+ */
+.people-missing {
+  color: var(--content-tertiary);
+  font-size: 12.5px;
+  font-style: italic;
+}
+
+.people-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  text-transform: capitalize;
+  color: var(--content-secondary);
+}
+
+.people-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--content-tertiary);
+}
+
+.people-status[data-active='true']::before {
+  background: var(--color-green-600);
+}
+
+.people-date {
+  color: var(--content-secondary);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+/* The whole-page version of the empty state, for a tenant with no people at
+   all — as opposed to a filter that matched nothing. */
+.people-empty--page {
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(40px, 8vw, 80px) var(--space-5);
+  text-align: center;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+}
+
+.people-empty--page strong {
+  color: var(--content-primary);
+  font-size: 17px;
+}
+
+.people-empty--page p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--content-secondary);
+  line-height: 1.6;
 }

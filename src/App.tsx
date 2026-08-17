@@ -381,7 +381,10 @@ function AuthenticatedApp() {
                 organizations={organizations}
                 loading={loading}
                 onSelect={(org) => navigate('details', org)}
-                onEdit={(org) => navigate('edit', org)}
+                /* Not 'edit'. Editing moved inline onto the organization page and
+                   the standalone edit screen went with it, so navigating there
+                   rendered an empty content pane. */
+                onEdit={(org) => navigate('details', org)}
                 onArchive={(org) => navigate('archive', org)}
               />
             )}
@@ -413,10 +416,10 @@ function AuthenticatedApp() {
               <CapabilityApp organization={selected} onBack={() => navigate('details', selected)} />
             )}
             {view === 'signals' && selected && (
-              <SignalDashboard tenantId={selected.tenantId} />
+              <SignalDashboard tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
             )}
             {view === 'workspace' && selected && (
-              <IntelligenceWorkspace tenantId={selected.tenantId} />
+              <IntelligenceWorkspace tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
             )}
             {view === 'analytics' && selected && (
               <DecisionAnalyticsPanel tenantId={selected.tenantId} />
@@ -431,7 +434,7 @@ function AuthenticatedApp() {
               <AgentMonitor tenantId={selected.tenantId} />
             )}
             {view === 'evidence' && selected && (
-              <EvidenceWorkspace tenantId={selected.tenantId} />
+              <EvidenceWorkspace tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
             )}
             {view === 'copilot' && selected && (
               <ConversationWorkspace tenantId={selected.tenantId} />
@@ -475,7 +478,7 @@ function AuthenticatedApp() {
               <KnowledgeLibrary tenantId={selected.tenantId} />
             )}
             {view === 'ingestion' && selected && (
-              <IngestionWorkspace tenantId={selected.tenantId} />
+              <IngestionWorkspace tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
             )}
             {view === 'memory' && selected && (
               <MemoryScreen tenantId={selected.tenantId} />

@@ -7,14 +7,21 @@ export function toDate(value: unknown): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+/*
+  The fallbacks below used to read 'Insufficient data'. That is a statement
+  about the dataset standing where a reader expects a value, and it is usually
+  not even true: a decision with no recorded owner is not a data-sufficiency
+  problem, it is a field nobody filled in. Each one now names the absence in the
+  terms of the thing that is missing.
+*/
 export function formatDateTime(value: unknown): string {
   const date = toDate(value);
-  return date ? date.toLocaleString() : 'Insufficient data';
+  return date ? date.toLocaleString() : 'Not recorded';
 }
 
 export function formatShortDate(value: unknown): string {
   const date = toDate(value);
-  return date ? date.toLocaleDateString() : 'Insufficient data';
+  return date ? date.toLocaleDateString() : 'Not recorded';
 }
 
 export function ageInDays(value: unknown): number | null {
@@ -25,7 +32,7 @@ export function ageInDays(value: unknown): number | null {
 
 export function formatAge(value: unknown): string {
   const days = ageInDays(value);
-  if (days == null) return 'Insufficient data';
+  if (days == null) return 'Not recorded';
   if (days === 0) return 'Today';
   if (days === 1) return '1 day';
   if (days < 30) return `${days} days`;
@@ -35,16 +42,16 @@ export function formatAge(value: unknown): string {
 
 export function formatNumber(value: unknown): string {
   const numeric = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(numeric) ? numeric.toLocaleString() : 'Insufficient data';
+  return Number.isFinite(numeric) ? numeric.toLocaleString() : '—';
 }
 
 export function formatDecimal(value: unknown, digits = 1): string {
   const numeric = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(numeric) ? numeric.toFixed(digits) : 'Insufficient data';
+  return Number.isFinite(numeric) ? numeric.toFixed(digits) : '—';
 }
 
 export function formatPercent(value: number | null | undefined, digits = 0): string {
-  if (value == null || !Number.isFinite(value)) return 'Insufficient data';
+  if (value == null || !Number.isFinite(value)) return 'Not measured';
   return `${(value * 100).toFixed(digits)}%`;
 }
 

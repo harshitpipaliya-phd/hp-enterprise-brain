@@ -16,19 +16,12 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.dept-intel__eyebrow,
-.dept-intel__summary-label,
 .dept-intel__kpi-label {
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: var(--ls-eyebrow);
   text-transform: uppercase;
-}
-
-.dept-intel__eyebrow {
-  color: var(--content-tertiary);
-  margin-bottom: 8px;
 }
 
 .dept-intel__header h1 {
@@ -186,66 +179,7 @@
   line-height: 1.35;
 }
 
-.dept-intel__summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 22px;
-}
-
-.dept-intel__summary-card {
-  min-height: 150px;
-  padding: 18px 20px;
-  border: 1px solid var(--border-subtle);
-  border-top: 4px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--surface-card);
-  box-shadow: var(--shadow);
-}
-
-.dept-intel__summary-card--state { border-top-color: #3f8798; }
-.dept-intel__summary-card--movement { border-top-color: #a8892f; }
-.dept-intel__summary-card--impact { border-top-color: #bd2f68; }
-
-.dept-intel__summary-label {
-  color: var(--accent-intelligence-deep);
-  font-size: 10px;
-  margin-bottom: 12px;
-}
-
-.dept-intel__summary-card h2 {
-  margin: 0 0 8px;
-  font-size: 17px;
-  letter-spacing: 0;
-}
-
-.dept-intel__summary-card p {
-  margin: 0;
-  color: var(--content-secondary);
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-.dept-intel__grid {
-  display: grid;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.dept-intel__grid--wide-left {
-  grid-template-columns: minmax(0, 2fr) minmax(340px, 1fr);
-}
-
-.dept-intel__grid--thirds {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.dept-intel__grid--two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .dept-intel__card,
-.dept-intel__table,
 .dept-intel__directory {
   overflow: hidden;
   border: 1px solid var(--border-subtle);
@@ -285,19 +219,6 @@
   font-size: 12px;
 }
 
-.dept-intel__chart {
-  padding: 18px 20px 16px;
-}
-
-.dept-intel__card-foot {
-  padding: 14px 20px;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--surface-inset);
-  color: var(--content-secondary);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
 .dept-intel__empty {
   display: grid;
   min-height: 220px;
@@ -306,8 +227,7 @@
   box-shadow: none;
 }
 
-.dept-intel__bars,
-.dept-intel__distribution {
+.dept-intel__bars {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -320,8 +240,7 @@
   gap: 12px;
 }
 
-.dept-intel__bar-row span,
-.dept-intel__dist-row strong {
+.dept-intel__bar-row span {
   overflow: hidden;
   color: var(--content-primary);
   font-size: 13px;
@@ -330,112 +249,26 @@
   white-space: nowrap;
 }
 
-.dept-intel__bar-row div,
-.dept-intel__dist-track {
+.dept-intel__bar-row div {
   height: 22px;
   overflow: hidden;
   border-radius: 4px;
   background: var(--surface-inset);
 }
 
-.dept-intel__bar-row i,
-.dept-intel__dist-track i {
+.dept-intel__bar-row i {
   display: block;
   height: 100%;
   border-radius: 4px;
 }
 
-.dept-intel__bar-row strong,
-.dept-intel__dist-row em {
+.dept-intel__bar-row strong {
   color: var(--content-secondary);
   font-family: var(--mono);
   font-size: 13px;
   font-style: normal;
   font-weight: 800;
   text-align: right;
-}
-
-.dept-intel__dist-row {
-  display: grid;
-  grid-template-columns: minmax(96px, 150px) minmax(0, 1fr) 42px;
-  align-items: center;
-  gap: 10px;
-}
-
-.dept-intel__dist-row > div:first-child {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 8px;
-}
-
-.dept-intel__dist-row span {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
-  border-radius: 50%;
-}
-
-.dept-intel__dist-track {
-  height: 9px;
-  border-radius: 999px;
-}
-
-.dept-intel__dist-track i {
-  border-radius: 999px;
-}
-
-.dept-intel__map {
-  display: flex;
-  align-items: center;
-  align-content: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-height: 240px;
-}
-
-.dept-intel__map button {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px;
-  border-radius: var(--radius);
-  background: var(--surface-inset);
-  box-shadow: none;
-  color: var(--content-primary);
-}
-
-.dept-intel__map button.has-head {
-  border-color: rgba(47, 127, 147, 0.35);
-}
-
-.dept-intel__map button.missing-head {
-  border-color: rgba(189, 47, 104, 0.35);
-}
-
-.dept-intel__map span {
-  display: -webkit-box;
-  overflow: hidden;
-  max-width: 96px;
-  color: var(--content-secondary);
-  font-size: 10px;
-  line-height: 1.2;
-  text-align: center;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.dept-intel__table-scroll {
-  overflow-x: auto;
-}
-
-.dept-intel__table table {
-  min-width: 1060px;
 }
 
 .dept-intel__link {
@@ -570,20 +403,6 @@
   white-space: nowrap;
 }
 
-.dept-intel__coverage-track {
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--surface-card);
-}
-
-.dept-intel__coverage-track i {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: #3f8798;
-}
-
 .dept-intel__unit-card .dept-intel__row-actions {
   margin-top: auto;
 }
@@ -643,15 +462,8 @@
 }
 
 @media (max-width: 1120px) {
-  .dept-intel__summary,
-  .dept-intel__grid--thirds,
   .dept-intel__directory-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .dept-intel__grid--wide-left,
-  .dept-intel__grid--two {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -665,8 +477,6 @@
   }
 
   .dept-intel__kpis,
-  .dept-intel__summary,
-  .dept-intel__grid--thirds,
   .dept-intel__directory-grid {
     grid-template-columns: 1fr;
   }
@@ -693,13 +503,11 @@
     flex-direction: column;
   }
 
-  .dept-intel__bar-row,
-  .dept-intel__dist-row {
+  .dept-intel__bar-row {
     grid-template-columns: 1fr;
   }
 
-  .dept-intel__bar-row strong,
-  .dept-intel__dist-row em {
+  .dept-intel__bar-row strong {
     text-align: left;
   }
 }
@@ -708,4 +516,55 @@
   .dept-intel__refresh:disabled svg {
     animation: none;
   }
+}
+
+/* Whole-page empty state: an organization with no departments at all, as
+   opposed to a filter that matched none. */
+.dept-intel__empty--page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: clamp(40px, 8vw, 80px) var(--space-5);
+  text-align: center;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+}
+
+.dept-intel__empty--page strong {
+  color: var(--content-primary);
+  font-size: 17px;
+}
+
+.dept-intel__empty--page p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--content-secondary);
+  line-height: 1.6;
+}
+
+.dept-intel__unit-desc {
+  margin: 0;
+  color: var(--content-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* States a limitation of the source system, so a missing column reads as a
+   missing column rather than as a screen that forgot to render something. */
+.dept-intel__notice {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--color-amber-500);
+  border-radius: var(--radius-xs);
+  background: var(--surface-card);
+  color: var(--content-secondary);
+  font-size: 13px;
+  line-height: 1.6;
 }

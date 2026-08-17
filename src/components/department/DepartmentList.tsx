@@ -1,18 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import {
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { Activity, AlertTriangle, Building2, Network, RefreshCw, Search, ShieldCheck, UserCheck, UserMinus, Users } from 'lucide-react';
+import { AlertTriangle, Building2, RefreshCw, Search, UserCheck, UserMinus, Users } from 'lucide-react';
 import type { Organization } from '../../App';
 import { api as deptApi } from '../../api/department';
 import { api as personApi } from '../../api/person';
@@ -34,6 +21,9 @@ interface Props {
 
 interface PersonRow {
   id: string;
+  displayName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   orgId?: string | null;
   departmentId?: string | null;
 }
@@ -42,34 +32,23 @@ interface DepartmentTwin {
   personCount?: number;
   capabilityHeatmap?: Array<{ averageLevel: number; assessedCount: number }>;
   openRiskSignalCount?: number;
-  decisionCount?: number;
-  decisionApprovalRate?: number | null;
   feeIntelligence?: {
     records: number;
     students: number;
-    net: number;
-    collected: number;
     outstanding: number;
-    overdue: number;
     expectedCollectable: number;
-    atRiskAmount: number;
     collectionRate: number | null;
     criticalStudents: number;
     highStudents: number;
-    reminders: number;
-    failedTransactions: number;
   } | null;
 }
 
-type SortKey = 'name' | 'status' | 'people' | 'coverage' | 'updated';
-type DistributionRow = { name: string; value: number; percent: number };
+type SortKey = 'name' | 'status' | 'people' | 'updated';
 type EnrichedDepartment = Department & {
   peopleCount: number | null;
-  coverage: number | null;
+  headName: string | null;
   assessedCapabilities: number;
-  openRiskSignals: number;
-  decisionCount: number;
-  decisionApprovalRate: number | null;
+  atRiskPeople: number;
   feeIntelligence: DepartmentTwin['feeIntelligence'];
 };
 
@@ -93,72 +72,45 @@ function parseDate(value: string | null | undefined): Date | null {
 }
 
 function formatPercent(value: number | null): string {
-  return value === null ? '-' : `${Math.round(value * 100)}%`;
+  return value === null ? '—' : `${Math.round(value * 100)}%`;
 }
 
 function formatDate(value: string | null | undefined): string {
   const date = parseDate(value);
-  return date ? date.toLocaleDateString() : '-';
+  return date ? date.toLocaleDateString() : '—';
 }
 
 function formatCurrency(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '-';
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value));
-}
-
-function countBy<T>(items: T[], pick: (item: T) => string): Record<string, number> {
-  return items.reduce<Record<string, number>>((acc, item) => {
-    const key = pick(item);
-    acc[key] = (acc[key] ?? 0) + 1;
-    return acc;
-  }, {});
-}
-
-function distribution(counts: Record<string, number>): DistributionRow[] {
-  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
-  return Object.entries(counts)
-    .map(([name, value]) => ({ name, value, percent: total ? value / total : 0 }))
-    .sort((a, b) => b.value - a.value);
 }
 
 function average(values: number[]): number | null {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 }
 
-function coverageFromTwin(twin: DepartmentTwin | null | undefined): number | null {
-  const heatmap = twin?.capabilityHeatmap ?? [];
-  const assessed = heatmap.filter((cell) => Number(cell.assessedCount ?? 0) > 0);
-  if (assessed.length === 0) return null;
-  const meanLevel = average(assessed.map((cell) => Math.max(0, Math.min(Number(cell.averageLevel ?? 0), 5))));
-  return meanLevel === null ? null : meanLevel / 5;
+function personLabel(person: PersonRow): string {
+  const display = String(person.displayName ?? '').trim();
+  if (display) return display;
+  const full = `${String(person.firstName ?? '').trim()} ${String(person.lastName ?? '').trim()}`.trim();
+  return full || `Person ${person.id}`;
 }
 
-function buildGrowthTrend(departments: Department[]) {
-  const dates = departments.map((dept) => parseDate(dept.createdDate)).filter((date): date is Date => date !== null);
-  if (dates.length === 0) return [];
-  const now = new Date();
-  const earliest = new Date(Math.min(...dates.map((date) => date.getTime())));
-  const days = Math.max(1, Math.ceil((now.getTime() - earliest.getTime()) / 86_400_000));
-  const bucketCount = Math.min(12, Math.max(1, days));
-  const bucketSize = Math.max(1, Math.ceil(days / bucketCount));
-  const start = new Date(now.getTime() - (bucketCount - 1) * bucketSize * 86_400_000);
-  start.setHours(0, 0, 0, 0);
-  const rows = Array.from({ length: bucketCount }, (_, index) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index * bucketSize);
-    return { label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), count: 0 };
-  });
-
-  departments.forEach((dept) => {
-    const date = parseDate(dept.createdDate);
-    if (!date || date < start || date > now) return;
-    const index = Math.floor(Math.max(0, (date.getTime() - start.getTime()) / 86_400_000) / bucketSize);
-    if (rows[index]) rows[index].count += 1;
-  });
-
-  return rows;
-}
-
+/**
+ * Departments — "how is this organization structured, and where are the gaps?"
+ *
+ * WHAT CAME OFF THIS SCREEN. Four pie/line charts and three "Layer 1 / Layer 2 /
+ * Layer 3" cards, none of which answered that question. The worst was a
+ * "Department Growth Trend" line: it bucketed departments by their `created_date`
+ * in the source system, so for an organization whose units were all loaded in one
+ * import it drew a single spike and called it growth. "Active vs Archived" and
+ * "Head Assignment Status" were pie charts over two values each, restating a
+ * number already on a KPI tile eight inches above.
+ *
+ * A department head was also printed as its raw foreign key — `headId` straight
+ * into the markup — so the leadership line read "Head assigned / 4417". It now
+ * resolves against the people list that this screen already loads.
+ */
 export default function DepartmentList({ organization, departments, loading, onSelect, onEdit, onArchive, onCreate, onRefresh, onBack }: Props) {
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [twins, setTwins] = useState<Record<string, DepartmentTwin>>({});
@@ -198,8 +150,19 @@ export default function DepartmentList({ organization, departments, loading, onS
     return () => { cancelled = true; };
   }, [organization.tenantId, organization.id, departments]);
 
+  const peopleById = useMemo(() => {
+    const map = new Map<string, string>();
+    people.forEach((person) => map.set(String(person.id), personLabel(person)));
+    return map;
+  }, [people]);
+
   const enriched = useMemo<EnrichedDepartment[]>(() => {
-    const peopleCounts = countBy(people, (person) => String(person.departmentId ?? ''));
+    const peopleCounts = people.reduce<Record<string, number>>((acc, person) => {
+      const key = String(person.departmentId ?? '');
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+
     return departments.map((dept) => {
       const twin = twins[dept.id];
       const heatmap = twin?.capabilityHeatmap ?? [];
@@ -208,15 +171,13 @@ export default function DepartmentList({ organization, departments, loading, onS
       return {
         ...dept,
         peopleCount,
-        coverage: fee?.collectionRate ?? coverageFromTwin(twin),
+        headName: dept.headId ? peopleById.get(String(dept.headId)) ?? null : null,
         assessedCapabilities: heatmap.filter((cell) => Number(cell.assessedCount ?? 0) > 0).length,
-        openRiskSignals: Number(((fee?.criticalStudents ?? 0) + (fee?.highStudents ?? 0)) || (twin?.openRiskSignalCount ?? 0)),
-        decisionCount: Number(twin?.decisionCount ?? 0),
-        decisionApprovalRate: twin?.decisionApprovalRate ?? null,
+        atRiskPeople: Number(((fee?.criticalStudents ?? 0) + (fee?.highStudents ?? 0)) || (twin?.openRiskSignalCount ?? 0)),
         feeIntelligence: fee,
       };
     });
-  }, [departments, people, twins]);
+  }, [departments, people, peopleById, twins]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -225,7 +186,7 @@ export default function DepartmentList({ organization, departments, loading, onS
         const status = normalized(dept.status, 'unknown');
         const type = normalized(dept.departmentType, 'unknown');
         const hasHead = Boolean(dept.headId);
-        if (q && ![dept.name, dept.description, dept.headId, dept.departmentType, dept.status].some((v) => String(v ?? '').toLowerCase().includes(q))) return false;
+        if (q && ![dept.name, dept.description, dept.headName, dept.departmentType, dept.status].some((v) => String(v ?? '').toLowerCase().includes(q))) return false;
         if (statusFilter && status !== statusFilter) return false;
         if (typeFilter && type !== typeFilter) return false;
         if (leadershipFilter === 'headed' && !hasHead) return false;
@@ -234,7 +195,6 @@ export default function DepartmentList({ organization, departments, loading, onS
       })
       .sort((a, b) => {
         if (sortKey === 'people') return (b.peopleCount ?? -1) - (a.peopleCount ?? -1);
-        if (sortKey === 'coverage') return (b.coverage ?? -1) - (a.coverage ?? -1);
         if (sortKey === 'updated') return (parseDate(b.updatedDate)?.getTime() ?? 0) - (parseDate(a.updatedDate)?.getTime() ?? 0);
         if (sortKey === 'status') return normalized(a.status, 'unknown').localeCompare(normalized(b.status, 'unknown'));
         return a.name.localeCompare(b.name);
@@ -243,102 +203,54 @@ export default function DepartmentList({ organization, departments, loading, onS
 
   const model = useMemo(() => {
     const active = filtered.filter((dept) => normalized(dept.status, 'unknown') === 'active');
-    const archived = filtered.filter((dept) => normalized(dept.status, 'unknown') === 'archived');
-    const inactive = filtered.filter((dept) => normalized(dept.status, 'unknown') === 'inactive');
     const headed = filtered.filter((dept) => Boolean(dept.headId));
     const missingHeads = filtered.filter((dept) => !dept.headId);
     const counts = filtered.map((dept) => dept.peopleCount).filter((value): value is number => value !== null);
-    const coverages = filtered.map((dept) => dept.coverage).filter((value): value is number => value !== null);
-    const riskDepartments = filtered.filter((dept) => dept.openRiskSignals > 0);
     const feeRows = filtered.filter((dept) => dept.feeIntelligence);
-    const totalOutstanding = feeRows.reduce((sum, dept) => sum + Number(dept.feeIntelligence?.outstanding ?? 0), 0);
-    const totalExpected = feeRows.reduce((sum, dept) => sum + Number(dept.feeIntelligence?.expectedCollectable ?? 0), 0);
     const sizeRows = filtered
-      .filter((dept) => dept.peopleCount !== null)
-      .map((dept) => ({ name: dept.name, value: dept.peopleCount ?? 0, percent: 0 }))
+      .filter((dept) => dept.peopleCount !== null && dept.peopleCount > 0)
+      .map((dept) => ({ name: dept.name, value: dept.peopleCount ?? 0 }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
     const maxSize = Math.max(...sizeRows.map((row) => row.value), 1);
-    const statusRows = distribution(countBy(filtered, (dept) => normalized(dept.status, 'unknown')));
-    const typeRows = distribution(countBy(filtered, (dept) => normalized(dept.departmentType, 'unknown')));
-    const leadershipRows = distribution({
-      assigned: headed.length,
-      missing: missingHeads.length,
-    });
-    const coverageRows = distribution({
-      high: filtered.filter((dept) => dept.coverage !== null && dept.coverage >= 0.75).length,
-      medium: filtered.filter((dept) => dept.coverage !== null && dept.coverage >= 0.4 && dept.coverage < 0.75).length,
-      low: filtered.filter((dept) => dept.coverage !== null && dept.coverage < 0.4).length,
-      unknown: filtered.filter((dept) => dept.coverage === null).length,
-    });
 
     return {
       total: filtered.length,
       active,
-      archived,
-      inactive,
       headed,
       missingHeads,
       avgTeamSize: average(counts),
-      avgCoverage: average(coverages),
-      riskDepartments,
+      totalPeople: counts.reduce((sum, value) => sum + value, 0),
       feeRows,
-      totalOutstanding,
-      totalExpected,
-      sizeRows: sizeRows.map((row) => ({ ...row, percent: maxSize ? row.value / maxSize : 0 })),
-      statusRows,
-      typeRows,
-      leadershipRows,
-      coverageRows,
-      growthRows: buildGrowthTrend(filtered),
+      totalOutstanding: feeRows.reduce((sum, dept) => sum + Number(dept.feeIntelligence?.outstanding ?? 0), 0),
+      avgCollection: average(feeRows.map((d) => d.feeIntelligence?.collectionRate).filter((v): v is number => v !== null && v !== undefined)),
+      sizeRows: sizeRows.map((row) => ({ ...row, percent: row.value / maxSize })),
     };
   }, [filtered]);
 
-  const options = useMemo(() => ({
-    statuses: Object.keys(countBy(departments, (dept) => normalized(dept.status, 'unknown'))).sort(),
-    types: Object.keys(countBy(departments, (dept) => normalized(dept.departmentType, 'unknown'))).sort(),
-  }), [departments]);
+  /**
+   * Whether this organization's source system records department heads at all.
+   *
+   * It usually does not. DepartmentController::map() returns `headId => null`
+   * unconditionally, with a comment noting the universal 'head' field has no
+   * column behind it in this ERP — so on most tenants every department comes
+   * back headless. Reporting that as "5 of 5 departments have no head", with a
+   * red gap marker on every card, presents a missing FIELD as a missing PERSON
+   * and asks the administrator to fix something they cannot fix from here.
+   *
+   * When not one department carries a head, the screen says the source does not
+   * record them and drops the leadership column entirely. When some do, the
+   * gaps among the rest are real and are shown.
+   */
+  const headsAreRecorded = useMemo(
+    () => departments.some((dept) => Boolean(dept.headId)),
+    [departments],
+  );
 
-  const insights = useMemo(() => {
-    const activeRate = model.total ? model.active.length / model.total : null;
-    const lastGrowth = model.growthRows.length > 0 ? model.growthRows[model.growthRows.length - 1].count : 0;
-    return [
-      {
-        label: 'Layer 1 - State',
-        title: 'Current State',
-        body: model.total === 0
-          ? 'No departments match the current filters.'
-          : `${model.active.length.toLocaleString()} active departments are visible, representing ${formatPercent(activeRate)} of the filtered structure.`,
-        tone: 'state',
-      },
-      {
-        label: 'Layer 2 - Movement',
-        title: 'Structure Movement',
-        body: model.growthRows.length > 0
-          ? `${lastGrowth.toLocaleString()} departments were created in the latest visible time bucket; ${model.archived.length.toLocaleString()} are archived in the filtered view.`
-          : 'No creation timestamps are available for trend analysis in the current data.',
-        tone: 'movement',
-      },
-      {
-        label: 'Layer 3 - Consequence',
-        title: 'Leadership Risk',
-        body: model.missingHeads.length > 0
-          ? `${model.missingHeads.length.toLocaleString()} departments have no assigned head in the API response.`
-          : 'Every filtered department has an assigned head.',
-        tone: model.missingHeads.length > 0 ? 'impact' : 'state',
-      },
-      {
-        label: 'Operations',
-        title: 'Operating Load',
-        body: model.avgTeamSize === null
-          ? 'Team size could not be calculated because no people counts are available.'
-          : model.feeRows.length > 0
-            ? `Average class-section size is ${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} students; ${formatCurrency(model.totalOutstanding)} is outstanding and ${formatCurrency(model.totalExpected)} is expected collectable.`
-            : `Average team size is ${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} people; ${model.riskDepartments.length.toLocaleString()} departments report open risk signals.`,
-        tone: model.riskDepartments.length > 0 ? 'impact' : 'movement',
-      },
-    ] as Array<{ label: string; title: string; body: string; tone: 'state' | 'movement' | 'impact' }>;
-  }, [model]);
+  const options = useMemo(() => ({
+    statuses: Array.from(new Set(departments.map((dept) => normalized(dept.status, 'unknown')))).sort(),
+    types: Array.from(new Set(departments.map((dept) => normalized(dept.departmentType, 'unknown')))).sort(),
+  }), [departments]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -357,18 +269,21 @@ export default function DepartmentList({ organization, departments, loading, onS
     setSortKey('name');
   };
 
-  if (loading) return <div className="dept-intel__loading">Loading departments...</div>;
+  if (loading) return <div className="dept-intel__loading">Loading departments…</div>;
+
+  const isSchool = model.feeRows.length > 0;
+  const unitPlural = isSchool ? 'class sections' : 'departments';
+  const memberPlural = isSchool ? 'students' : 'people';
 
   return (
     <div className="dept-intel">
       <header className="dept-intel__header">
         <div>
-          <div className="dept-intel__eyebrow">Organization Intelligence</div>
           <h1>Departments</h1>
-          <p>{organization.name}: how is this organization structured, where are leadership gaps, and which units need attention?</p>
+          <p>How {organization.name} is structured: each unit, who leads it, and how many {memberPlural} are in it.</p>
         </div>
         <div className="dept-intel__actions">
-          <button className="dept-intel__ghost" onClick={onBack}>Back to Organizations</button>
+          <button className="dept-intel__ghost" onClick={onBack}>Back to Organization</button>
           <button onClick={onCreate}>+ New Department</button>
           <button className="dept-intel__refresh" onClick={refresh} disabled={refreshing || enrichmentLoading}>
             <RefreshCw size={15} />
@@ -377,149 +292,212 @@ export default function DepartmentList({ organization, departments, loading, onS
         </div>
       </header>
 
-      <section className="dept-intel__filters" aria-label="Department filters">
-        <label className="dept-intel__search">
-          <Search size={15} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search departments..." />
-        </label>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All statuses</option>
-          {options.statuses.map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
-        </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-          <option value="">All types</option>
-          {options.types.map((type) => <option key={type} value={type}>{displayLabel(type)}</option>)}
-        </select>
-        <select value={leadershipFilter} onChange={(e) => setLeadershipFilter(e.target.value)}>
-          <option value="">All leadership</option>
-          <option value="headed">Assigned heads</option>
-          <option value="missing">Missing heads</option>
-        </select>
-        <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
-          <option value="name">Sort by name</option>
-          <option value="status">Sort by status</option>
-          <option value="people">Sort by team size</option>
-          <option value="coverage">Sort by coverage</option>
-          <option value="updated">Sort by last updated</option>
-        </select>
-        <button className="dept-intel__ghost" onClick={clearFilters}>Reset</button>
-        <span className="dept-intel__count">{model.total.toLocaleString()} of {departments.length.toLocaleString()} departments</span>
-      </section>
-
-      <section className="dept-intel__kpis">
-        <Kpi icon={<Building2 size={18} />} label="Total Departments" value={model.total.toLocaleString()} hint="Filtered department records" tone="state" />
-        <Kpi icon={<Activity size={18} />} label="Active Departments" value={model.active.length.toLocaleString()} hint={`${model.inactive.length.toLocaleString()} inactive`} tone={model.active.length > 0 ? 'good' : 'warn'} />
-        <Kpi icon={<UserCheck size={18} />} label="Departments With Heads" value={model.headed.length.toLocaleString()} hint={formatPercent(model.total ? model.headed.length / model.total : null)} tone="good" />
-        <Kpi icon={<UserMinus size={18} />} label="Departments Without Heads" value={model.missingHeads.length.toLocaleString()} hint="Leadership assignment gaps" tone={model.missingHeads.length > 0 ? 'crit' : 'good'} />
-        <Kpi icon={<Users size={18} />} label={model.feeRows.length > 0 ? 'Average Students' : 'Average Team Size'} value={model.avgTeamSize === null ? '-' : model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} hint={model.feeRows.length > 0 ? 'students per class-section' : 'Calculated from people API'} tone="state" />
-        <Kpi icon={<ShieldCheck size={18} />} label={model.feeRows.length > 0 ? 'Average Collection' : 'Average Capability Coverage'} value={formatPercent(model.avgCoverage)} hint={model.feeRows.length > 0 ? 'collected / net fees' : 'From department twin heatmaps'} tone={model.avgCoverage !== null && model.avgCoverage >= 0.5 ? 'good' : 'warn'} />
-        <Kpi icon={<AlertTriangle size={18} />} label={model.feeRows.length > 0 ? 'Risk Sections' : 'Departments With Risk'} value={model.riskDepartments.length.toLocaleString()} hint={model.feeRows.length > 0 ? 'sections with high/critical students' : 'Open risk signals reported'} tone={model.riskDepartments.length > 0 ? 'crit' : 'good'} />
-      </section>
-
-      <section className="dept-intel__summary">
-        {insights.map((insight) => (
-          <article className={`dept-intel__summary-card dept-intel__summary-card--${insight.tone}`} key={insight.title}>
-            <div className="dept-intel__summary-label">{insight.label}</div>
-            <h2>{insight.title}</h2>
-            <p>{insight.body}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="dept-intel__grid dept-intel__grid--wide-left">
-        <ChartCard title="Department Size Comparison" meta={model.feeRows.length > 0 ? 'students by class-section' : 'people by department'} footer={model.avgTeamSize === null ? 'People counts are unavailable in the current API response.' : `Average ${model.feeRows.length > 0 ? 'class-section size' : 'team size'} is ${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} ${model.feeRows.length > 0 ? 'students' : 'people'}.`}>
-          {model.sizeRows.length > 0 ? <HorizontalBars rows={model.sizeRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} /> : <EmptyChart />}
-        </ChartCard>
-        <PieCard title="Head Assignment Status" rows={model.leadershipRows} colorFor={(name) => name === 'assigned' ? 'var(--chart-1)' : 'var(--chart-3)'} />
-      </section>
-
-      <section className="dept-intel__grid dept-intel__grid--thirds">
-        <PieCard title="Active vs Archived" rows={model.statusRows} colorFor={(name) => STATUS_COLORS[name] ?? STATUS_COLORS.unknown} />
-        <DistributionCard title="Department Distribution" rows={model.typeRows} colorFor={(_, index) => PALETTE[index % PALETTE.length]} />
-        <DistributionCard title={model.feeRows.length > 0 ? 'Collection Coverage Distribution' : 'Capability Coverage Distribution'} rows={model.coverageRows} colorFor={(name) => name === 'high' ? 'var(--chart-1)' : name === 'medium' ? 'var(--chart-4)' : name === 'low' ? 'var(--chart-3)' : 'var(--content-tertiary)'} />
-      </section>
-
-      <section className="dept-intel__grid dept-intel__grid--two">
-        <ChartCard title="Department Growth Trend" meta="created departments" footer="Trend is derived from department creation timestamps returned by the API.">
-          {model.growthRows.length > 1 ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={model.growthRows}>
-                <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--content-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
-                <Line type="monotone" dataKey="count" stroke="var(--chart-3)" strokeWidth={3} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : <EmptyChart />}
-        </ChartCard>
-        <ChartCard title="Leadership Overview" meta="organization map" footer="Each unit is sized by people count when available and tinted by leadership state.">
-          {filtered.length > 0 ? (
-            <div className="dept-intel__map">
-              {filtered.slice(0, 24).map((dept) => {
-                const size = Math.max(44, Math.min(118, 44 + (dept.peopleCount ?? 0) * 4));
-                return (
-                  <button key={dept.id} style={{ width: size, height: size }} className={dept.headId ? 'has-head' : 'missing-head'} onClick={() => onSelect(dept)} title={dept.name}>
-                    <Network size={15} />
-                    <span>{dept.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : <EmptyChart />}
-        </ChartCard>
-      </section>
-
-      <section className="dept-intel__directory">
-        <div className="dept-intel__table-head">
-          <div>
-            <h2>Organization Directory</h2>
-            <p>Filtered departments with leadership, size, coverage, risk, and action context.</p>
-          </div>
-          <span>{model.total.toLocaleString()} units</span>
+      {departments.length === 0 ? (
+        <div className="dept-intel__empty dept-intel__empty--page">
+          <Building2 size={26} />
+          <strong>No departments are recorded for this organization</strong>
+          <p>
+            Departments come from the connected HR system. Once they exist, each unit&apos;s head, size and
+            capability coverage appear here, and people can be assigned to them.
+          </p>
         </div>
-        {filtered.length === 0 ? <EmptyChart /> : (
-          <div className="dept-intel__directory-grid">
-            {filtered.map((dept) => {
-              const status = normalized(dept.status, 'unknown');
-              const coverage = dept.coverage ?? 0;
-              return (
-                <article className="dept-intel__unit-card" key={dept.id}>
-                  <div className="dept-intel__unit-head">
-                    <button className="dept-intel__link" onClick={() => onSelect(dept)}>{dept.name}</button>
-                    <span className="dept-intel__badge" style={{ color: STATUS_COLORS[status] ?? STATUS_COLORS.unknown, backgroundColor: `${STATUS_COLORS[status] ?? STATUS_COLORS.unknown}1f` }}>{displayLabel(status)}</span>
+      ) : (
+        <>
+          <section className="dept-intel__filters" aria-label="Department filters">
+            <label className="dept-intel__search">
+              <Search size={15} />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${unitPlural}…`} />
+            </label>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status filter">
+              <option value="">All statuses</option>
+              {options.statuses.map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
+            </select>
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} aria-label="Type filter">
+              <option value="">All types</option>
+              {options.types.map((type) => <option key={type} value={type}>{displayLabel(type)}</option>)}
+            </select>
+            {headsAreRecorded && (
+              <select value={leadershipFilter} onChange={(e) => setLeadershipFilter(e.target.value)} aria-label="Leadership filter">
+                <option value="">All leadership</option>
+                <option value="headed">Has a head</option>
+                <option value="missing">No head assigned</option>
+              </select>
+            )}
+            <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} aria-label="Sort order">
+              <option value="name">Sort by name</option>
+              <option value="status">Sort by status</option>
+              <option value="people">Sort by size</option>
+              <option value="updated">Sort by last updated</option>
+            </select>
+            <button className="dept-intel__ghost" onClick={clearFilters}>Reset</button>
+            <span className="dept-intel__count">{model.total.toLocaleString()} of {departments.length.toLocaleString()} {unitPlural}</span>
+          </section>
+
+          <section className="dept-intel__kpis">
+            <Kpi
+              icon={<Building2 size={18} />}
+              label={isSchool ? 'Class sections' : 'Departments'}
+              value={model.total.toLocaleString()}
+              hint={`${model.active.length.toLocaleString()} active`}
+              tone="state"
+            />
+            <Kpi
+              icon={<Users size={18} />}
+              label={isSchool ? 'Students' : 'People'}
+              value={model.totalPeople.toLocaleString()}
+              hint={model.avgTeamSize === null ? 'No counts available' : `${model.avgTeamSize.toFixed(model.avgTeamSize < 10 ? 1 : 0)} on average per unit`}
+              tone="state"
+            />
+            {headsAreRecorded && (
+              <>
+                <Kpi
+                  icon={<UserCheck size={18} />}
+                  label="With a head"
+                  value={model.headed.length.toLocaleString()}
+                  hint={model.total ? `${Math.round((model.headed.length / model.total) * 100)}% of visible units` : '—'}
+                  tone="good"
+                />
+                <Kpi
+                  icon={<UserMinus size={18} />}
+                  label="Without a head"
+                  value={model.missingHeads.length.toLocaleString()}
+                  hint={model.missingHeads.length > 0 ? 'Nobody accountable for these units' : 'Every unit has a head'}
+                  tone={model.missingHeads.length > 0 ? 'crit' : 'good'}
+                />
+              </>
+            )}
+            {isSchool && (
+              <>
+                <Kpi
+                  icon={<Users size={18} />}
+                  label="Average collection"
+                  value={formatPercent(model.avgCollection)}
+                  hint="Collected against net fees"
+                  tone={model.avgCollection !== null && model.avgCollection >= 0.5 ? 'good' : 'warn'}
+                />
+                <Kpi
+                  icon={<AlertTriangle size={18} />}
+                  label="Fees outstanding"
+                  value={formatCurrency(model.totalOutstanding)}
+                  hint="Across the visible sections"
+                  tone={model.totalOutstanding > 0 ? 'warn' : 'good'}
+                />
+              </>
+            )}
+          </section>
+
+          {/* Explain the absence rather than silently dropping the column. */}
+          {!headsAreRecorded && departments.length > 0 && (
+            <p className="dept-intel__notice">
+              The connected source system does not record a head for its departments, so leadership coverage
+              cannot be reported here. Everything else on this screen comes from that system directly.
+            </p>
+          )}
+
+          {model.sizeRows.length > 0 && (
+            <section className="dept-intel__card">
+              <div className="dept-intel__card-head">
+                <h2>Largest {unitPlural}</h2>
+                <span>{isSchool ? 'students' : 'people'} per unit</span>
+              </div>
+              <div className="dept-intel__bars">
+                {model.sizeRows.map((row, index) => (
+                  <div className="dept-intel__bar-row" key={row.name}>
+                    <span>{row.name}</span>
+                    <div><i style={{ width: `${Math.max(row.percent * 100, 2)}%`, backgroundColor: PALETTE[index % PALETTE.length] }} /></div>
+                    <strong>{row.value.toLocaleString()}</strong>
                   </div>
-                  <div className="dept-intel__unit-meta">
-                    <span>{displayLabel(normalized(dept.departmentType, 'unknown'))}</span>
-                    <span>Updated {formatDate(dept.updatedDate)}</span>
-                  </div>
-                  <div className="dept-intel__unit-stats">
-                    <div><strong>{dept.peopleCount === null ? '-' : dept.peopleCount.toLocaleString()}</strong><span>{dept.feeIntelligence ? 'students' : 'people'}</span></div>
-                    <div><strong>{formatPercent(dept.coverage)}</strong><span>{dept.feeIntelligence ? 'collection' : 'coverage'}</span></div>
-                    <div><strong>{dept.openRiskSignals.toLocaleString()}</strong><span>{dept.feeIntelligence ? 'risk students' : 'risks'}</span></div>
-                  </div>
-                  {dept.feeIntelligence && (
-                    <div className="dept-intel__unit-meta">
-                      <span>{formatCurrency(dept.feeIntelligence.outstanding)} outstanding</span>
-                      <span>{formatCurrency(dept.feeIntelligence.expectedCollectable)} expected</span>
-                    </div>
-                  )}
-                  <div className="dept-intel__leadership-line">
-                    <span className={dept.headId ? 'ok' : 'gap'}>{dept.headId ? 'Head assigned' : 'No head assigned'}</span>
-                    <em>{dept.headId ?? 'leadership gap'}</em>
-                  </div>
-                  <div className="dept-intel__coverage-track"><i style={{ width: `${coverage * 100}%` }} /></div>
-                  <div className="dept-intel__row-actions">
-                    <button onClick={() => onSelect(dept)}>Open</button>
-                    <button onClick={() => onEdit(dept)}>Edit</button>
-                    <button onClick={() => onArchive(dept)}>Archive</button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="dept-intel__directory">
+            <div className="dept-intel__table-head">
+              <div>
+                <h2>All {unitPlural}</h2>
+                <p>Select a unit to open its workspace.</p>
+              </div>
+              <span>{model.total.toLocaleString()} shown</span>
+            </div>
+            {filtered.length === 0 ? (
+              <div className="dept-intel__empty">No {unitPlural} match the current filters.</div>
+            ) : (
+              <div className="dept-intel__directory-grid">
+                {filtered.map((dept) => {
+                  const status = normalized(dept.status, 'unknown');
+                  return (
+                    <article className="dept-intel__unit-card" key={dept.id}>
+                      <div className="dept-intel__unit-head">
+                        <button className="dept-intel__link" onClick={() => onSelect(dept)}>{dept.name}</button>
+                        <span className="dept-intel__badge" style={{ color: STATUS_COLORS[status] ?? STATUS_COLORS.unknown, backgroundColor: `${STATUS_COLORS[status] ?? STATUS_COLORS.unknown}1f` }}>{displayLabel(status)}</span>
+                      </div>
+                      <div className="dept-intel__unit-meta">
+                        <span>{displayLabel(normalized(dept.departmentType, 'unknown'))}</span>
+                        <span>Updated {formatDate(dept.updatedDate)}</span>
+                      </div>
+                      {dept.description && <p className="dept-intel__unit-desc">{dept.description}</p>}
+
+                      <div className="dept-intel__unit-stats">
+                        <div>
+                          <strong>{dept.peopleCount === null ? '—' : dept.peopleCount.toLocaleString()}</strong>
+                          <span>{isSchool ? 'students' : 'people'}</span>
+                        </div>
+                        {dept.feeIntelligence ? (
+                          <>
+                            <div>
+                              <strong>{formatPercent(dept.feeIntelligence.collectionRate)}</strong>
+                              <span>fees collected</span>
+                            </div>
+                            <div>
+                              <strong>{dept.atRiskPeople.toLocaleString()}</strong>
+                              <span>at-risk students</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div>
+                            <strong>{dept.assessedCapabilities > 0 ? dept.assessedCapabilities.toLocaleString() : '—'}</strong>
+                            <span>capabilities assessed</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {dept.feeIntelligence && (
+                        <div className="dept-intel__unit-meta">
+                          <span>{formatCurrency(dept.feeIntelligence.outstanding)} outstanding</span>
+                          <span>{formatCurrency(dept.feeIntelligence.expectedCollectable)} expected</span>
+                        </div>
+                      )}
+
+                      {headsAreRecorded && (
+                        <div className="dept-intel__leadership-line">
+                          {dept.headId ? (
+                            <>
+                              <span className="ok">Head</span>
+                              <em>{dept.headName ?? 'Not in the current people list'}</em>
+                            </>
+                          ) : (
+                            <>
+                              <span className="gap">No head assigned</span>
+                              <em>Nobody is accountable for this unit</em>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="dept-intel__row-actions">
+                        <button onClick={() => onSelect(dept)}>Open</button>
+                        <button onClick={() => onEdit(dept)}>Edit</button>
+                        <button onClick={() => onArchive(dept)}>Archive</button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
@@ -533,74 +511,4 @@ function Kpi({ icon, label, value, hint, tone }: { icon: ReactNode; label: strin
       <div className="dept-intel__kpi-hint">{hint}</div>
     </article>
   );
-}
-
-function ChartCard({ title, meta, footer, children }: { title: string; meta: string; footer?: string; children: ReactNode }) {
-  return (
-    <article className="dept-intel__card">
-      <div className="dept-intel__card-head">
-        <h2>{title}</h2>
-        <span>{meta}</span>
-      </div>
-      <div className="dept-intel__chart">{children}</div>
-      {footer && <div className="dept-intel__card-foot">{footer}</div>}
-    </article>
-  );
-}
-
-function HorizontalBars({ rows, colorFor }: { rows: DistributionRow[]; colorFor: (name: string, index: number) => string }) {
-  return (
-    <div className="dept-intel__bars">
-      {rows.map((row, index) => (
-        <div className="dept-intel__bar-row" key={row.name}>
-          <span>{row.name}</span>
-          <div><i style={{ width: `${Math.max(row.percent * 100, row.value > 0 ? 2 : 0)}%`, backgroundColor: colorFor(row.name, index) }} /></div>
-          <strong>{row.value.toLocaleString()}</strong>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DistributionCard({ title, rows, colorFor }: { title: string; rows: DistributionRow[]; colorFor: (name: string, index: number) => string }) {
-  return (
-    <ChartCard title={title} meta={`${rows.length.toLocaleString()} groups`}>
-      {rows.length === 0 ? <EmptyChart /> : (
-        <div className="dept-intel__distribution">
-          {rows.map((row, index) => (
-            <div className="dept-intel__dist-row" key={row.name}>
-              <div>
-                <span style={{ backgroundColor: colorFor(row.name, index) }} />
-                <strong>{displayLabel(row.name)}</strong>
-              </div>
-              <div className="dept-intel__dist-track"><i style={{ width: `${row.percent * 100}%`, backgroundColor: colorFor(row.name, index) }} /></div>
-              <em>{row.value.toLocaleString()}</em>
-            </div>
-          ))}
-        </div>
-      )}
-    </ChartCard>
-  );
-}
-
-function PieCard({ title, rows, colorFor }: { title: string; rows: DistributionRow[]; colorFor: (name: string, index: number) => string }) {
-  return (
-    <ChartCard title={title} meta={`${rows.reduce((sum, row) => sum + row.value, 0).toLocaleString()} departments`}>
-      {rows.length === 0 ? <EmptyChart /> : (
-        <ResponsiveContainer width="100%" height={250}>
-          <PieChart>
-            <Pie data={rows} dataKey="value" nameKey="name" innerRadius={54} outerRadius={84} paddingAngle={2}>
-              {rows.map((row, index) => <Cell key={row.name} fill={colorFor(row.name, index)} />)}
-            </Pie>
-            <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid var(--border-subtle)' }} formatter={(value: unknown) => [Number(value ?? 0), 'Departments']} labelFormatter={(value: unknown) => displayLabel(String(value ?? ''))} />
-            <Legend formatter={(value) => displayLabel(String(value))} />
-          </PieChart>
-        </ResponsiveContainer>
-      )}
-    </ChartCard>
-  );
-}
-
-function EmptyChart() {
-  return <div className="dept-intel__empty">No data in the current filter.</div>;
 }

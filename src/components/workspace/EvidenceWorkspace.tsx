@@ -21,6 +21,7 @@ import { api } from '../../api/intelligence';
 import { api as signalApi } from '../../api/signal';
 import { aiApi } from '../../api/ai';
 import { useToast } from '../Toast';
+import type { View } from '../../App';
 import './EvidenceWorkspace.css';
 
 interface Evidence {
@@ -139,11 +140,45 @@ function distribution(counts: Record<string, number>, order?: string[]): Distrib
     });
 }
 
+/**
+ * What this evidence says, in a sentence a person can read.
+ *
+ * THE BUG THIS FIXES. The fallback branch was `JSON.stringify(content)`, so any
+ * evidence row whose content object had no `note`/`text`/`summary`/`description`
+ * key rendered as a raw JSON blob in the middle of the card —
+ * `{"observedAt":"2026-03-01","source":"school_fee","amount":"12000"}`. Every
+ * row ingestion produces takes that branch when the source had no free-text
+ * column, which is most of them.
+ *
+ * Now the same object is read out as its own fields. Keys are humanised, the
+ * bookkeeping ones that repeat information already on the card are dropped, and
+ * the result is capped so one unusually wide row cannot push the card open.
+ */
+const CONTENT_NOISE_KEYS = new Set(['source', 'observedat', 'observed_at', 'ts', 'confidence', 'hash']);
+
 function contentText(item: Evidence): string {
   const content = item.content ?? {};
   const preferred = content.note ?? content.text ?? content.summary ?? content.description;
-  if (preferred !== undefined && preferred !== null) return String(preferred);
-  return Object.keys(content).length > 0 ? JSON.stringify(content) : '-';
+  if (typeof preferred === 'string' && preferred.trim()) return preferred.trim();
+  if (preferred !== undefined && preferred !== null && typeof preferred !== 'object') return String(preferred);
+
+  const pairs = Object.entries(content)
+    .filter(([key, value]) =>
+      !CONTENT_NOISE_KEYS.has(key.toLowerCase())
+      && value !== null
+      && value !== undefined
+      && value !== ''
+      && typeof value !== 'object')
+    .slice(0, 6)
+    .map(([key, value]) => `${humanizeKey(key)}: ${String(value)}`);
+
+  return pairs.length > 0 ? pairs.join(' · ') : 'No readable detail was recorded with this evidence.';
+}
+
+/** `observedAt` / `student_ref` → `Observed at` / `Student ref`. */
+function humanizeKey(key: string): string {
+  const words = key.replace(/[_.]+/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1).toLowerCase() : key;
 }
 
 function buildTrend(items: Evidence[], dateWindow: DateWindow): TrendRow[] {
@@ -176,7 +211,7 @@ function buildTrend(items: Evidence[], dateWindow: DateWindow): TrendRow[] {
   return rows;
 }
 
-export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
+export default function EvidenceWorkspace({ tenantId, onNavigate }: { tenantId: string; onNavigate?: (view: View) => void }) {
   const { showToast } = useToast();
   const [summarizingId, setSummarizingId] = useState<string | null>(null);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
@@ -340,45 +375,52 @@ export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
 
   const insights = useMemo(() => {
     const groundedRate = model.total ? model.grounded.length / model.total : null;
+    /*
+      The card labels used to read "Layer 1 - State", "Layer 2 - Movement",
+      "Layer 3 - Consequence". Those are the names of an internal reading model,
+      not of anything on this screen; an administrator has no way to know that
+      Layer 2 is where freshness lives. Each card is now titled by what it is
+      about.
+    */
     return [
       {
-        label: 'Layer 1 - State',
-        title: 'Current Evidence State',
+        label: 'What is here',
+        title: 'Evidence in view',
         body: model.total === 0
           ? 'No evidence records match the current filters.'
-          : `${model.total.toLocaleString()} evidence records are in view with ${formatPercent(model.avgConfidence)} average confidence and ${formatPercent(groundedRate)} grounded to signals.`,
+          : `${model.total.toLocaleString()} records, with ${formatPercent(model.avgConfidence)} average stated confidence. ${formatPercent(groundedRate)} of them are attached to a signal.`,
         tone: 'state',
       },
       {
-        label: 'Layer 2 - Movement',
-        title: 'Freshness Trend',
+        label: 'How old it is',
+        title: 'Freshness',
         body: model.avgAge === null
-          ? 'Evidence age cannot be calculated because the filtered records do not include usable observation dates.'
-          : `The average evidence age is ${formatDays(model.avgAge)} and average freshness is ${formatPercent(model.avgFreshness)} on the 90-day half-life curve.`,
+          ? 'None of these records carry an observation date, so their age cannot be measured.'
+          : `The average record was observed ${formatDays(model.avgAge)} ago. Evidence is treated as half as strong every 90 days, which puts average freshness at ${formatPercent(model.avgFreshness)}.`,
         tone: 'movement',
       },
       {
-        label: 'Layer 3 - Consequence',
-        title: 'Grounding Risk',
+        label: 'What it proves',
+        title: 'Unattached evidence',
         body: model.ungrounded.length > 0
-          ? `${model.ungrounded.length.toLocaleString()} records are not linked to a signal, so they cannot ground signal reasoning until attached.`
-          : 'Every filtered evidence record is linked to a signal.',
+          ? `${model.ungrounded.length.toLocaleString()} records are not attached to any signal. Until they are, nothing can cite them as support.`
+          : 'Every record in view is attached to a signal.',
         tone: model.ungrounded.length > 0 ? 'impact' : 'state',
       },
       {
-        label: 'Quality',
-        title: 'Evidence Quality',
+        label: 'How strong it is',
+        title: 'Weak support',
         body: model.lowQuality.length > 0
-          ? `${model.lowQuality.length.toLocaleString()} records combine low confidence or low freshness into weak corroboration.`
-          : `Average quality score is ${formatPercent(model.avgQuality)} after confidence is weighted by freshness.`,
+          ? `${model.lowQuality.length.toLocaleString()} records are either low-confidence, or old enough that their freshness has decayed. Both weaken anything built on them.`
+          : `Average strength is ${formatPercent(model.avgQuality)} once confidence is weighted by how recently each was observed.`,
         tone: model.lowQuality.length > 0 ? 'impact' : 'movement',
       },
       {
-        label: 'Coverage',
-        title: 'Signal Proof Coverage',
+        label: 'What is covered',
+        title: 'Signals with evidence',
         body: signals.length === 0
-          ? 'No signals were returned by the API, so organization-level proof coverage cannot be calculated.'
-          : `${model.coveredSignalIds.size.toLocaleString()} of ${signals.length.toLocaleString()} signals have at least one evidence record. Open-signal coverage is ${formatPercent(model.openSignalCoverage)}.`,
+          ? 'No signals exist for this organization, so there is nothing for evidence to cover yet.'
+          : `${model.coveredSignalIds.size.toLocaleString()} of ${signals.length.toLocaleString()} signals have at least one evidence record. Among still-open signals, ${formatPercent(model.openSignalCoverage)} are covered.`,
         tone: model.openSignalCoverage !== null && model.openSignalCoverage >= 0.75 ? 'state' : 'impact',
       },
     ] as Array<{ label: string; title: string; body: string; tone: 'state' | 'movement' | 'impact' }>;
@@ -436,11 +478,10 @@ export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
   return (
     <div className="evidence-intel">
       <header className="evidence-intel__header">
-        <div className="evidence-intel__eyebrow">Evidence Intelligence</div>
-        <h1>Proof Command</h1>
-        <p>Organization evidence is scored for freshness, confidence, grounding, source reliability, and signal coverage using live tenant data.</p>
+        <h1>Evidence</h1>
+        <p>What supports each signal this organization has raised — where it came from, when it was observed, and how firmly it is held.</p>
         <div className="evidence-intel__actions">
-          <button onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ Collect Evidence'}</button>
+          <button onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ Add evidence'}</button>
           <button className="evidence-intel__refresh" onClick={load} disabled={refreshing} title="Refresh evidence">
             <RefreshCw size={15} />
             {refreshing ? 'Refreshing' : 'Refresh'}
@@ -498,13 +539,13 @@ export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
       {error && <div className="evidence-intel__error">{error}</div>}
 
       <section className="evidence-intel__kpis">
-        <Kpi icon={<Database size={18} />} label="Total Evidence Records" value={model.total.toLocaleString()} hint={visibleLabel} tone="state" />
-        <Kpi icon={<ShieldCheck size={18} />} label="Average Confidence" value={formatPercent(model.avgConfidence)} hint="Mean stated confidence" tone={model.avgConfidence !== null && model.avgConfidence >= 0.75 ? 'good' : 'warn'} />
-        <Kpi icon={<FileCheck2 size={18} />} label="Fresh Evidence Count" value={(model.bandRows.find((row) => row.name === 'Fresh')?.value ?? 0).toLocaleString()} hint="Freshness score 0.90+" tone="good" />
-        <Kpi icon={<Clock3 size={18} />} label="Aging Evidence Count" value={(model.bandRows.find((row) => row.name === 'Aging')?.value ?? 0).toLocaleString()} hint="Freshness score 0.40-0.69" tone="warn" />
-        <Kpi icon={<Archive size={18} />} label="Stale Evidence Count" value={(model.bandRows.find((row) => row.name === 'Stale')?.value ?? 0).toLocaleString()} hint="Below freshness floor" tone={(model.bandRows.find((row) => row.name === 'Stale')?.value ?? 0) > 0 ? 'crit' : 'good'} />
-        <Kpi icon={<Link2 size={18} />} label="Grounded Evidence" value={formatPercent(model.total ? model.grounded.length / model.total : null)} hint={`${model.ungrounded.length.toLocaleString()} ungrounded records`} tone={model.ungrounded.length > 0 ? 'warn' : 'good'} />
-        <Kpi icon={<Brain size={18} />} label="Quality Score" value={formatPercent(model.avgQuality)} hint="Confidence weighted by freshness" tone={model.avgQuality !== null && model.avgQuality >= 0.5 ? 'good' : 'warn'} />
+        <Kpi icon={<Database size={18} />} label="Records" value={model.total.toLocaleString()} hint={visibleLabel} tone="state" />
+        <Kpi icon={<ShieldCheck size={18} />} label="Average confidence" value={formatPercent(model.avgConfidence)} hint="As stated by the source" tone={model.avgConfidence !== null && model.avgConfidence >= 0.75 ? 'good' : 'warn'} />
+        <Kpi icon={<FileCheck2 size={18} />} label="Recently observed" value={(model.bandRows.find((row) => row.name === 'Fresh')?.value ?? 0).toLocaleString()} hint="Within the last two weeks" tone="good" />
+        <Kpi icon={<Clock3 size={18} />} label="Getting old" value={(model.bandRows.find((row) => row.name === 'Aging')?.value ?? 0).toLocaleString()} hint="Roughly 2 to 4 months ago" tone="warn" />
+        <Kpi icon={<Archive size={18} />} label="Out of date" value={(model.bandRows.find((row) => row.name === 'Stale')?.value ?? 0).toLocaleString()} hint="Older than about four months" tone={(model.bandRows.find((row) => row.name === 'Stale')?.value ?? 0) > 0 ? 'crit' : 'good'} />
+        <Kpi icon={<Link2 size={18} />} label="Attached to a signal" value={formatPercent(model.total ? model.grounded.length / model.total : null)} hint={`${model.ungrounded.length.toLocaleString()} not attached`} tone={model.ungrounded.length > 0 ? 'warn' : 'good'} />
+        <Kpi icon={<Brain size={18} />} label="Overall strength" value={formatPercent(model.avgQuality)} hint="Confidence, weighted by how recent" tone={model.avgQuality !== null && model.avgQuality >= 0.5 ? 'good' : 'warn'} />
       </section>
 
       <section className="evidence-intel__summary">
@@ -582,7 +623,7 @@ export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
           <section className="evidence-intel__review">
             <div className="evidence-intel__review-main">
               <div className="evidence-intel__card-head">
-                <h2>Evidence Review Stream</h2>
+                <h2>Evidence records</h2>
                 <span>{visibleLabel}</span>
               </div>
               {filteredEvidence.length === 0 ? <EmptyChart /> : (
@@ -596,27 +637,39 @@ export default function EvidenceWorkspace({ tenantId }: { tenantId: string }) {
                       </div>
                       <p>{contentText(row.item)}</p>
                       <div className="evidence-intel__ledger-foot">
-                        <span>{row.item.signalId ? `Signal ${row.item.signalId}` : 'Ungrounded'}</span>
-                        <span>{row.ageDays === null ? 'No observed date' : `${formatDays(row.ageDays)} old`}</span>
+                        <span>{displayLabel(row.type)}</span>
+                        <span>{row.ageDays === null ? 'No observation date' : `Observed ${formatDays(row.ageDays)} ago`}</span>
+                        {row.item.signalId ? (
+                          onNavigate
+                            ? <button onClick={() => onNavigate('signals')} title="Open the Signals screen">Supports a signal</button>
+                            : <span>Supports a signal</span>
+                        ) : (
+                          <span className="evidence-intel__unattached">Not attached to a signal</span>
+                        )}
                         <button onClick={() => summarizeWithAI(row.item)} disabled={summarizingId === row.item.id}>
-                          {summarizingId === row.item.id ? 'Summarizing...' : 'Summarize'}
+                          {summarizingId === row.item.id ? 'Summarising…' : 'Summarise'}
                         </button>
                       </div>
                     </article>
                   ))}
+                  {filteredEvidence.length > 12 && (
+                    <p className="evidence-intel__ledger-note">
+                      Showing the 12 most recent of {filteredEvidence.length.toLocaleString()}. Narrow the filters above to see others.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
             <aside className="evidence-intel__risk-panel">
-              <h2>Grounding Gaps</h2>
+              <h2>Not attached to a signal</h2>
               <div className="evidence-intel__gap-number">{model.ungrounded.length.toLocaleString()}</div>
-              <p>Ungrounded records cannot support signal reasoning until linked.</p>
-              <h2>Stale Grounded Evidence</h2>
+              <p>Nothing can cite these as support until they are attached to the signal they explain.</p>
+              <h2>Attached, but out of date</h2>
               <div className="evidence-intel__gap-number">{model.staleGrounded.length.toLocaleString()}</div>
-              <p>Grounded but stale evidence can still mislead decisions because it looks attached while its freshness has decayed.</p>
-              <h2>Weak Corroboration</h2>
+              <p>These look like support but were observed long enough ago that they may no longer describe the situation.</p>
+              <h2>Weak on their own</h2>
               <div className="evidence-intel__gap-number">{model.lowQuality.length.toLocaleString()}</div>
-              <p>Records with low freshness-weighted confidence need re-observation or stronger provenance.</p>
+              <p>Low stated confidence, or old, or both. These need re-observing before much is built on them.</p>
             </aside>
           </section>
         </>

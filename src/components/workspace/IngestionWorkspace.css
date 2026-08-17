@@ -23,21 +23,10 @@
   box-shadow: var(--shadow-sm);
 }
 
-.ingestion-hero::after {
-  content: '';
-  position: absolute;
-  inset: -40%;
-  background: conic-gradient(from 120deg, transparent, rgba(201, 162, 77, 0.10), transparent, rgba(227, 200, 117, 0.06), transparent);
-  animation: ingestion-spin 18s linear infinite;
-}
-
-@keyframes ingestion-spin { to { transform: rotate(360deg); } }
-
 .ingestion-hero > * { position: relative; z-index: 1; }
-.ingestion-hero h1 { max-width: 760px; color: var(--content-primary); font-size: clamp(30px, 5vw, 54px); }
-.ingestion-hero p { max-width: 62ch; color: var(--content-secondary); }
+.ingestion-hero h1 { max-width: 760px; margin: 0 0 12px; color: var(--content-primary); font-size: clamp(26px, 3.4vw, 40px); line-height: 1.1; }
+.ingestion-hero p { max-width: 78ch; margin: 0; color: var(--content-secondary); line-height: 1.65; }
 
-.ingestion-eyebrow,
 .ingestion-card-head span,
 .ingestion-result span {
   display: block;
@@ -49,56 +38,13 @@
   color: var(--content-secondary);
 }
 
-.ingestion-eyebrow { color: var(--content-tertiary); margin-bottom: 10px; }
 
-.ingestion-ai-chip {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 999px;
-  background: rgba(255,255,255,0.08);
-  color: var(--content-secondary);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.ingestion-format-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-}
-
-.ingestion-format-grid article,
-.ingestion-card,
 .ingestion-pipeline {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   background: var(--surface-card);
   box-shadow: var(--shadow);
 }
-
-.ingestion-format-grid article {
-  padding: var(--space-4);
-}
-
-.ingestion-format-grid span {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 12px;
-  border-radius: var(--radius-xs);
-  background: var(--color-gold-100);
-  color: var(--color-gold-800);
-}
-
-.ingestion-format-grid svg { width: 18px; height: 18px; }
-.ingestion-format-grid strong { display: block; }
-.ingestion-format-grid small { color: var(--content-tertiary); }
 
 .ingestion-pipeline {
   display: grid;
@@ -137,7 +83,20 @@
 }
 
 .ingestion-pipeline-step svg { width: 17px; height: 17px; }
-.ingestion-pipeline-step strong { font-size: 12px; text-align: center; }
+.ingestion-pipeline-step strong { font-size: 12.5px; text-align: center; }
+
+/* Every step carries the sentence describing what happens there, so the strip
+   teaches the workflow rather than only tracking it. */
+.ingestion-pipeline-step small {
+  color: var(--content-tertiary);
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.ingestion-pipeline-step[data-current='true'] {
+  box-shadow: inset 0 -3px 0 var(--color-gold-600);
+}
 
 .ingestion-layout {
   display: grid;
@@ -442,35 +401,58 @@
 }
 
 .ingestion-result {
-  display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
   gap: var(--space-4);
   margin-top: var(--space-4);
 }
 
-.ingestion-signal-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.ingestion-result p {
+  max-width: 68ch;
+  margin: 6px 0 0;
+  color: var(--content-secondary);
+  line-height: 1.6;
 }
 
-.ingestion-signal-list code {
-  padding: 4px 7px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
-  background: var(--surface-inset);
+.ingestion-source-field {
+  display: grid;
+  gap: 7px;
+  margin: var(--space-4) 0;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--content-secondary);
-  font-size: 11px;
+}
+
+.ingestion-source-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 11px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--surface-card);
+  color: var(--content-primary);
+  font: inherit;
+  font-weight: 400;
+}
+
+.ingestion-source-field small {
+  font-weight: 400;
+  color: var(--content-tertiary);
+  line-height: 1.5;
+}
+
+.ingestion-validation-row span[data-ok='true'] {
+  color: var(--color-green-700);
 }
 
 @media (max-width: 1100px) {
-  .ingestion-format-grid,
   .ingestion-pipeline,
   .ingestion-mapping-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .ingestion-layout,
-  .ingestion-result {
+  .ingestion-layout {
     grid-template-columns: 1fr;
   }
 }
@@ -484,7 +466,6 @@
     align-items: stretch;
     flex-direction: column;
   }
-  .ingestion-format-grid,
   .ingestion-pipeline,
   .ingestion-form-grid,
   .ingestion-mapping-grid,

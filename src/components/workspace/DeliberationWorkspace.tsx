@@ -143,9 +143,9 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
     <div className="intel-page intel-deliberation">
       <header className="intel-header intel-deliberation-header">
         <div>
-          <span className="intel-eyebrow"><Scale size={14} /> Investigation Workbench</span>
+          <span className="intel-eyebrow"><Scale size={14} /> Intelligence Loop</span>
           <h1>Deliberation Workspace</h1>
-          <p>Investigate signals, test hypotheses, and make evidence-backed decisions from one tenant-scoped intelligence stream.</p>
+          <p>Open investigations, the evidence behind each one, what could explain it, and the decision waiting on you.</p>
           <div className="intel-meta">
             <div className="intel-meta-card">
               <span>Organization</span>
@@ -167,7 +167,7 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
 
         <div className="intel-score-card">
           <span className="intel-subtle">Current Bottleneck</span>
-          <strong>{data.focus?.biggestBottleneck?.label || 'Insufficient data'}</strong>
+          <strong>{data.focus?.biggestBottleneck?.label || 'Nothing is stuck'}</strong>
           <p>
             {data.focus?.biggestBottleneck?.conversionRate != null
               ? `${formatPercent(data.focus.biggestBottleneck.conversionRate)} conversion from the previous stage`
@@ -190,10 +190,10 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
             ['Active Investigations', data.summary?.activeInvestigations, 'Still being worked'],
             ['Pending Recommendations', data.summary?.pendingRecommendations, 'Waiting for decision'],
             ['Pending Decisions', data.summary?.pendingDecisions, 'Governance queue'],
-            ['Average Decision Age', data.summary?.averageDecisionAgeDays != null ? `${data.summary.averageDecisionAgeDays} days` : 'Insufficient data', 'Open decisions only'],
-            ['Evidence Coverage', data.summary?.evidenceCoverage != null ? formatPercent(data.summary.evidenceCoverage) : 'Insufficient data', 'Open cases with linked evidence'],
-            ['High/Critical Risks', data.summary?.highCriticalRisks, 'Transparent threshold: score >= 0.50'],
-            ['Overdue Decisions', data.summary?.overdueDecisions ?? 'Insufficient data', data.summary?.overdueDecisionNote || 'No due-date model exposed'],
+            ['Average Decision Age', data.summary?.averageDecisionAgeDays != null ? `${data.summary.averageDecisionAgeDays} days` : 'No open decisions', 'How long the queue has been waiting'],
+            ['Evidence Coverage', data.summary?.evidenceCoverage != null ? formatPercent(data.summary.evidenceCoverage) : 'No open cases', 'Open cases that have evidence attached'],
+            ['High and Critical Risks', data.summary?.highCriticalRisks, 'Risks scoring 0.50 or above'],
+            ['Overdue Decisions', data.summary?.overdueDecisions ?? 'Not tracked', data.summary?.overdueDecisionNote || 'No due dates are recorded on decisions'],
           ].map(([label, value, note]) => (
             <article key={String(label)} className="intel-kpi" data-tone={badgeTone(String(label).includes('Risk') ? 'high' : label === 'Evidence Coverage' ? 'active' : 'pending')}>
               <span className="intel-kpi-label">{label}</span>
@@ -224,14 +224,14 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
                 <span className="intel-pill" data-tone={badgeTone(item.severity || item.status)}>{item.severity || item.status}</span>
               </div>
               <div className="intel-case-grid">
-                <span>Status: {item.status || 'Insufficient data'}</span>
+                <span>Status: {item.status || 'unknown'}</span>
                 <span>Evidence: {formatNumber(item.evidenceCount)}</span>
-                <span>Age: {item.ageDays != null ? `${item.ageDays} days` : 'Insufficient data'}</span>
-                <span>Confidence: {item.confidence != null ? formatPercent(item.confidence) : 'Insufficient data'}</span>
+                <span>Age: {item.ageDays != null ? `${item.ageDays} days` : 'not dated'}</span>
+                <span>Confidence: {item.confidence != null ? formatPercent(item.confidence) : 'not scored'}</span>
               </div>
               <small>{item.currentHypothesis?.statement || item.nextAction}</small>
             </button>
-          )) : <EmptyState icon="○" message="No cases are available for this organization yet." />}
+          )) : <EmptyState icon="○" message="No investigation has been opened yet. Cases are opened against signals that need looking into." />}
         </div>
 
         <div className="intel-case-detail">
@@ -248,7 +248,7 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
               <div className="intel-inline-list">
                 <span className="intel-pill" data-tone={badgeTone(selectedCase.summary?.severity || selectedCase.summary?.status)}>{selectedCase.summary?.severity || selectedCase.summary?.status}</span>
                 <span className="intel-pill" data-tone="info">{selectedCase.summary?.classification || 'Unclassified'}</span>
-                <span className="intel-pill" data-tone="warn">{selectedCase.summary?.confidence != null ? formatPercent(selectedCase.summary.confidence) : 'Insufficient data'}</span>
+                <span className="intel-pill" data-tone="warn">{selectedCase.summary?.confidence != null ? `${formatPercent(selectedCase.summary.confidence)} confidence` : 'Not scored'}</span>
               </div>
 
               <div className="intel-timeline">
@@ -261,11 +261,11 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
                           <strong>{entry.title}</strong>
                           <div className="intel-inline-list">
                             <span className="intel-mini-badge" data-tone={badgeTone(entry.status)}>{entry.status}</span>
-                            <small>{entry.confidence != null ? formatPercent(entry.confidence) : 'Insufficient data'}</small>
+                            <small>{entry.confidence != null ? `${formatPercent(entry.confidence)} confidence` : ''}</small>
                             <small>{formatDateTime(entry.timestamp)}</small>
                           </div>
                         </div>
-                      )) : <div className="intel-note">Insufficient data</div>}
+                      )) : <div className="intel-note">Nothing has been recorded at this stage yet.</div>}
                     </div>
                   </div>
                 ))}
@@ -274,7 +274,7 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
               <div className="intel-reco-block">
                 <div className="intel-section-head">
                   <div>
-                    <span className="intel-eyebrow">Fee Intelligence</span>
+                    <span className="intel-eyebrow">What the Brain suggests</span>
                     <h3>Recommended action</h3>
                   </div>
                 </div>
@@ -298,9 +298,9 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
                         <strong>{rec.title}</strong>
                         <div className="intel-inline-list">
                           <span className="intel-pill" data-tone="info">{rec.category || 'Uncategorised'}</span>
-                          <span className="intel-pill" data-tone={badgeTone(rec.priority)}>{rec.priority || 'Insufficient data'}</span>
+                          <span className="intel-pill" data-tone={badgeTone(rec.priority)}>{rec.priority || 'unprioritised'}</span>
                           <span className="intel-mini-badge" data-tone={badgeTone(rec.status)}>{rec.status}</span>
-                          <small>Confidence: {rec.confidence != null ? formatPercent(rec.confidence) : 'Insufficient data'}</small>
+                          <small>Confidence: {rec.confidence != null ? formatPercent(rec.confidence) : 'not scored'}</small>
                         </div>
                       </button>
 
@@ -373,11 +373,11 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
                       )}
                     </article>
                   );
-                }) : <EmptyState icon="○" message="No recommendation has been produced for this case yet." />}
+                }) : <EmptyState icon="○" message="Nothing has been recommended for this case yet." />}
               </div>
             </>
           ) : (
-            <EmptyState icon="○" message="No case detail is available yet." />
+            <EmptyState icon="○" message="Select an investigation on the left to see its evidence, what could explain it, and what is recommended." />
           )}
         </div>
       </section>
@@ -414,12 +414,12 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
                 {data.decisionQueue?.items?.length ? data.decisionQueue.items.map((item: any) => (
                   <tr key={item.id}>
                     <td>{item.decision || 'Decision'}</td>
-                    <td>{item.caseId || 'Insufficient data'}</td>
-                    <td>{item.recommendation || 'Insufficient data'}</td>
-                    <td>{item.confidence != null ? formatPercent(item.confidence) : 'Insufficient data'}</td>
-                    <td>{item.priority || 'Insufficient data'}</td>
-                    <td>{item.owner || 'Insufficient data'}</td>
-                    <td>{item.ageDays != null ? `${item.ageDays} days` : 'Insufficient data'}</td>
+                    <td>{item.caseTitle || (item.caseId ? `Case ${String(item.caseId).slice(0, 8)}` : <span className="intel-muted">Not linked</span>)}</td>
+                    <td>{item.recommendation || <span className="intel-muted">Not linked</span>}</td>
+                    <td>{item.confidence != null ? formatPercent(item.confidence) : <span className="intel-muted">—</span>}</td>
+                    <td>{item.priority || <span className="intel-muted">—</span>}</td>
+                    <td>{item.owner || <span className="intel-muted">Unassigned</span>}</td>
+                    <td>{item.ageDays != null ? `${item.ageDays} days` : <span className="intel-muted">—</span>}</td>
                     <td><span className="intel-pill" data-tone={badgeTone(item.status)}>{item.status}</span></td>
                     <td>
                       <div className="intel-gate-table-actions">
@@ -455,7 +455,7 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={9}>No pending decisions require attention.</td>
+                    <td colSpan={9}>No decision is waiting. Propose one from a recommendation above and it will arrive here for approval.</td>
                   </tr>
                 )}
               </tbody>

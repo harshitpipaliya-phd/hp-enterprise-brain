@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { AlertTriangle, Archive, BrainCircuit, BriefcaseBusiness, Building2, Gauge, Mail, Search, ShieldAlert, Sparkles, UsersRound } from 'lucide-react';
+import { AlertTriangle, Archive, Building2, BriefcaseBusiness, IdCard, Mail, MailX, Search, Sparkles, UserMinus, UsersRound } from 'lucide-react';
 import type { Person, PersonDepartment } from './PersonApp';
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
   tenantId: string;
 }
 
-type SortKey = 'name' | 'department' | 'role' | 'status' | 'ai' | 'risk' | 'created';
+type SortKey = 'name' | 'department' | 'role' | 'status' | 'created';
 
 const PAGE_SIZES = [10, 25, 50];
 
@@ -30,6 +30,11 @@ function personName(person: Person): string {
   return norm(person.displayName) || `${norm(person.firstName)} ${norm(person.lastName)}`.trim() || `Person ${person.id}`;
 }
 
+function hasDepartment(person: Person): boolean {
+  const id = norm(person.departmentId);
+  return id !== '' && id !== '0';
+}
+
 function daysSince(value: string | null | undefined): number | null {
   if (!value) return null;
   const time = new Date(value).getTime();
@@ -37,30 +42,38 @@ function daysSince(value: string | null | undefined): number | null {
   return Math.max(0, Math.floor((Date.now() - time) / 86400000));
 }
 
-function scorePerson(person: Person): { ai: number; risk: number; missing: string[] } {
-  const missing = [
-    !norm(person.email) ? 'email' : '',
-    !norm(person.departmentId) || norm(person.departmentId) === '0' ? 'department' : '',
-    !norm(person.employeeId) ? 'employee id' : '',
-    !norm(person.designation) && !norm(person.employmentType) ? 'role' : '',
-    !norm(person.phone) ? 'phone' : '',
-  ].filter(Boolean);
-
-  const ai = Math.max(0, Math.round(((5 - missing.length) / 5) * 100));
-  const risk = Math.min(100, Math.round(missing.length * 18 + (lower(person.status) !== 'active' ? 10 : 0)));
-  return { ai, risk, missing };
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
 }
 
+/**
+ * People — "who is in this organization, and whose record is incomplete?"
+ *
+ * WHAT WAS REMOVED, AND WHY. Every row used to carry two percentage columns,
+ * "AI Score" and "Risk", and the page opened on a large ring reading "AI
+ * readiness". None of those three numbers existed anywhere outside this file.
+ * The AI score was `(5 - missingFieldCount) / 5`; the risk was
+ * `missingFieldCount * 18` plus ten if the person was not active. So a student
+ * with no phone number on file was published as 80% AI-ready and 18% risky —
+ * two confident-looking figures about a person, derived from nothing but which
+ * of five columns happened to be blank, with no model behind either.
+ *
+ * The underlying fact — some records are missing fields — is real and worth
+ * showing, so it is still here. It is now reported as what it is: a count of
+ * records missing a named field, per field, with no score on top.
+ */
 export default function PersonList({ people, departments, loading, onSelect, onEdit, onArchive, onRefresh }: Props) {
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('all');
   const [role, setRole] = useState('all');
   const [status, setStatus] = useState('all');
-  const [experience, setExperience] = useState('all');
+  const [completeness, setCompleteness] = useState('all');
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(25);
 
   const departmentNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -69,25 +82,46 @@ export default function PersonList({ people, departments, loading, onSelect, onE
   }, [departments]);
 
   const enriched = useMemo(() => people.map((person) => {
-    const score = scorePerson(person);
-    const departmentName = person.departmentId ? departmentNames.get(String(person.departmentId)) ?? `Department ${person.departmentId}` : 'Unassigned';
-    const roleName = norm(person.designation) || norm(person.employmentType) || 'Unprofiled';
-    const age = daysSince(person.createdDate);
-    return { person, score, departmentName, roleName, age };
+    const departmentName = hasDepartment(person)
+      ? departmentNames.get(String(person.departmentId)) ?? 'Unknown department'
+      : 'Unassigned';
+    const roleName = norm(person.designation) || norm(person.employmentType) || 'No role recorded';
+    return {
+      person,
+      departmentName,
+      roleName,
+      hasRole: Boolean(norm(person.designation) || norm(person.employmentType)),
+      hasEmail: Boolean(norm(person.email)),
+      inDepartment: hasDepartment(person),
+      age: daysSince(person.createdDate),
+    };
   }), [people, departmentNames]);
 
   const roles = useMemo(() => Array.from(new Set(enriched.map((row) => row.roleName))).sort(), [enriched]);
-  const isStudentDataset = useMemo(() => enriched.length > 0 && enriched.filter((row) => lower(row.roleName) === 'student').length / enriched.length >= 0.8, [enriched]);
+
+  /**
+   * Whether this tenant's people are predominantly students.
+   *
+   * Real, and load-bearing for the labels: a school's "departments" are class
+   * sections and its people are students, and calling them Employees on screen
+   * makes the page read as a report about somebody else's organization. The
+   * threshold is applied to the tenant's own designations, not assumed.
+   */
+  const isStudentDataset = useMemo(
+    () => enriched.length > 0 && enriched.filter((row) => lower(row.roleName) === 'student').length / enriched.length >= 0.8,
+    [enriched],
+  );
 
   const model = useMemo(() => {
     const total = enriched.length;
-    const assignedDepartments = new Set(enriched.filter((row) => row.person.departmentId && row.person.departmentId !== '0').map((row) => row.person.departmentId)).size;
-    const missingProfiles = enriched.filter((row) => row.score.missing.includes('role')).length;
-    const recent = enriched.filter((row) => row.age !== null && row.age <= 30).length;
-    const avgAi = total ? Math.round(enriched.reduce((sum, row) => sum + row.score.ai, 0) / total) : 0;
-    const avgRisk = total ? Math.round(enriched.reduce((sum, row) => sum + row.score.risk, 0) / total) : 0;
-    const skillCoverage = total ? Math.round((enriched.filter((row) => !row.score.missing.includes('role') && !row.score.missing.includes('department')).length / total) * 100) : 0;
-    return { total, assignedDepartments, missingProfiles, recent, avgAi, avgRisk, skillCoverage };
+    return {
+      total,
+      departmentsRepresented: new Set(enriched.filter((row) => row.inDepartment).map((row) => String(row.person.departmentId))).size,
+      withoutDepartment: enriched.filter((row) => !row.inDepartment).length,
+      withoutRole: enriched.filter((row) => !row.hasRole).length,
+      withoutEmail: enriched.filter((row) => !row.hasEmail).length,
+      recent: enriched.filter((row) => row.age !== null && row.age <= 30).length,
+    };
   }, [enriched]);
 
   const filtered = useMemo(() => {
@@ -105,13 +139,12 @@ export default function PersonList({ people, departments, loading, onSelect, onE
       if (department !== 'all' && String(row.person.departmentId ?? '') !== department) return false;
       if (role !== 'all' && row.roleName !== role) return false;
       if (status !== 'all' && lower(row.person.status) !== status) return false;
-      if (experience === 'new' && !(row.age !== null && row.age <= 30)) return false;
-      if (experience === 'established' && !(row.age !== null && row.age > 30 && row.age <= 365)) return false;
-      if (experience === 'long' && !(row.age !== null && row.age > 365)) return false;
-      if (experience === 'unknown' && row.age !== null) return false;
+      if (completeness === 'no-department' && row.inDepartment) return false;
+      if (completeness === 'no-role' && row.hasRole) return false;
+      if (completeness === 'no-email' && row.hasEmail) return false;
       return true;
     });
-  }, [department, enriched, experience, query, role, status]);
+  }, [completeness, department, enriched, query, role, status]);
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
@@ -121,9 +154,7 @@ export default function PersonList({ people, departments, loading, onSelect, onE
         if (sortKey === 'name') return personName(row.person);
         if (sortKey === 'department') return row.departmentName;
         if (sortKey === 'role') return row.roleName;
-        if (sortKey === 'status') return row.person.status;
-        if (sortKey === 'ai') return row.score.ai;
-        if (sortKey === 'risk') return row.score.risk;
+        if (sortKey === 'status') return norm(row.person.status);
         return new Date(row.person.createdDate || 0).getTime();
       };
       const av = value(a);
@@ -141,7 +172,7 @@ export default function PersonList({ people, departments, loading, onSelect, onE
 
   const updateSort = (key: SortKey) => {
     if (sortKey === key) {
-      setSortDir((dir) => dir === 'asc' ? 'desc' : 'asc');
+      setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortKey(key);
       setSortDir('asc');
@@ -153,69 +184,99 @@ export default function PersonList({ people, departments, loading, onSelect, onE
     setPage(1);
   };
 
+  const resetFilters = () => {
+    setQuery('');
+    setDepartment('all');
+    setRole('all');
+    setStatus('all');
+    setCompleteness('all');
+    setPage(1);
+  };
+
   if (loading) {
     return (
       <div className="people-dashboard">
-        <div className="people-skeleton people-skeleton-hero" />
         <div className="people-kpi-grid">
           {Array.from({ length: 6 }).map((_, index) => <div className="people-skeleton people-skeleton-card" key={index} />)}
+        </div>
+        <div className="people-skeleton people-skeleton-hero" />
+      </div>
+    );
+  }
+
+  if (people.length === 0) {
+    return (
+      <div className="people-dashboard">
+        <div className="people-empty people-empty--page">
+          <UsersRound size={26} />
+          <strong>No people are recorded for this organization yet</strong>
+          <p>
+            People come from the connected HR system, or from a file imported through the Ingestion Engine.
+            Once they exist, each person&apos;s department, role and recorded activity appear here.
+          </p>
         </div>
       </div>
     );
   }
 
+  const unitWord = isStudentDataset ? 'class section' : 'department';
+
   return (
     <div className="people-dashboard">
-      <section className="people-hero">
-        <div>
-          <span className="people-eyebrow">{isStudentDataset ? 'Student intelligence' : 'Workforce intelligence'}</span>
-          <h2>{isStudentDataset ? 'Student readiness across fee risk' : 'AI readiness across your organization'}</h2>
-          <p>{isStudentDataset ? 'Search, segment, and review student records with class-section and fee-contact context.' : 'Search, segment, and review people records with tenant-scoped workforce analytics.'}</p>
-        </div>
-        <div
-          className="people-hero-score"
-          style={{ ['--people-readiness' as any]: Math.max(0, Math.min(100, model.avgAi)) }}
-        >
-          <span>{model.avgAi}</span>
-          <small>{isStudentDataset ? 'data readiness' : 'AI readiness'}</small>
-        </div>
-      </section>
-
-      <section className="people-kpi-grid" aria-label="People KPIs">
-        <Kpi icon={<UsersRound />} label={isStudentDataset ? 'Total Students' : 'Total Employees'} value={model.total} hint={`${filtered.length} in current view`} />
-        <Kpi icon={<Building2 />} label={isStudentDataset ? 'Class Sections' : 'Departments'} value={model.assignedDepartments} hint={`${departments.length} available`} />
-        <Kpi icon={<BrainCircuit />} label={isStudentDataset ? 'Data Readiness' : 'AI Readiness'} value={`${model.avgAi}%`} hint="profile completeness" />
-        <Kpi icon={<Gauge />} label={isStudentDataset ? 'Class Mapping' : 'Skill Coverage'} value={`${model.skillCoverage}%`} hint="role and department mapped" />
-        <Kpi icon={<ShieldAlert />} label="Missing Profiles" value={model.missingProfiles} hint="role data absent" danger={model.missingProfiles > 0} />
-        <Kpi icon={<Sparkles />} label="Recently Added" value={model.recent} hint="last 30 days" />
-      </section>
-
-      <section className="people-insight-grid">
-        <article className="people-insight-card">
-          <span>Current state</span>
-          <strong>{model.total} active records across {model.assignedDepartments || 0} {isStudentDataset ? 'class sections' : 'staffed departments'}.</strong>
-          <p>{model.missingProfiles > 0 ? `${model.missingProfiles} records need role/profile enrichment before AI routing is reliable.` : 'Every visible record has enough profile data for baseline AI routing.'}</p>
-        </article>
-        <article className="people-insight-card">
-          <span>Readiness signal</span>
-          <strong>{model.avgAi}% average AI readiness with {model.avgRisk}% average data risk.</strong>
-          <p>{model.skillCoverage < 70 ? 'Coverage is below the threshold expected for confident capability matching.' : 'Coverage is strong enough for reliable workforce segmentation.'}</p>
-        </article>
-        <article className="people-insight-card">
-          <span>Operational risk</span>
-          <strong>{enriched.filter((row) => row.score.risk >= 50).length} {isStudentDataset ? 'student records' : 'people'} require attention.</strong>
-          <p>Risk is computed from missing email, department, employee id, role, phone, and inactive status.</p>
-        </article>
+      <section className="people-kpi-grid" aria-label="People summary">
+        <Kpi
+          icon={<UsersRound />}
+          label={isStudentDataset ? 'Students' : 'People'}
+          value={model.total.toLocaleString()}
+          hint={`${filtered.length.toLocaleString()} in current view`}
+        />
+        <Kpi
+          icon={<Building2 />}
+          label={isStudentDataset ? 'Class sections in use' : 'Departments in use'}
+          value={model.departmentsRepresented.toLocaleString()}
+          hint={`${departments.length.toLocaleString()} recorded in total`}
+        />
+        <Kpi
+          icon={<UserMinus />}
+          label={`Without a ${unitWord}`}
+          value={model.withoutDepartment.toLocaleString()}
+          hint={model.withoutDepartment > 0 ? 'Excluded from every rollup' : 'Everyone is assigned'}
+          danger={model.withoutDepartment > 0}
+        />
+        <Kpi
+          icon={<IdCard />}
+          label="Without a role"
+          value={model.withoutRole.toLocaleString()}
+          hint={model.withoutRole > 0 ? 'No designation on file' : 'Every record has a role'}
+          danger={model.withoutRole > 0}
+        />
+        <Kpi
+          icon={<MailX />}
+          label="Without an email"
+          value={model.withoutEmail.toLocaleString()}
+          hint={model.withoutEmail > 0 ? 'Cannot be contacted from here' : 'Every record has an email'}
+          danger={model.withoutEmail > 0}
+        />
+        <Kpi
+          icon={<Sparkles />}
+          label="Added recently"
+          value={model.recent.toLocaleString()}
+          hint="In the last 30 days"
+        />
       </section>
 
       <section className="people-workspace">
         <div className="people-toolbar">
           <div className="people-search">
             <Search size={16} aria-hidden="true" />
-            <input value={query} onChange={(event) => onFilter(() => setQuery(event.target.value))} placeholder={isStudentDataset ? 'Search students, guardian email, student id, class...' : 'Search people, email, employee id, department...'} />
+            <input
+              value={query}
+              onChange={(event) => onFilter(() => setQuery(event.target.value))}
+              placeholder={isStudentDataset ? 'Search by name, student id, class or email' : 'Search by name, employee id, department or email'}
+            />
           </div>
-          <select value={department} onChange={(event) => onFilter(() => setDepartment(event.target.value))} aria-label="Department filter">
-            <option value="all">All departments</option>
+          <select value={department} onChange={(event) => onFilter(() => setDepartment(event.target.value))} aria-label={isStudentDataset ? 'Class section filter' : 'Department filter'}>
+            <option value="all">{isStudentDataset ? 'All class sections' : 'All departments'}</option>
             {departments.map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
           </select>
           <select value={role} onChange={(event) => onFilter(() => setRole(event.target.value))} aria-label="Role filter">
@@ -228,13 +289,13 @@ export default function PersonList({ people, departments, loading, onSelect, onE
             <option value="inactive">Inactive</option>
             <option value="archived">Archived</option>
           </select>
-          <select value={experience} onChange={(event) => onFilter(() => setExperience(event.target.value))} aria-label="Experience filter">
-            <option value="all">All experience</option>
-            <option value="new">Recently added</option>
-            <option value="established">Established</option>
-            <option value="long">Long tenured</option>
-            <option value="unknown">Unknown tenure</option>
+          <select value={completeness} onChange={(event) => onFilter(() => setCompleteness(event.target.value))} aria-label="Record completeness filter">
+            <option value="all">Complete and incomplete</option>
+            <option value="no-department">Missing {unitWord}</option>
+            <option value="no-role">Missing role</option>
+            <option value="no-email">Missing email</option>
           </select>
+          <button className="eb-pill-btn" onClick={resetFilters}>Reset</button>
           <button className="eb-pill-btn" onClick={onRefresh}>Refresh</button>
         </div>
 
@@ -242,12 +303,12 @@ export default function PersonList({ people, departments, loading, onSelect, onE
           <table className="people-table">
             <thead>
               <tr>
-                <Sortable label={isStudentDataset ? 'Student' : 'Employee'} sortKey="name" active={sortKey} dir={sortDir} onSort={updateSort} />
-                <Sortable label={isStudentDataset ? 'Class Section' : 'Department'} sortKey="department" active={sortKey} dir={sortDir} onSort={updateSort} />
+                <Sortable label={isStudentDataset ? 'Student' : 'Person'} sortKey="name" active={sortKey} dir={sortDir} onSort={updateSort} />
+                <Sortable label={isStudentDataset ? 'Class section' : 'Department'} sortKey="department" active={sortKey} dir={sortDir} onSort={updateSort} />
                 <Sortable label="Role" sortKey="role" active={sortKey} dir={sortDir} onSort={updateSort} />
-                <Sortable label="AI Score" sortKey="ai" active={sortKey} dir={sortDir} onSort={updateSort} />
-                <Sortable label="Risk" sortKey="risk" active={sortKey} dir={sortDir} onSort={updateSort} />
+                <Sortable label="Status" sortKey="status" active={sortKey} dir={sortDir} onSort={updateSort} />
                 <th>Contact</th>
+                <Sortable label="Added" sortKey="created" active={sortKey} dir={sortDir} onSort={updateSort} />
                 <th>Actions</th>
               </tr>
             </thead>
@@ -259,17 +320,27 @@ export default function PersonList({ people, departments, loading, onSelect, onE
                       <Avatar person={row.person} />
                       <span>
                         <strong>{personName(row.person)}</strong>
-                        <small>{row.person.employeeId || row.person.id}</small>
+                        <small>{row.person.employeeId || `Reference ${row.person.id}`}</small>
                       </span>
                     </button>
                   </td>
-                  <td><span className="people-badge people-badge-navy"><Building2 size={13} />{row.departmentName}</span></td>
-                  <td><span className="people-badge people-badge-gold"><BriefcaseBusiness size={13} />{row.roleName}</span></td>
-                  <td><ScoreBar value={row.score.ai} tone="ai" /></td>
-                  <td><ScoreBar value={row.score.risk} tone="risk" /></td>
                   <td>
-                    <span className="people-contact"><Mail size={14} />{row.person.email || 'No email'}</span>
+                    {row.inDepartment
+                      ? <span className="people-badge people-badge-navy"><Building2 size={13} />{row.departmentName}</span>
+                      : <span className="people-missing">Not assigned</span>}
                   </td>
+                  <td>
+                    {row.hasRole
+                      ? <span className="people-badge people-badge-gold"><BriefcaseBusiness size={13} />{row.roleName}</span>
+                      : <span className="people-missing">Not recorded</span>}
+                  </td>
+                  <td><span className="people-status" data-active={lower(row.person.status) === 'active' ? 'true' : 'false'}>{norm(row.person.status) || 'Unknown'}</span></td>
+                  <td>
+                    {row.hasEmail
+                      ? <span className="people-contact"><Mail size={14} />{row.person.email}</span>
+                      : <span className="people-missing">No email</span>}
+                  </td>
+                  <td className="people-date">{formatDate(row.person.createdDate)}</td>
                   <td>
                     <div className="people-row-actions">
                       <button className="eb-pill-btn" onClick={() => onSelect(row.person)}>Open</button>
@@ -286,7 +357,7 @@ export default function PersonList({ people, departments, loading, onSelect, onE
                   <td colSpan={7}>
                     <div className="people-empty">
                       <AlertTriangle size={18} />
-                      No people match the current filters.
+                      No one matches the current filters.
                     </div>
                   </td>
                 </tr>
@@ -296,7 +367,7 @@ export default function PersonList({ people, departments, loading, onSelect, onE
         </div>
 
         <div className="people-pagination">
-          <span>{sorted.length === 0 ? 'No records' : `Showing ${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, sorted.length)} of ${sorted.length}`}</span>
+          <span>{sorted.length === 0 ? 'No records' : `Showing ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, sorted.length)} of ${sorted.length.toLocaleString()}`}</span>
           <div>
             <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} aria-label="Rows per page">
               {PAGE_SIZES.map((size) => <option key={size} value={size}>{size} rows</option>)}
@@ -328,20 +399,13 @@ function Avatar({ person }: { person: Person }) {
   return <span className="people-avatar">{person.profilePhoto ? <img src={person.profilePhoto} alt="" /> : initials}</span>;
 }
 
-function ScoreBar({ value, tone }: { value: number; tone: 'ai' | 'risk' }) {
-  return (
-    <span className="people-score" data-tone={tone}>
-      <span><span style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></span>
-      <strong>{value}%</strong>
-    </span>
-  );
-}
-
 function Sortable({ label, sortKey, active, dir, onSort }: { label: string; sortKey: SortKey; active: SortKey; dir: 'asc' | 'desc'; onSort: (key: SortKey) => void }) {
+  const isActive = active === sortKey;
   return (
-    <th>
+    <th aria-sort={isActive ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
       <button className="people-sort" onClick={() => onSort(sortKey)}>
-        {label}{active === sortKey ? ` ${dir === 'asc' ? 'up' : 'down'}` : ''}
+        {label}
+        <span aria-hidden="true">{isActive ? (dir === 'asc' ? '↑' : '↓') : ''}</span>
       </button>
     </th>
   );
