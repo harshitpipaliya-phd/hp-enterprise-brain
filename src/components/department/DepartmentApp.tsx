@@ -8,7 +8,9 @@ import DepartmentDetails from './DepartmentDetails';
 import DepartmentArchiveConfirm from './DepartmentArchiveConfirm';
 import DepartmentIntelligence from '../workspace/DepartmentIntelligence';
 import PersonIntelligence from '../workspace/PersonIntelligence';
+import AcademicStructure from '../student/AcademicStructure';
 import { api } from '../../api/department';
+import { api as studentApi } from '../../api/student';
 
 export type DepartmentView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
 
@@ -35,6 +37,19 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
   const [error, setError] = useState<string | null>(null);
   const [viewingPersonId, setViewingPersonId] = useState<string | null>(null);
 
+  /*
+    WHETHER TO SHOW ACADEMIC STRUCTURE INSTEAD OF AN EMPTY DEPARTMENT LIST.
+
+    Both conditions are required, and both are answered by the server:
+    the department list must be empty, AND the organization must have a dataset
+    to describe. An organization with departments keeps them; an organization
+    with neither still gets the honest "nothing is recorded" empty state rather
+    than a page invented to fill the space.
+
+    null while unknown, so nothing flashes before the answer arrives.
+  */
+  const [hasDataset, setHasDataset] = useState<boolean | null>(null);
+
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -49,6 +64,17 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
   };
 
   useEffect(() => { load(); }, [organization.tenantId, organization.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHasDataset(null);
+    studentApi.getSummary(organization.tenantId)
+      .then((s) => { if (!cancelled) setHasDataset(Number(s?.total ?? 0) > 0); })
+      .catch(() => { if (!cancelled) setHasDataset(false); });
+    return () => { cancelled = true; };
+  }, [organization.tenantId]);
+
+  const showAcademicStructure = !loading && departments.length === 0 && hasDataset === true;
 
   const navigate = (v: DepartmentView, dept?: Department) => {
     setSelected(dept ?? null);
@@ -68,7 +94,20 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
         </header>
       )}
       {error && <div style={{ color: 'red' }}>{error}</div>}
-      {view === 'list' && (
+      {view === 'list' && showAcademicStructure && (
+        <div style={{ padding: 24 }}>
+          <header style={{ marginBottom: 24 }}>
+            <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
+            <h1 style={{ marginTop: 12, fontSize: 'clamp(28px, 4vw, 42px)' }}>Academic structure</h1>
+            <p style={{ color: 'var(--content-secondary)', maxWidth: 760 }}>
+              {organization.name} has no departments in the HR system. What it does have is an imported
+              dataset, and these are the dimensions that dataset is organised by.
+            </p>
+          </header>
+          <AcademicStructure tenantId={organization.tenantId} />
+        </div>
+      )}
+      {view === 'list' && !showAcademicStructure && (
         <DepartmentList
           organization={organization}
           departments={departments}

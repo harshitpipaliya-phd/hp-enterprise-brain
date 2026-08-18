@@ -1,0 +1,296 @@
+/*
+  Students, academic structure and the student profile.
+  Built on the same design tokens as the rest of the shell so these screens read
+  as part of the product rather than as a bolt-on.
+*/
+
+.students { display: grid; gap: var(--space-5); }
+
+.students-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.students-kpi {
+  display: grid;
+  gap: 4px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
+}
+
+.students-kpi > div {
+  display: grid;
+  place-items: center;
+  width: 34px; height: 34px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-xs);
+  color: var(--accent-intelligence-deep);
+  background: var(--surface-inset);
+}
+
+.students-kpi > span { color: var(--content-secondary); font-size: 13px; font-weight: 700; }
+.students-kpi > strong { font-size: clamp(22px, 2.6vw, 30px); line-height: 1.1; }
+.students-kpi > small { color: var(--content-tertiary); font-size: 12px; line-height: 1.45; }
+
+.students-panel {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
+}
+
+.students-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.students-search {
+  display: flex;
+  flex: 1 1 320px;
+  align-items: center;
+  gap: 8px;
+  min-width: 240px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--surface-ground);
+  color: var(--content-tertiary);
+}
+
+.students-search input {
+  width: 100%;
+  min-height: 39px;
+  border: 0;
+  background: transparent;
+  color: var(--content-primary);
+  font: inherit;
+}
+.students-search input:focus { outline: none; }
+.students-search:focus-within { border-color: var(--accent-intelligence-deep); }
+
+.students-toolbar select {
+  min-height: 39px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--surface-ground);
+  color: var(--content-primary);
+  font: inherit;
+}
+
+.students-alert {
+  margin: var(--space-4) var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--feedback-error-border);
+  border-radius: var(--radius);
+  background: var(--feedback-error-surface);
+  color: var(--feedback-error-content);
+}
+
+/* Wide tables scroll inside their own container; the page never does. */
+.students-table-wrap { overflow-x: auto; }
+
+.students-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.students-table th, .students-table td { padding: 12px 16px; text-align: left; white-space: nowrap; }
+.students-table thead th {
+  position: sticky; top: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
+  color: var(--content-secondary);
+  font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+}
+.students-table tbody tr { border-bottom: 1px solid var(--border-subtle); }
+.students-table tbody tr:hover { background: var(--surface-inset); }
+
+.students-sort {
+  padding: 0; border: 0; background: none;
+  color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit;
+  cursor: pointer;
+}
+
+.students-name {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.students-name strong { display: block; }
+.students-name small { display: block; color: var(--content-tertiary); font-size: 12px; }
+.students-name:hover strong { color: var(--accent-intelligence-deep); text-decoration: underline; }
+
+.students-avatar {
+  display: grid; place-items: center;
+  flex: 0 0 auto; width: 34px; height: 34px;
+  border-radius: 999px;
+  background: var(--surface-inset);
+  color: var(--accent-intelligence-deep);
+  font-size: 12px; font-weight: 700;
+}
+
+.students-mono { font-family: var(--mono); font-size: 13px; }
+.students-missing { color: var(--content-tertiary); }
+.students-sub { color: var(--content-tertiary); font-size: 12px; }
+
+.students-standards { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.students-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+}
+.students-tag--academic { background: var(--surface-inset); color: var(--accent-intelligence-deep); }
+.students-tag--fee { background: var(--surface-inset); color: var(--content-secondary); }
+
+.students-cohort {
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+  background: var(--surface-inset); color: var(--content-secondary);
+}
+.students-cohort[data-cohort='both'] { color: var(--accent-intelligence-deep); }
+
+.students-empty, .students-skeleton { display: flex; align-items: center; gap: 10px; }
+.students-empty { padding: 28px 4px; color: var(--content-secondary); }
+.students-skeleton {
+  height: 18px; border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+  animation: students-pulse 1.4s ease-in-out infinite;
+}
+@keyframes students-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+.students-pagination {
+  display: flex; flex-wrap: wrap; gap: var(--space-3);
+  align-items: center; justify-content: space-between;
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--content-secondary); font-size: 13px;
+}
+.students-pagination > div { display: flex; align-items: center; gap: var(--space-3); }
+.students-pagination em { color: var(--content-tertiary); font-style: normal; }
+.students-pagination select {
+  min-height: 34px; padding: 0 8px;
+  border: 1px solid var(--border-default); border-radius: var(--radius-xs);
+  background: var(--surface-ground); color: var(--content-primary); font: inherit;
+}
+
+.students-provenance {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin: 0; color: var(--content-tertiary); font-size: 12.5px; line-height: 1.55;
+}
+.students-provenance svg { flex: 0 0 auto; margin-top: 2px; }
+.students-provenance code { font-family: var(--mono); font-size: 12px; }
+
+/* ---- Academic structure ------------------------------------------------- */
+
+.structure { display: grid; gap: var(--space-5); }
+
+.structure-note {
+  display: grid; gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-intelligence-deep);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+}
+.structure-note strong { font-size: 15px; }
+.structure-note p { margin: 0; color: var(--content-secondary); font-size: 13.5px; line-height: 1.6; }
+
+.structure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.structure-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
+}
+.structure-card > header { padding: 16px 18px; border-bottom: 1px solid var(--border-subtle); }
+.structure-card h3 { margin: 0; font-size: 15px; letter-spacing: 0; }
+.structure-card header p { margin: 5px 0 0; color: var(--content-secondary); font-size: 12.5px; line-height: 1.5; }
+.structure-card header span {
+  display: inline-block; margin-top: 8px;
+  color: var(--content-tertiary); font-size: 12px;
+}
+
+.structure-values { max-height: 340px; overflow-y: auto; }
+.structure-value {
+  display: grid; grid-template-columns: 1fr auto; gap: 10px;
+  align-items: center;
+  padding: 9px 18px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 13.5px;
+}
+.structure-value:first-child { border-top: 0; }
+.structure-value b { font-weight: 600; }
+.structure-value small { color: var(--content-tertiary); font-size: 12px; text-align: right; white-space: nowrap; }
+
+/* ---- Student profile ---------------------------------------------------- */
+
+.student-detail { display: grid; gap: var(--space-5); }
+
+.student-hero {
+  display: flex; flex-wrap: wrap; gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
+}
+.student-hero h2 { margin: 0; font-size: clamp(22px, 3vw, 30px); }
+.student-hero p { margin: 6px 0 0; color: var(--content-secondary); font-size: 13.5px; }
+.student-hero-avatar {
+  display: grid; place-items: center;
+  width: 62px; height: 62px;
+  border-radius: 999px;
+  background: var(--surface-inset); color: var(--accent-intelligence-deep);
+  font-size: 20px; font-weight: 700;
+}
+
+.student-caution {
+  display: grid; gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid var(--feedback-warning-border, var(--border-default));
+  border-left: 3px solid var(--accent-intelligence-deep);
+  border-radius: var(--radius);
+  background: var(--feedback-warning-surface, var(--surface-inset));
+  color: var(--feedback-warning-content, var(--content-secondary));
+  font-size: 13.5px; line-height: 1.6;
+}
+.student-caution strong { color: var(--content-primary); }
+
+.student-records {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
+}
+.student-records > header {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  align-items: center; justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.student-records h3 { margin: 0; font-size: 15px; letter-spacing: 0; }
+.student-records header small { color: var(--content-tertiary); font-size: 12.5px; }
+
+.student-anomaly {
+  padding: 2px 7px; border-radius: 999px;
+  background: var(--feedback-error-surface); color: var(--feedback-error-content);
+  font-size: 11px; font-weight: 700;
+}

@@ -16,6 +16,7 @@ import {
   Users,
 } from 'lucide-react';
 import { decisionIntelligenceApi } from '../../api/intelligence';
+import SchoolIntelligence from './SchoolIntelligence';
 import { EmptyState, ErrorState, LoadingState } from '../shared/States';
 import { badgeTone, formatDateTime, formatNumber, formatPercent } from './intelligenceShared';
 import type { View } from '../../App';
@@ -127,6 +128,18 @@ export default function IntelligenceWorkspace({ tenantId, onNavigate }: { tenant
           </button>
         </div>
       </header>
+
+      {/*
+        Rendered ABOVE the loop summary and outside the `hasAnything` branch.
+
+        A school whose intelligence comes from imported datasets can have a great
+        deal to say while the signal/case/decision loop is still empty — and the
+        blank slate below would then declare that the organization knows nothing
+        about itself, directly above four hundred thousand rows of its own exam
+        results. This component returns null for an organization with no school
+        datasets, so nothing changes for the ERP-backed tenants.
+      */}
+      <SchoolIntelligence tenantId={tenantId} />
 
       {!hasAnything ? (
         <section className="intel-section">

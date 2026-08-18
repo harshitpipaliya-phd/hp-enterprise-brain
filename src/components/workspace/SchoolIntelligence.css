@@ -1,0 +1,114 @@
+/* School intelligence panel — academic and fee analysis over a tenant's own rows. */
+
+.school-intel { display: grid; gap: var(--space-4); margin-bottom: var(--space-6); }
+
+.school-intel__header h2 { margin: 8px 0 4px; font-size: clamp(20px, 2.6vw, 26px); }
+.school-intel__header p { margin: 0; color: var(--content-secondary); font-size: 13.5px; }
+
+.school-intel__caution {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--accent-intelligence-deep);
+  border-radius: var(--radius);
+  background: var(--surface-inset);
+}
+.school-intel__caution svg { flex: 0 0 auto; margin-top: 2px; color: var(--accent-intelligence-deep); }
+.school-intel__caution strong { display: block; font-size: 14px; }
+.school-intel__caution p { margin: 4px 0 0; color: var(--content-secondary); font-size: 13px; line-height: 1.55; }
+
+.school-intel__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--space-4);
+}
+
+.school-intel__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--space-4);
+}
+
+.school-intel__panel {
+  display: grid; grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
+}
+.school-intel__panel > header {
+  display: flex; gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.school-intel__panel > header > span {
+  display: grid; place-items: center;
+  flex: 0 0 auto; width: 32px; height: 32px;
+  border-radius: var(--radius-xs);
+  color: var(--accent-intelligence-deep);
+  background: var(--surface-inset);
+}
+.school-intel__panel h3 { margin: 0; font-size: 14.5px; letter-spacing: 0; }
+.school-intel__panel header p { margin: 4px 0 0; color: var(--content-secondary); font-size: 12.5px; line-height: 1.5; }
+
+.school-intel__body { max-height: 360px; overflow-y: auto; padding: 14px 18px; }
+.school-intel__empty { margin: 0; color: var(--content-tertiary); font-size: 13px; }
+
+.school-intel__ranked { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; counter-reset: rank; }
+.school-intel__ranked li {
+  display: grid; grid-template-columns: 1fr auto; gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13.5px;
+}
+.school-intel__ranked li:last-child { border-bottom: 0; }
+.school-intel__ranked strong { display: block; font-weight: 600; }
+.school-intel__ranked small { display: block; color: var(--content-tertiary); font-size: 11.5px; font-family: var(--mono); }
+.school-intel__ranked b { color: var(--accent-intelligence-deep); font-variant-numeric: tabular-nums; }
+
+.school-intel__bars { display: grid; gap: 9px; }
+.school-intel__bar {
+  display: grid;
+  grid-template-columns: minmax(80px, 130px) 1fr auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.school-intel__bar-label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--content-secondary);
+}
+.school-intel__bar-track {
+  height: 8px; border-radius: 999px;
+  background: var(--surface-inset);
+  overflow: hidden;
+}
+.school-intel__bar-fill {
+  display: block; height: 100%;
+  border-radius: 999px;
+  background: var(--accent-intelligence-deep);
+}
+.school-intel__bar b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.school-intel__bar small { grid-column: 2 / -1; color: var(--content-tertiary); font-size: 11.5px; }
+
+.school-intel__facts { display: grid; gap: 8px; margin: 0; }
+.school-intel__fact {
+  display: grid; grid-template-columns: 1fr auto; gap: 10px;
+  align-items: baseline;
+  font-size: 13px;
+}
+.school-intel__fact--wide { grid-template-columns: 1fr; gap: 2px; }
+.school-intel__fact dt { color: var(--content-secondary); }
+.school-intel__fact dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.school-intel__fact--wide dd { color: var(--content-tertiary); font-size: 12.5px; font-weight: 400; line-height: 1.5; }
+
+.school-intel__examples {
+  margin: 12px 0 0; padding: 12px 0 0;
+  border-top: 1px solid var(--border-subtle);
+  list-style: none;
+  color: var(--content-secondary); font-size: 12.5px;
+}
+.school-intel__examples li { padding: 3px 0; }
+.school-intel__examples code { font-family: var(--mono); color: var(--accent-intelligence-deep); }

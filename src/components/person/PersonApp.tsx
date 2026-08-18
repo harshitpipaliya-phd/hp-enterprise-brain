@@ -8,10 +8,30 @@ import PersonDetails from './PersonDetails';
 import PersonEdit from './PersonEdit';
 import PersonList from './PersonList';
 import PersonIntelligence from '../workspace/PersonIntelligence';
+import StudentList from '../student/StudentList';
+import StudentDetail from '../student/StudentDetail';
+import { api as studentApi } from '../../api/student';
+import type { Student } from '../../api/student';
 import { loadSession, saveSession } from '../../utils/session';
 import './PersonList.css';
 
 export type PersonView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
+
+/**
+ * Which population this organization's People screen is actually about.
+ *
+ *   'erp'      — people come from the HR system. The original screen, unchanged.
+ *   'students' — the organization's people are the subject of an imported
+ *                dataset rather than rows in the ERP.
+ *
+ * DECIDED BY ASKING THE SERVER, NOT BY NAMING A TENANT. The summary endpoint
+ * reports how many students this organization has; a non-zero count means the
+ * student experience, zero means the ERP one. No component in this tree knows
+ * that Lions exists, so the next school to import a dataset gets the same screen
+ * without a code change, and Sunrise — which has real ERP people and no student
+ * dataset — keeps exactly the screen it had.
+ */
+type Population = 'loading' | 'erp' | 'students';
 
 export interface Person {
   id: string;
@@ -64,6 +84,25 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
   const [departments, setDepartments] = useState<PersonDepartment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [population, setPopulation] = useState<Population>('loading');
+  const [student, setStudent] = useState<Student | null>(null);
+
+  /*
+    Asked once per organization, before anything heavy. It reads only counts off
+    the student projection, so an organization with no dataset pays one cheap
+    query and falls straight through to the ERP screen.
+  */
+  useEffect(() => {
+    let cancelled = false;
+    setPopulation('loading');
+    setStudent(null);
+    studentApi.getSummary(organization.tenantId)
+      .then((summary) => {
+        if (!cancelled) setPopulation(Number(summary?.total ?? 0) > 0 ? 'students' : 'erp');
+      })
+      .catch(() => { if (!cancelled) setPopulation('erp'); });
+    return () => { cancelled = true; };
+  }, [organization.tenantId]);
 
   const load = async () => {
     setLoading(true);
@@ -133,6 +172,36 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
     // than coming back to the person.
     saveSession({ personId: next === 'list' || !person ? null : String(person.id) });
   };
+
+  /*
+    THE STUDENT BRANCH RETURNS EARLY AND SHARES NOTHING BELOW IT.
+
+    Not woven into the ERP screen's view machine on purpose: a student is not a
+    Person, has no ERP row, and cannot be created, edited or archived from here.
+    Rendering them through PersonList's create/edit/archive flows would offer
+    four actions that would all fail. The two experiences stay separate, and the
+    ERP path below is byte-for-byte the screen Sunrise already had.
+  */
+  if (population === 'students') {
+    return (
+      <div className="people-app">
+        <header className="people-app-header">
+          <div>
+            <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
+            <h1>Students</h1>
+            <p>
+              The students {organization.name} has records for. They are derived from this organization&apos;s
+              imported academic and fee files — not from the HR system, which holds only its staff.
+            </p>
+          </div>
+        </header>
+
+        {student
+          ? <StudentDetail tenantId={organization.tenantId} studentId={student.id} onBack={() => setStudent(null)} />
+          : <StudentList tenantId={organization.tenantId} onSelect={setStudent} />}
+      </div>
+    );
+  }
 
   return (
     <div className="people-app">
