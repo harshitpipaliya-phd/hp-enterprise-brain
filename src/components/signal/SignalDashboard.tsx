@@ -247,6 +247,16 @@ function buildMttrByClassification(signals: Signal[]): DistributionRow[] {
 
 const PAGE_SIZE = 25;
 
+/**
+ * The most signals fetched in one request — the server's own `limit` ceiling.
+ *
+ * Sits at the maximum on purpose: every count, trend and distribution on this
+ * screen is derived from the fetched set, so a smaller page would change the
+ * NUMBERS and not just the list. What it removes is the unbounded read.
+ * Truncation is surfaced below rather than hidden.
+ */
+const SIGNAL_FETCH_LIMIT = 5000;
+
 export default function SignalDashboard({ tenantId, onNavigate }: { tenantId: string; onNavigate?: (view: View) => void }) {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
@@ -269,7 +279,12 @@ export default function SignalDashboard({ tenantId, onNavigate }: { tenantId: st
     setRefreshing(true);
     setError(null);
     try {
-      const params: Record<string, string> = {};
+      // `limit` alongside `since`, because a date window is no protection when
+      // an entire tenant's signals were created inside it — which is exactly
+      // the Lions case: 10,430 signals all written on one day came back as
+      // 8.69 MB over 4,542 ms to render 25 rows. The cap is the server's own
+      // maximum, so every chart below still aggregates over the same set.
+      const params: Record<string, string> = { limit: String(SIGNAL_FETCH_LIMIT) };
       if (dateWindow !== 'all') {
         const since = new Date(Date.now() - Number(dateWindow) * 86_400_000);
         params.since = since.toISOString();
@@ -398,6 +413,12 @@ export default function SignalDashboard({ tenantId, onNavigate }: { tenantId: st
         <button className="signal-intel__ghost" onClick={clearFilters}>Reset</button>
         <span className="signal-intel__count">
           {filteredSignals.length.toLocaleString()} signal{filteredSignals.length === 1 ? '' : 's'} in {windowLabel}
+          {/* A capped read must never look like a complete one. When the server
+              returned exactly the limit there is almost certainly more behind
+              it, and every figure on this screen describes the fetched set. */}
+          {signals.length >= SIGNAL_FETCH_LIMIT && (
+            <> — showing the newest {SIGNAL_FETCH_LIMIT.toLocaleString()}; narrow the window to see the rest</>
+          )}
         </span>
       </section>
 

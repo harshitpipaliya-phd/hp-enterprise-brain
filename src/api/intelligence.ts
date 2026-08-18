@@ -12,7 +12,18 @@ export const api = {
   getHomeMetrics: (tenantId: string) => request(`/workspace/${tenantId}/home-metrics`),
 
   // Evidence (Story 2)
-  listEvidence: (tenantId: string) => request(`/evidence/${tenantId}`),
+  /**
+   * Evidence for a tenant.
+   *
+   * `params` narrows it — `since` (ISO) and `limit` (max 5000). Omitting both
+   * still returns everything, so nothing that already calls this changes
+   * behaviour. It exists because the unbounded call was measured at 8.95 MB
+   * over 6,258 ms on the Lions tenant to render a screen showing 25 rows.
+   */
+  listEvidence: (tenantId: string, params: Record<string, string> = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/evidence/${tenantId}${qs ? `?${qs}` : ''}`);
+  },
   collectEvidence: (body: Record<string, unknown>) => request('/evidence', { method: 'POST', body: JSON.stringify(body) }),
 
   // Reasoning (Story 3)

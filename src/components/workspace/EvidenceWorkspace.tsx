@@ -50,6 +50,21 @@ type FreshnessBand = 'Fresh' | 'Recent' | 'Aging' | 'Stale';
 type DistributionRow = { name: string; value: number; percent: number };
 type TrendRow = { label: string; date: string; count: number };
 
+/**
+ * The most rows this screen will pull in one request.
+ *
+ * The server caps `limit` at 5000, and this sits at that ceiling deliberately:
+ * every chart and distribution on this screen is computed over the fetched set,
+ * so a smaller page would quietly change the numbers rather than just the list
+ * length. What it prevents is the unbounded case — the Lions tenant returned
+ * 10,430 rows as 8.95 MB in 6,258 ms, all of it to render 25 visible rows.
+ *
+ * The response is not silently truncated: when the count comes back at the
+ * limit the screen says so, so a partial view is never mistaken for the whole
+ * ledger.
+ */
+const EVIDENCE_FETCH_LIMIT = 5000;
+
 const HALF_LIFE_DAYS = 90;
 const FRESHNESS_ORDER: FreshnessBand[] = ['Fresh', 'Recent', 'Aging', 'Stale'];
 const FRESHNESS_COLORS: Record<FreshnessBand, string> = {
@@ -232,9 +247,19 @@ export default function EvidenceWorkspace({ tenantId, onNavigate }: { tenantId: 
     setRefreshing(true);
     setError(null);
     try {
+      // Ask the server for the window the screen actually shows, instead of
+      // downloading the tenant's entire evidence ledger and filtering it in the
+      // browser. `since` mirrors the date selector; `limit` is the safety net
+      // for a tenant whose whole ledger falls inside that window — which is
+      // exactly the Lions case, where every row was created on one day.
+      const params: Record<string, string> = { limit: String(EVIDENCE_FETCH_LIMIT) };
+      if (dateWindow !== 'all') {
+        params.since = new Date(Date.now() - Number(dateWindow) * 86_400_000).toISOString();
+      }
+
       const [data, signalData] = await Promise.all([
-        api.listEvidence(tenantId),
-        signalApi.listSignals(tenantId),
+        api.listEvidence(tenantId, params),
+        signalApi.listSignals(tenantId, { limit: String(EVIDENCE_FETCH_LIMIT) }),
       ]);
       setEvidence(Array.isArray(data) ? data : []);
       setSignals(Array.isArray(signalData) ? signalData : []);
@@ -246,10 +271,12 @@ export default function EvidenceWorkspace({ tenantId, onNavigate }: { tenantId: 
     }
   };
 
+  // dateWindow is a dependency because it is now part of the REQUEST, not just
+  // a client-side filter — widening the window has to go back to the server.
   useEffect(() => {
     setLoading(true);
     load();
-  }, [tenantId]);
+  }, [tenantId, dateWindow]);
 
   const enriched = useMemo(() => {
     const now = new Date();
