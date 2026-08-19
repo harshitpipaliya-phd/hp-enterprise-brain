@@ -1,9 +1,33 @@
+/*
+  DEPARTMENTS — layout and rhythm.
+
+  WHAT WAS WRONG, and it was all structural rather than stylistic:
+
+    1. The KPI grid was `repeat(7, 1fr)` while the screen renders two tiles on a
+       non-school tenant with no recorded heads. Two cards were squeezed into
+       two sevenths of the row and five sevenths of the page sat empty — the
+       single biggest reason this screen read as unaligned.
+    2. Unit cards laid their stats out in `repeat(3, 1fr)` and rendered two, so
+       every card carried a dead third column.
+    3. The page tinted itself with a VIOLET wash (rgba(122,104,180,.08)) and set
+       its subtitle in #bd2f68 — a magenta from a palette this product no longer
+       uses. Beside the Organization and People screens, which are warm gold and
+       parchment, it looked like a different application.
+    4. Spacing was a set of unrelated magic numbers (28/18/22/14/16px) rather
+       than the 4-point scale every other screen is built on.
+
+  All four are fixed below WITHOUT changing the visual language: the surfaces,
+  radii, shadows and type scale are untouched, the accents come from the shared
+  tokens, and no new colour is introduced.
+*/
 .dept-intel {
   min-height: 100vh;
-  padding: 28px;
+  padding: var(--space-6);
   color: var(--content-primary);
+  /* The same warm wash the rest of the product uses, from the brand accent
+     rather than a hard-coded violet. */
   background:
-    linear-gradient(180deg, rgba(122, 104, 180, 0.08), transparent 280px),
+    linear-gradient(180deg, var(--accent-intelligence-glow), transparent 280px),
     var(--surface-ground);
 }
 
@@ -11,8 +35,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
-  padding-bottom: 18px;
+  gap: var(--space-5);
+  padding-bottom: var(--space-5);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -32,19 +56,29 @@
 }
 
 .dept-intel__header p {
-  margin: 12px 0 0;
-  max-width: 780px;
-  color: #bd2f68;
+  margin: var(--space-3) 0 0;
+  /* ch, not px: the measure that keeps a line readable is a count of
+     characters, and it holds when the type scale changes. */
+  max-width: 68ch;
+  color: var(--content-secondary);
   font-family: var(--display);
-  font-size: 17px;
+  font-size: 16px;
+  line-height: 1.55;
 }
 
 .dept-intel__actions,
 .dept-intel__filters {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2-5);
   flex-wrap: wrap;
+}
+
+/* Actions stay on one line and right-aligned even when the heading wraps, so
+   the primary button does not drift under the title on a mid-width window. */
+.dept-intel__actions {
+  justify-content: flex-end;
+  flex: 0 0 auto;
 }
 
 .dept-intel__refresh,
@@ -73,7 +107,7 @@
 }
 
 .dept-intel__filters {
-  margin: 18px 0 20px;
+  margin: var(--space-5) 0;
 }
 
 .dept-intel__filters select {
@@ -118,18 +152,31 @@
   text-align: center;
 }
 
+/*
+  THE TILE ROW.
+
+  auto-fit with a minimum, not a fixed column count. This screen renders between
+  two and six tiles depending on whether the tenant is a school and whether its
+  source system records department heads; a hard `repeat(7, 1fr)` sized every
+  one of those layouts for the widest case and left the rest of the row blank.
+  auto-fit gives each tile at least 232px and shares the remainder equally, so
+  two tiles fill the row and six wrap cleanly.
+*/
 .dept-intel__kpis {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 22px;
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+  gap: var(--space-3-5);
+  margin-bottom: var(--space-6);
 }
 
 .dept-intel__kpi {
   position: relative;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  min-height: 142px;
-  padding: 16px;
+  /* No min-height. Equal-height rows come from the grid; a fixed minimum only
+     added dead space under the shortest tile. */
+  padding: var(--space-4);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   background: var(--surface-card);
@@ -144,20 +191,25 @@
   background: var(--border-strong);
 }
 
-.dept-intel__kpi[data-tone='state']::before { background: #3f8798; }
-.dept-intel__kpi[data-tone='good']::before { background: #2f7f93; }
-.dept-intel__kpi[data-tone='warn']::before { background: #a8892f; }
-.dept-intel__kpi[data-tone='crit']::before { background: #bd2f68; }
+/* Shared status tokens — the same four colours Signals, Evidence and the
+   Organization overview use. These were four one-off hexes from the previous
+   palette (a teal, a second teal, an ochre and a magenta), which is why a
+   "critical" tile here did not match a "critical" tile anywhere else. */
+.dept-intel__kpi[data-tone='state']::before { background: var(--accent-intelligence); }
+.dept-intel__kpi[data-tone='good']::before  { background: var(--status-good); }
+.dept-intel__kpi[data-tone='warn']::before  { background: var(--status-warn); }
+.dept-intel__kpi[data-tone='crit']::before  { background: var(--status-crit); }
 
 .dept-intel__kpi-icon {
   width: 34px;
   height: 34px;
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
   border-radius: var(--radius-xs);
   color: var(--accent-intelligence-deep);
   background: var(--surface-inset);
-  margin-bottom: 14px;
+  margin-bottom: var(--space-3-5);
 }
 
 .dept-intel__kpi-label {
@@ -165,18 +217,24 @@
 }
 
 .dept-intel__kpi-value {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   font-family: var(--mono);
-  font-size: 29px;
+  font-size: 28px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.1;
+  /* Long currency values (₹198,135,918) must break rather than push the tile
+     wider than its grid track. */
+  overflow-wrap: anywhere;
 }
 
+/* Pinned to the bottom of the tile so hints sit on one baseline across the row
+   whatever length the values above them are. */
 .dept-intel__kpi-hint {
-  margin-top: 8px;
+  margin-top: var(--space-2);
+  padding-top: var(--space-1);
   color: var(--content-tertiary);
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.45;
 }
 
 .dept-intel__card,
@@ -188,14 +246,32 @@
   box-shadow: var(--shadow);
 }
 
+/* One rhythm between every section, set here rather than as a margin on each
+   one, so a section added later inherits it. */
+.dept-intel__notice,
+.dept-intel__card,
+.dept-intel__directory {
+  margin-bottom: var(--space-5);
+}
+
+.dept-intel__directory:last-child {
+  margin-bottom: 0;
+}
+
 .dept-intel__card-head,
 .dept-intel__table-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 20px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--border-subtle);
+}
+
+/* The bars need the padding the card head already has; they had none and sat
+   flush against the card edge. */
+.dept-intel__card .dept-intel__bars {
+  padding: var(--space-5);
 }
 
 .dept-intel__card-head h2,
@@ -230,14 +306,21 @@
 .dept-intel__bars {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-3);
 }
 
+/*
+  Three tracks: label, track, value. The label column is a fixed-ish width so
+  every bar STARTS on the same x — a bar chart whose baselines do not line up is
+  unreadable — and the value column is wide enough for a five-digit count with
+  thousands separators, which is realistic here (a class section can hold
+  hundreds and a department thousands).
+*/
 .dept-intel__bar-row {
   display: grid;
-  grid-template-columns: minmax(120px, 190px) minmax(0, 1fr) 52px;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr) 64px;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .dept-intel__bar-row span {
@@ -296,7 +379,10 @@
   font-weight: 700;
 }
 
-.dept-intel__badge--good { color: #1f6d7d; background: rgba(63, 135, 152, 0.14); }
+.dept-intel__badge--good {
+  color: var(--status-good);
+  background: color-mix(in srgb, var(--status-good) 14%, transparent);
+}
 
 .dept-intel__muted {
   color: var(--content-tertiary);
@@ -313,19 +399,26 @@
   font-size: 11px;
 }
 
+/*
+  auto-fill with a minimum, not `repeat(3, 1fr)`. A tenant with two departments
+  got two cards stretched across a third of the page each; a narrow window got
+  three cards at 200px. Cards now hold a readable width and the column count
+  follows the space available.
+*/
 .dept-intel__directory-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  padding: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-3-5);
+  padding: var(--space-5);
 }
 
 .dept-intel__unit-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-height: 246px;
-  padding: 16px;
+  gap: var(--space-3);
+  /* Equal heights come from the grid row, so no minimum is needed and short
+     cards no longer carry 80px of empty space above their buttons. */
+  padding: var(--space-4);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   background: var(--surface-inset);
@@ -335,29 +428,44 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-2-5);
 }
 
 .dept-intel__unit-head .dept-intel__link {
   font-size: 15px;
+  line-height: 1.35;
+  /* A long unit name wraps inside the card instead of pushing the status
+     badge off the edge. */
+  overflow-wrap: anywhere;
+}
+
+.dept-intel__unit-head .dept-intel__badge {
+  flex: 0 0 auto;
 }
 
 .dept-intel__unit-meta {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-1) var(--space-2-5);
   color: var(--content-tertiary);
   font-size: 12px;
 }
 
+/*
+  auto-fit, because this card carries two stats on an ordinary department and
+  four on a class section. Fixed at three, one column was always empty or one
+  stat always wrapped alone onto a second row.
+*/
 .dept-intel__unit-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-2);
 }
 
 .dept-intel__unit-stats div {
-  padding: 10px;
+  min-width: 0;
+  padding: var(--space-2-5);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: var(--surface-card);
@@ -370,13 +478,16 @@
 
 .dept-intel__unit-stats strong {
   font-family: var(--mono);
-  font-size: 20px;
+  font-size: 19px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .dept-intel__unit-stats span {
-  margin-top: 2px;
+  margin-top: var(--space-0-5);
   color: var(--content-tertiary);
   font-size: 11px;
+  line-height: 1.35;
 }
 
 .dept-intel__leadership-line {
@@ -392,8 +503,8 @@
   font-weight: 800;
 }
 
-.dept-intel__leadership-line span.ok { color: #2f7f93; }
-.dept-intel__leadership-line span.gap { color: #bd2f68; }
+.dept-intel__leadership-line span.ok { color: var(--status-good); }
+.dept-intel__leadership-line span.gap { color: var(--status-crit); }
 
 .dept-intel__leadership-line em {
   overflow: hidden;
@@ -455,25 +566,27 @@
 
 @media (max-width: 900px) { .dept-create__layout { grid-template-columns: 1fr; } .dept-create__aside { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-@media (max-width: 1320px) {
-  .dept-intel__kpis {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 1120px) {
-  .dept-intel__directory-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
+/*
+  The two width-based overrides that used to live here — forcing four KPI
+  columns under 1320px and two card columns under 1120px — are gone. auto-fit
+  and auto-fill already reflow at exactly the width the content stops fitting,
+  and the fixed counts fought them: at 1150px the old rules gave four KPI
+  columns of 190px while the tiles need 232px to hold a value and its hint.
+  Only the phone layout, where a single column is a deliberate choice rather
+  than a consequence of available width, is still stated explicitly.
+*/
 @media (max-width: 760px) {
   .dept-intel {
-    padding: 16px;
+    padding: var(--space-4);
   }
 
   .dept-intel__header {
     flex-direction: column;
+  }
+
+  .dept-intel__actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .dept-intel__kpis,
@@ -553,6 +666,218 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ── Academic sections ──────────────────────────────────────────────────────
+   The school view of this screen. Reuses every surface, radius, shadow and type
+   size above; the only additions are a size bar, a table and a pager, all built
+   from the same tokens so the two views read as one screen. */
+
+/* The eyebrow that names what a section IS — "Organizational structure" above
+   Departments, "Supporting data" above Academic structure. It is the smallest
+   type on the page and carries the hierarchy the layout implies. */
+.dept-intel__kicker {
+  display: block;
+  margin-bottom: var(--space-1-5);
+  color: var(--content-tertiary);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+/*
+  ── SECTION 2, and everything here exists to make it read as SECOND ──────────
+
+  Same surfaces and radii as the Departments card above it, and then three
+  deliberate steps down: a dashed rather than solid border, no shadow, and a
+  heading one size smaller. The page should read Organization → Departments →
+  Academic structure without anybody being told, which is why the difference is
+  in weight and elevation rather than in colour — a second accent would have
+  made it a competing section rather than a subordinate one.
+*/
+.dept-intel__academic {
+  margin-top: var(--space-8);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+}
+
+/* The whole header is the toggle: a 900px-wide click target beats a chevron. */
+.dept-intel__academic-head {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dept-intel__academic-head:hover {
+  background: var(--surface-inset);
+  box-shadow: none;
+}
+
+.dept-intel__academic-head h2 {
+  /* One step below the Departments heading — 15px against 16px — so the
+     relationship is legible without the section looking switched off. */
+  margin: 0;
+  color: var(--content-primary);
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.dept-intel__academic-head p {
+  max-width: 78ch;
+  margin: var(--space-1-5) 0 0;
+  color: var(--content-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.dept-intel__academic-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--content-secondary);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+/* The product's own expand duration and easing, not a hand-picked one. */
+.dept-intel__academic-toggle svg {
+  transition: transform var(--dur-expand) var(--ease-out);
+}
+
+.dept-intel__academic-toggle[data-open='true'] svg {
+  transform: rotate(180deg);
+}
+
+.dept-intel__academic-body {
+  padding: 0 var(--space-5) var(--space-5);
+  border-top: 1px dashed var(--border-subtle);
+}
+
+/*
+  SCOPED OVERRIDES for the existing AcademicStructure component.
+
+  It ships its own .structure-* styles in StudentList.css and is ALSO used on
+  the People screen, so nothing here may change those rules globally. Everything
+  below is nested under .dept-intel__academic-body and applies only where that
+  component is embedded in this page — it inherits this page's grid, spacing and
+  card treatment without the People screen moving at all.
+*/
+.dept-intel__academic-body .structure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3-5);
+  margin-top: var(--space-4);
+}
+
+.dept-intel__academic-body .structure-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+}
+
+.dept-intel__academic-body .structure-note {
+  margin-top: var(--space-4);
+  font-size: 12.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dept-intel__academic-toggle svg {
+    transition: none;
+  }
+}
+
+/* Relative size of a section against the largest, so four cards can be compared
+   at a glance without a separate chart. */
+.dept-intel__section-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+}
+
+.dept-intel__section-bar i {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent-intelligence);
+}
+
+/* The table scrolls INSIDE its card. Six columns do not fit a phone, and a page
+   that scrolls sideways as a whole is the worst way to discover that. */
+.dept-intel__table-scroll {
+  overflow-x: auto;
+}
+
+.dept-intel__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.dept-intel__table th,
+.dept-intel__table td {
+  padding: var(--space-3) var(--space-5);
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.dept-intel__table th {
+  color: var(--content-secondary);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  background: var(--surface-inset);
+}
+
+/* Numbers right-aligned and tabular, so digits line up down the column and a
+   reader can compare magnitudes without reading every figure. */
+.dept-intel__table th.num,
+.dept-intel__table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dept-intel__table td.mono {
+  font-family: var(--mono);
+  color: var(--content-secondary);
+}
+
+.dept-intel__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dept-intel__table tbody tr:hover td {
+  background: var(--surface-inset);
+}
+
+.dept-intel__pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--content-secondary);
+  font-size: 12px;
 }
 
 /* States a limitation of the source system, so a missing column reads as a

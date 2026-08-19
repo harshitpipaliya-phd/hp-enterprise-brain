@@ -1,6 +1,30 @@
 import { getAuthTenantId } from '../utils/tenant.js';
 import { request } from './client.js';
 
+/** One school section, as GET /departments/{tenant}/sections returns it. */
+export interface AcademicSection {
+  id: string;
+  name: string;
+  /** Human copy for the card: "Standards 9–10". */
+  standards: string;
+  gradeRange: { min: number; max: number };
+  students: number;
+  studentsInBothFiles: number;
+  studentsWithFees: number;
+  academicRecords: number;
+  feeRecords: number;
+  feesCollected: number;
+  /** Null when no student in the band has a recorded mark — never 0 as a stand-in. */
+  averagePercentage: number | null;
+  status: string;
+}
+
+export interface AcademicSectionsResponse {
+  tenantId: string;
+  sections: AcademicSection[];
+  totals: { students: number; placed: number; unplaced: number; sections: number };
+}
+
 function withTenant(row: any, tenantId: string): any {
   return { ...row, tenantId };
 }
@@ -21,6 +45,29 @@ export const api = {
     const tenant = scopedTenant(tenantId);
     return filterByOrg(await request(`/departments/${tenant}`), tenant, tenant);
   },
+
+  /**
+   * GET /api/v1/departments/{tenantId}/summary
+   *
+   * The canonical department and people counts, computed once on the server by
+   * App\Domain\Organization\FoundationCounts and published unchanged by the
+   * Organization overview, the Intelligence Workspace and this screen. Consume
+   * it rather than re-deriving a count in the browser: every screen that
+   * counted for itself produced a different number for the same organization.
+   */
+  getSummary: (tenantId: string) => request(`/departments/${scopedTenant(tenantId)}/summary`),
+
+  /**
+   * GET /api/v1/departments/{tenantId}/sections
+   *
+   * The school sections this organization's imported data describes — Primary,
+   * Middle, Secondary, Higher Secondary — derived from the standards its
+   * students are actually recorded in. These are NOT rows in the HR system and
+   * nothing creates any; the Departments screen renders them, clearly labelled,
+   * for a school that has students and no HR units.
+   */
+  getSections: (tenantId: string): Promise<AcademicSectionsResponse> =>
+    request(`/departments/${scopedTenant(tenantId)}/sections`),
 
   /** GET /api/v1/departments/{tenantId}/{id} */
   getDepartment: async (tenantId: string, id: string) => {

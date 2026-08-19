@@ -30,7 +30,6 @@ import { api } from '../../api/intelligence';
 import { api as organizationApi } from '../../api/organization';
 import type { DeletionPreview, DeletionResult } from '../../api/organization';
 import { api as capabilityApi } from '../../api/capability';
-import { api as departmentApi } from '../../api/department';
 import { ingestionApi } from '../../api/ingestion';
 import { LoadingState, ErrorState } from '../shared/States';
 import type { Organization, View } from '../../App';
@@ -70,12 +69,29 @@ type Health = 'good' | 'warn' | 'crit';
  * has actually travelled without inventing anything.
  */
 interface HomeMetrics {
+  /** The STAFF roster from the connected HR system. Never students. */
   erp: {
     activePeople: number;
     activeDepartments: number;
+    /** 'hr' | 'academic' | 'none' — what activeDepartments counted. */
+    departmentSource?: string;
     peopleWithoutDepartment: number;
     departmentsWithoutManager: number;
     peopleWithoutProfile: number;
+  };
+  /**
+   * The other population this organization holds: children derived from
+   * imported academic and fee files, and the source rows they came from.
+   *
+   * Rendered BESIDE `erp`, never added to it. Lions genuinely has one staff
+   * account and 7,445 students; showing only the first under the word "People"
+   * is what made the overview look like it disagreed with the People screen.
+   */
+  imported?: {
+    students: number;
+    studentsInBothFiles: number;
+    studentsSupported: boolean;
+    records: number;
   };
   pipeline?: {
     stage: string;
@@ -122,7 +138,6 @@ const LOOP_STAGES: Array<{ key: string; label: string; icon: ReactNode; view: Vi
 export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onDeleted }: CommandCenterProps) {
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics | null>(null);
   const [capabilityCount, setCapabilityCount] = useState<number | null>(null);
-  const [departments, setDepartments] = useState<any[]>([]);
   const [dataSources, setDataSources] = useState<any[]>([]);
   const [structure, setStructure] = useState<any>(null);
 
@@ -170,16 +185,14 @@ export default function CommandCenter({ tenantId, organizationName, organization
 
       const secondary = await Promise.allSettled([
         capabilityApi.listCapabilities(tenantId, organization?.id),
-        departmentApi.listDepartments(tenantId, organization?.id),
         ingestionApi.listSources(tenantId),
         organization ? organizationApi.getStructure(tenantId, organization.id) : Promise.resolve(null),
       ]);
 
-      const [capabilitiesRes, departmentsRes, sourceRes, structureRes] =
+      const [capabilitiesRes, sourceRes, structureRes] =
         secondary.map((result) => (result.status === 'fulfilled' ? result.value : null));
 
       if (capabilitiesRes) setCapabilityCount(asArray(capabilitiesRes).length);
-      if (departmentsRes) setDepartments(asArray(departmentsRes));
       if (sourceRes) setDataSources(asArray(sourceRes));
       if (structureRes) setStructure(structureRes);
     } catch (e: any) {
@@ -203,20 +216,18 @@ export default function CommandCenter({ tenantId, organizationName, organization
     setRecordLoading(true);
     setRecordError(null);
 
+    /*
+      ONE REQUEST, because there is now one answer.
+
+      This used to fetch the structure aggregate AND the department list, then
+      intersect them in the browser — the aggregate included ERP template rows
+      the list excluded, so without the intersection this panel listed units the
+      Departments screen said did not exist. Both endpoints read
+      OrganizationStructureService now, so they cannot disagree and there is
+      nothing to reconcile client-side.
+    */
     const loader = recordPanel === 'structure'
-      ? Promise.all([
-        organizationApi.getStructure(tenantId, organization.id),
-        departmentApi.listDepartments(tenantId, organization.id),
-      ]).then(([structureRow, departmentRows]) => {
-        // The Department API is the authoritative collection for the logged-in
-        // organization. Intersecting the aggregate with it keeps any stale row
-        // out of the table.
-        const allowedIds = new Set(asArray(departmentRows).map((department) => String(department.id)));
-        return {
-          ...structureRow,
-          departments: asArray(structureRow?.departments).filter((department) => allowedIds.has(String(department.id))),
-        };
-      })
+      ? organizationApi.getStructure(tenantId, organization.id)
       : recordPanel === 'quality'
         ? organizationApi.getDataQuality(tenantId, organization.id)
         : organizationApi.getAuditLogs(tenantId, organization.id);
@@ -356,13 +367,29 @@ export default function CommandCenter({ tenantId, organizationName, organization
   if (!homeMetrics) return null;
 
   const erp = homeMetrics.erp ?? {
-    activePeople: 0, activeDepartments: 0, peopleWithoutDepartment: 0,
+    activePeople: 0, activeDepartments: 0, departmentSource: 'none', peopleWithoutDepartment: 0,
     departmentsWithoutManager: 0, peopleWithoutProfile: 0,
   };
+  const departmentSource = erp.departmentSource ?? 'none';
+  const imported = homeMetrics.imported ?? null;
   const counts = homeMetrics.pipeline?.counts ?? {};
-  const activeDepartments = departments.length > 0
-    ? departments.filter((d) => String(d.status ?? '').toLowerCase() === 'active').length
-    : erp.activeDepartments;
+  /*
+    THE SERVER'S COUNT, not a length of whatever this screen happens to hold.
+
+    This used to prefer `departments.length` — the length of the array returned
+    by the department LIST endpoint — and fall back to the metrics figure only
+    when that list was empty. Two consequences, both visible: the tile changed
+    depending on which of two requests had resolved, and for an organization
+    whose structure is derived rather than listed (a school with no HR units)
+    the list is legitimately empty and the tile printed the fallback zero while
+    the Departments screen showed four sections.
+
+    `erp.activeDepartments` is now OrganizationStructureService's answer, which
+    is the same answer the Departments screen, the Intelligence Workspace, the
+    analytics report and the data-quality score all publish. There is nothing
+    left for this screen to decide.
+  */
+  const activeDepartments = erp.activeDepartments;
   const activeDataSources = dataSources.filter((source) => source.is_active !== false && source.isActive !== false);
   const importedRecords = Number(counts.operationalRecords ?? 0);
   // 'all-clear' is the server's way of saying the list is empty. Rendering it as
@@ -370,21 +397,23 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const attention = asArray(homeMetrics.attention).filter((item) => item.id !== 'all-clear');
 
   /*
-    The DEPARTMENT API is the authority for which units exist, and the structure
-    aggregate is used only for its people-per-department tally.
+    ONE SOURCE FOR BOTH THE ROWS AND THEIR HEADCOUNTS.
 
-    They disagree, on purpose. DepartmentController applies a visibility scope
-    that hides calculated template rows and superseded cohorts; the structure
-    aggregate does not. For one tenant here that is 5 real units against 24 rows,
-    and the 19 extra are the industry template — "Primary Teacher", "Early
-    Childhood Education" — which belong to no one. Reading the card off the
-    aggregate meant this panel listed departments that the Departments screen,
-    one click away, said did not exist.
+    These used to come from two endpoints that disagreed — the list applied a
+    visibility scope, the aggregate did not, so this panel had to intersect them
+    to avoid showing ERP template rows the Departments screen denied existed.
+    Both are OrganizationStructureService's answer now.
+
+    `memberType` decides the noun. The members of an HR unit are staff; the
+    members of a derived teaching section are students. Printing "people" over
+    both is the mislabelling that produced the earlier round of contradictions.
   */
-  const summaryDepartments = departments.slice(0, 6).map((department: any) => ({
+  const structureDepartments = asArray(structure?.departments);
+  const memberNoun = structure?.memberType === 'students' ? 'students' : 'people';
+  const summaryDepartments = structureDepartments.slice(0, 6).map((department: any) => ({
     id: String(department.id),
     title: String(department.name || 'Unnamed department'),
-    meta: `${Number(structure?.peopleByDepartment?.[department.id] ?? 0).toLocaleString()} people`,
+    meta: `${Number(structure?.peopleByDepartment?.[department.id] ?? 0).toLocaleString()} ${memberNoun}`,
   }));
 
   return (
@@ -429,14 +458,44 @@ export default function CommandCenter({ tenantId, organizationName, organization
       </header>
 
       <section className="cc-kpi-grid" aria-label="What this organization contains">
+        {/*
+          "Staff", not "People", and it says where it comes from.
+
+          THE DEFECT THIS FIXES. This tile read "People 1" for Lions — correct,
+          it counts the connected HR roster and that roster holds one account —
+          directly beside "Imported records 398,831", with a People screen one
+          click away reading "Students 7,445". Three true numbers about three
+          different populations, none of them labelled, which reads as a system
+          contradicting itself. The count is unchanged; what it is a count OF is
+          now on the tile.
+        */}
         <OverviewKpi
           icon={<Users />}
-          label="People"
+          label="Staff"
           value={erp.activePeople}
-          detail={erp.peopleWithoutDepartment > 0 ? `${erp.peopleWithoutDepartment.toLocaleString()} without a department` : 'All assigned to a department'}
+          detail={erp.peopleWithoutDepartment > 0
+            ? `From the connected HR system · ${erp.peopleWithoutDepartment.toLocaleString()} without a department`
+            : 'People recorded in the connected HR system'}
           tone={erp.peopleWithoutDepartment > 0 ? 'warn' : 'good'}
           onClick={() => onNavigate('people')}
         />
+        {/*
+          Shown only where student data exists, so a manufacturer or a telecom
+          operator is not asked to read a "Students 0" tile about an entity it
+          has no concept of. Never merged into Staff above.
+        */}
+        {imported && imported.studentsSupported && imported.students > 0 && (
+          <OverviewKpi
+            icon={<GraduationCap />}
+            label="Students"
+            value={imported.students}
+            detail={imported.studentsInBothFiles > 0
+              ? `From imported academic & fee data · ${imported.studentsInBothFiles.toLocaleString()} in both files`
+              : 'From imported academic & fee data'}
+            tone="good"
+            onClick={() => onNavigate('people')}
+          />
+        )}
         {/* Detail comes from the same list the count does, so the tile cannot
             describe a population it is not counting. The old detail read
             "N without a manager" from an ERP-wide figure while the count came
@@ -445,9 +504,17 @@ export default function CommandCenter({ tenantId, organizationName, organization
           icon={<FolderTree />}
           label="Departments"
           value={activeDepartments}
-          detail={departments.length > 0 && activeDepartments < departments.length
-            ? `${(departments.length - activeDepartments).toLocaleString()} inactive or archived`
-            : 'All currently active'}
+          /*
+            The detail names WHERE the count came from, because the same tile
+            legitimately shows two different kinds of unit. `departmentSource`
+            is published by the server beside the count, so this can never drift
+            from what was actually counted.
+          */
+          detail={activeDepartments === 0
+            ? 'None recorded for this organization'
+            : departmentSource === 'academic'
+              ? 'Teaching sections, from imported academic data'
+              : 'Units in the connected HR system'}
           tone="good"
           onClick={() => onNavigate('departments')}
         />
@@ -480,11 +547,18 @@ export default function CommandCenter({ tenantId, organizationName, organization
           tone={dataSources.length === 0 && importedRecords === 0 ? 'warn' : 'good'}
           onClick={() => onNavigate('ingestion')}
         />
+        {/*
+          ROWS, NOT ENTITIES, and the tile now says so. 398,831 imported rows
+          describe 7,445 children; a reader comparing this figure with the
+          Staff tile above was comparing a row count with a headcount.
+        */}
         <OverviewKpi
           icon={<Database />}
           label="Imported records"
           value={importedRecords}
-          detail="Rows held from your source files"
+          detail={imported && imported.students > 0
+            ? `Source rows describing ${imported.students.toLocaleString()} students`
+            : 'Rows held from your source files'}
           tone={importedRecords > 0 ? 'good' : 'warn'}
           onClick={() => onNavigate('ingestion')}
         />

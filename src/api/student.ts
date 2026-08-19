@@ -130,6 +130,17 @@ export interface StudentListParams {
   cohort?: string;
   /** Narrows to students holding at least one result in this subject. */
   subject?: string;
+  /**
+   * Narrows to one school section — 'primary', 'middle', 'secondary',
+   * 'higher-secondary', 'pre-primary'.
+   *
+   * Resolved SERVER-SIDE against the same grade definition the Departments
+   * screen counts its section cards with, so a card saying 1,407 and the list
+   * beneath it cannot disagree. An unrecognised key is refused with 422 rather
+   * than ignored — an ignored filter would return the whole school under a
+   * section heading.
+   */
+  section?: string;
   sort?: string;
   direction?: 'asc' | 'desc';
   page?: number;
@@ -162,6 +173,7 @@ export const api = {
       quota: params.quota,
       cohort: params.cohort,
       subject: params.subject,
+      section: params.section,
       sort: params.sort,
       direction: params.direction,
       page: params.page ?? 1,
