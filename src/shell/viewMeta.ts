@@ -44,6 +44,14 @@ export const SECTIONS: SectionId[] = [
   'Analytics', 'Knowledge', 'Automation', 'Account',
 ];
 
+/** Sections whose nav items render as a single expandable group header rather
+ *  than a permanent list. Clicking the header toggles the group; only one group
+ *  is open at a time. Always-visible sections (Overview, Foundation, Account)
+ *  are excluded so their items are always reachable without a second tap. */
+export const COLLAPSIBLE_SECTIONS: SectionId[] = [
+  'Intelligence Loop', 'Analytics', 'Knowledge', 'Automation',
+];
+
 /** Every one of the 31 View values, exhaustively — the Record type enforces it. */
 export const VIEW_META: Record<View, ViewMeta> = {
   home:             { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, description: 'What this organization contains, and how far its data has travelled through the loop.' },

@@ -633,6 +633,42 @@
 .u-toolbar-spacer { margin-left: auto; }
 
 /* =============================================================================
+   SETTINGS — ORGANIZATION INFO (read-only)
+   ============================================================================= */
+.eb-org-info {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--eb-space-3);
+}
+.eb-org-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eb-space-4);
+  padding: var(--eb-space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.eb-org-info-row:last-child { border-bottom: none; padding-bottom: 0; }
+.eb-org-info-row dt { font-size: var(--fs-small); font-weight: 600; margin: 0; }
+.eb-org-info-row dd {
+  margin: 0; font-size: var(--fs-body); font-weight: 600;
+  color: var(--content-primary); text-align: right;
+}
+.eb-org-tenant {
+  font-family: var(--mono, monospace);
+  font-size: var(--fs-small);
+  background: var(--surface-inset);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--content-secondary);
+}
+@media (max-width: 540px) {
+  .eb-org-info-row { flex-direction: column; align-items: flex-start; gap: var(--eb-space-1); }
+  .eb-org-info-row dd { text-align: left; }
+}
+
+/* =============================================================================
    BREADCRUMBS
    ============================================================================= */
 .u-crumbs { display: flex; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--content-tertiary); flex-wrap: wrap; }

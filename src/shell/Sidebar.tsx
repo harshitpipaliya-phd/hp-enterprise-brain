@@ -1,7 +1,8 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, LogOut, PanelLeftClose } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, LogOut, PanelLeftClose } from 'lucide-react';
 import type { View } from '../App';
-import { SECTIONS, VIEW_META } from './viewMeta';
+import { COLLAPSIBLE_SECTIONS, SECTIONS, VIEW_META } from './viewMeta';
+import type { SectionId } from './viewMeta';
 import { navViewsForRole } from './roleAccess';
 import { Avatar } from '../ui';
 
@@ -27,9 +28,10 @@ export interface SidebarProps {
  * so the role filter, the ordering and the active state cannot drift apart
  * between layouts.
  *
- * The role matrix is imported from ./roleAccess, which lifted it verbatim from
- * the previous implementation. Nothing about visibility changed in this
- * redesign.
+ * Collapsible sections (Intelligence Loop, Analytics, Knowledge, Automation)
+ * render a single group header that toggles its children. Only one group is
+ * open at a time. When the current view belongs to a collapsible section, that
+ * section is auto-expanded so the active item is always visible.
  */
 export function Sidebar({
   currentView, hasSelectedOrg, userRole, userName,
@@ -40,6 +42,29 @@ export function Sidebar({
   // Labels are hidden only on the desktop icon rail. A drawer is an overlay
   // with room for text, so collapsing it would be a pure loss.
   const iconsOnly = collapsed && !asDrawer;
+
+  // Which collapsible section is currently open. Seeded from the active view so
+  // a restored session lands with its section already open, and kept in step
+  // with navigation by the layout effect below.
+  const [expandedSection, setExpandedSection] = React.useState<SectionId | null>(() => {
+    const section = VIEW_META[currentView]?.section;
+    return section && COLLAPSIBLE_SECTIONS.includes(section) ? section : null;
+  });
+
+  // Auto-expand the parent of the active view. Runs before paint (layout
+  // effect) so the open/closed state matches the content with no flash.
+  React.useLayoutEffect(() => {
+    const section = VIEW_META[currentView]?.section;
+    if (section && COLLAPSIBLE_SECTIONS.includes(section)) {
+      setExpandedSection(section);
+    } else {
+      setExpandedSection(null);
+    }
+  }, [currentView]);
+
+  const toggleSection = (section: SectionId) => {
+    setExpandedSection((prev) => (prev === section ? null : section));
+  };
 
   const handleNavigate = (view: View, disabled: boolean) => {
     if (disabled) return;
@@ -88,49 +113,71 @@ export function Sidebar({
           const items = views.filter((v) => VIEW_META[v].section === section);
           if (items.length === 0) return null;
 
+          // Collapsible sections become a single header that toggles its
+          // children. Always-visible sections (Overview, Foundation, Account)
+          // keep a static heading, and the icon rail keeps its rule.
+          const isCollapsible = !iconsOnly && COLLAPSIBLE_SECTIONS.includes(section);
+          const isExpanded = isCollapsible && expandedSection === section;
+
           return (
-            <div className="s-section" key={section}>
-              {iconsOnly
-                ? <span className="s-section-rule" aria-hidden="true" />
-                : <h2 className="s-section-title">{section}</h2>}
+            <div className={`s-section${isCollapsible ? ` s-section-group${isExpanded ? ' s-section-expanded' : ''}` : ''}`} key={section}>
+              {isCollapsible ? (
+                <button
+                  type="button"
+                  className="s-section-group-header"
+                  onClick={() => toggleSection(section)}
+                  aria-expanded={isExpanded}
+                >
+                  <span>{section}</span>
+                  <span className="s-section-chevron" aria-hidden="true">
+                    <ChevronDown size={14} />
+                  </span>
+                </button>
+              ) : iconsOnly ? (
+                <span className="s-section-rule" aria-hidden="true" />
+              ) : (
+                <h2 className="s-section-title">{section}</h2>
+              )}
 
-              <ul className="s-list">
-                {items.map((view) => {
-                  const meta = VIEW_META[view];
-                  const Icon = meta.icon;
-                  const disabled = meta.requiresOrg && !hasSelectedOrg;
-                  const active = currentView === view;
+              {(!isCollapsible || isExpanded) && (
+                <ul className="s-list">
+                  {items.map((view) => {
+                    const meta = VIEW_META[view];
+                    const Icon = meta.icon;
+                    const disabled = meta.requiresOrg && !hasSelectedOrg;
+                    const active = currentView === view;
 
-                  return (
-                    <li key={view}>
-                      <button
-                        type="button"
-                        className={`s-item${active ? ' s-item-active' : ''}`}
-                        onClick={() => handleNavigate(view, disabled)}
-                        disabled={disabled}
-                        // aria-current is the semantic half of "you are here";
-                        // the gold rail is only the visual half, and a screen
-                        // reader cannot see a rail.
-                        aria-current={active ? 'page' : undefined}
-                        title={
-                          disabled ? 'Select an organization first'
-                            : iconsOnly ? meta.label
-                              : undefined
-                        }
-                      >
-                        <span className="s-item-icon"><Icon size={18} aria-hidden="true" /></span>
-                        {!iconsOnly && <span className="s-item-label">{meta.label}</span>}
-                        {/* On the icon rail the label is still in the accessible
-                            tree — a title attribute alone is not reliably
-                            announced, and an icon-only button would otherwise be
-                            nameless. */}
-                        {iconsOnly && <span className="u-sr-only">{meta.label}</span>}
-                        {iconsOnly && <span className="s-tip" aria-hidden="true">{meta.label}</span>}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                    return (
+                      <li key={view}>
+                        <button
+                          type="button"
+                          className={`s-item${active ? ' s-item-active' : ''}`}
+                          onClick={() => handleNavigate(view, disabled)}
+                          disabled={disabled}
+                          // aria-current is the semantic half of "you are here";
+                          // the gold rail is only the visual half, and a screen
+                          // reader cannot see a rail.
+                          aria-current={active ? 'page' : undefined}
+                          title={
+                            disabled ? 'Select an organization first'
+                              : iconsOnly ? meta.label
+                                : undefined
+                          }
+                        >
+                          <span className="s-item-icon"><Icon size={18} aria-hidden="true" /></span>
+                          {!iconsOnly && <span className="s-item-label">{meta.label}</span>}
+                          {/* On the icon rail the label is still in the accessible
+                              tree — a title attribute alone is not reliably
+                              announced, and an icon-only button would otherwise be
+                              nameless. */}
+                          {iconsOnly && <span className="u-sr-only">{meta.label}</span>}
+                          {iconsOnly && <span className="s-tip" aria-hidden="true">{meta.label}</span>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           );
         })}

@@ -520,7 +520,11 @@ function AuthenticatedApp() {
               <DeliberationWorkspace tenantId={selected.tenantId} />
             )}
             {view === 'settings' && selected && (
-              <Settings tenantId={selected.tenantId} />
+              <Settings
+                tenantId={selected.tenantId}
+                organizationName={selected.name}
+                orgStatus={selected.status}
+              />
             )}
             {view === 'search' && selected && (
               <GlobalSearch tenantId={selected.tenantId} />
