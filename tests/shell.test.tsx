@@ -85,10 +85,10 @@ describe('role matrix — unchanged by the redesign', () => {
   const EXPECTED: Record<string, number> = {
     // Ingestion carries permission:settings.manage, so it is deliberately NOT
     // granted to manager/analyst/viewer/member.
-    admin: 32,        // every view in VIEW_META
-    tenant_admin: 27,
+    admin: 33,        // every view in VIEW_META, including hidden aliases
+    tenant_admin: 25,
     manager: 15,
-    analyst: 19,
+    analyst: 17,
     viewer: 11,
     member: 3,
   };
@@ -338,16 +338,16 @@ describe('breadcrumbs', () => {
 });
 
 describe('header entry points', () => {
-  it('navigates to the existing Global Search screen rather than faking search', () => {
+  it('navigates to the existing AI Assistant screen rather than faking search', () => {
     const onNavigate = vi.fn();
     renderShell({ onNavigate });
-    fireEvent.click(screen.getByRole('button', { name: 'Go to Global Search' }));
-    expect(onNavigate).toHaveBeenCalledWith('search');
+    fireEvent.click(screen.getByRole('button', { name: 'Go to AI Assistant' }));
+    expect(onNavigate).toHaveBeenCalledWith('aiassistant');
   });
 
   it('hides the search entry from a role that cannot reach the screen', () => {
     renderShell({ userRole: 'member' });
-    expect(screen.queryByRole('button', { name: 'Go to Global Search' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Go to AI Assistant' })).toBeNull();
   });
 
   it('disables notifications honestly when the app supplies no source', () => {

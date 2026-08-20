@@ -13,7 +13,6 @@ import ExecutiveDashboard from './components/workspace/ExecutiveDashboard';
 import GraphExplorer from './components/workspace/GraphExplorer';
 import AgentMonitor from './components/workspace/AgentMonitor';
 import EvidenceWorkspace from './components/workspace/EvidenceWorkspace';
-import ConversationWorkspace from './components/workspace/ConversationWorkspace';
 /*
   Kept lazy, but no longer for the original reason — which was that this was the
   only screen importing recharts, and recharts plus its exclusive dependencies
@@ -32,11 +31,10 @@ const DECISION_INTELLIGENCE = () => import('./components/workspace/DecisionIntel
 import TaskMonitor from './components/workspace/TaskMonitor';
 import DeliberationWorkspace from './components/workspace/DeliberationWorkspace';
 import Settings from './components/workspace/Settings';
-import GlobalSearch from './components/workspace/GlobalSearch';
 import PolicyManagement from './components/workspace/PolicyManagement';
 import MentalModelBrowser from './components/workspace/MentalModelBrowser';
 import ExecutionCenter from './components/workspace/ExecutionCenter';
-import AIWorkspace from './components/workspace/AIWorkspace';
+import AIAssistant from './components/workspace/AIAssistant';
 import KnowledgeLibrary from './components/workspace/KnowledgeLibrary';
 import IngestionWorkspace from './components/workspace/IngestionWorkspace';
 import MemoryScreen from './components/workspace/MemoryScreen';
@@ -64,7 +62,7 @@ import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
 import { globalLoading } from './ui/globalLoading';
 
-export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion';
+export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion';
 
 export type Organization = OrganizationRow;
 
@@ -499,8 +497,8 @@ function AuthenticatedApp() {
             {view === 'evidence' && selected && (
               <EvidenceWorkspace tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
             )}
-            {view === 'copilot' && selected && (
-              <ConversationWorkspace tenantId={selected.tenantId} />
+            {(view === 'aiassistant' || view === 'search' || view === 'copilot' || view === 'aiworkspace') && selected && (
+              <AIAssistant tenantId={selected.tenantId} />
             )}
             {/* Suspense sits INSIDE the content region, so the sidebar and
                 header stay mounted and interactive while the chunk downloads —
@@ -526,9 +524,6 @@ function AuthenticatedApp() {
                 orgStatus={selected.status}
               />
             )}
-            {view === 'search' && selected && (
-              <GlobalSearch tenantId={selected.tenantId} />
-            )}
             {view === 'policies' && selected && (
               <PolicyManagement tenantId={selected.tenantId} />
             )}
@@ -537,9 +532,6 @@ function AuthenticatedApp() {
             )}
             {view === 'executions' && selected && (
               <ExecutionCenter tenantId={selected.tenantId} />
-            )}
-            {view === 'aiworkspace' && selected && (
-              <AIWorkspace tenantId={selected.tenantId} />
             )}
             {view === 'knowledgelibrary' && selected && (
               <KnowledgeLibrary tenantId={selected.tenantId} />

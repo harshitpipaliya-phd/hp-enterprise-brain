@@ -36,7 +36,7 @@ export function TopHeader({
   onOpenDrawer, onNavigate, onLogout, onOpenCommandPalette, notificationSlot,
 }: TopHeaderProps) {
   const crumbs = breadcrumbsFor(view, orgName);
-  const canSearch = visibleViewsForRole(userRole).has('search');
+  const canOpenAssistant = visibleViewsForRole(userRole).has('aiassistant');
 
   return (
     <header className="s-header">
@@ -88,12 +88,12 @@ export function TopHeader({
         </button>
 
         {/*
-          Navigates to the existing Global Search screen. It is labelled as
+          Navigates to the existing AI Assistant screen. It is labelled as
           navigation rather than dressed up as a search field, because typing
           here would imply results this header cannot produce.
         */}
-        {canSearch && (
-          <IconButton label="Go to Global Search" onClick={() => onNavigate('search')}>
+        {canOpenAssistant && (
+          <IconButton label="Go to AI Assistant" onClick={() => onNavigate('aiassistant')}>
             <Search size={18} aria-hidden="true" />
           </IconButton>
         )}

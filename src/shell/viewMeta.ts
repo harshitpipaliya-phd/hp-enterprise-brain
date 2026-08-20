@@ -2,8 +2,8 @@ import type { View } from '../App';
 import {
   Activity, Boxes, Brain, Building2, ChartNoAxesColumn, CircleGauge,
   Database, FileSearch, FolderTree, Gauge, Layers, Library, ListChecks,
-  MessageSquare, Network, Notebook, Radio, Scale, Search, Settings, ShieldCheck,
-  Sparkles, Target, TrendingUp, Upload, Users, Workflow,
+  Network, Notebook, Radio, Scale, Settings, ShieldCheck, Sparkles, Target,
+  TrendingUp, Upload, Users, Workflow,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -72,6 +72,7 @@ export const VIEW_META: Record<View, ViewMeta> = {
   signals:          { label: 'Signals', section: 'Intelligence Loop', icon: Radio, requiresOrg: true, description: 'What the data has flagged, and who it concerns.' },
   evidence:         { label: 'Evidence', section: 'Intelligence Loop', icon: FileSearch, requiresOrg: true, description: 'What supports each signal, and how firmly it is held.' },
   deliberation:     { label: 'Deliberation', section: 'Intelligence Loop', icon: Scale, requiresOrg: true, description: 'Open investigations and the decisions waiting on them.' },
+  memory:           { label: 'Memory', section: 'Intelligence Loop', icon: Database, requiresOrg: true, description: 'What the Brain retains between sessions.' },
   workspace:        { label: 'Intelligence Workspace', section: 'Intelligence Loop', icon: Brain, requiresOrg: true, description: 'What this organization currently knows about itself.' },
   executions:       { label: 'Execution Center', section: 'Intelligence Loop', icon: Workflow, requiresOrg: true, description: 'What has been done about approved decisions, and the result.' },
 
@@ -82,12 +83,15 @@ export const VIEW_META: Record<View, ViewMeta> = {
 
   graph:            { label: 'Graph Explorer', section: 'Knowledge', icon: Network, requiresOrg: true, description: 'Entities and the relationships between them.' },
   kasbaexplorer:    { label: 'KASBA Explorer', section: 'Knowledge', icon: Layers, requiresOrg: true, description: 'Knowledge, ability, skill, behaviour and attitude.' },
-  search:           { label: 'Global Search', section: 'Knowledge', icon: Search, requiresOrg: true, description: 'Search across everything this organization holds.' },
-  copilot:          { label: 'Copilot', section: 'Knowledge', icon: MessageSquare, requiresOrg: true, description: 'Conversational access to the Brain.' },
-  aiworkspace:      { label: 'AI Workspace', section: 'Knowledge', icon: Sparkles, requiresOrg: true, description: 'Grounded AI sessions with citations.' },
   knowledgelibrary: { label: 'Knowledge Library', section: 'Knowledge', icon: Library, requiresOrg: true, description: 'Reusable knowledge assets.' },
-  memory:           { label: 'Memory', section: 'Knowledge', icon: Database, requiresOrg: true, description: 'What the Brain retains between sessions.' },
+  aiassistant:      { label: 'AI Assistant', section: 'Knowledge', icon: Sparkles, requiresOrg: true, description: 'Context-scoped search, conversation and AI operation history.' },
   esolibrary:       { label: 'ESO Library', section: 'Knowledge', icon: Boxes, requiresOrg: true, description: 'Executable strategic objectives.' },
+
+  // Hidden aliases for persisted sessions and older in-app navigation. They
+  // render AI Assistant, but breadcrumbs no longer advertise separate screens.
+  search:           { label: 'AI Assistant', section: 'Knowledge', icon: Sparkles, requiresOrg: true, hidden: true },
+  copilot:          { label: 'AI Assistant', section: 'Knowledge', icon: Sparkles, requiresOrg: true, hidden: true },
+  aiworkspace:      { label: 'AI Assistant', section: 'Knowledge', icon: Sparkles, requiresOrg: true, hidden: true },
 
   agents:           { label: 'Agent Monitor', section: 'Automation', icon: Activity, requiresOrg: true, description: 'What the agents are doing, and on whose authority.' },
   tasks:            { label: 'Task Orchestrator', section: 'Automation', icon: ListChecks, requiresOrg: true, description: 'Scheduled and queued work.' },

@@ -21,10 +21,10 @@ const TENANT_ADMIN: View[] = [
   // routes all carry permission:settings.manage. Kept out of the other role
   // lists to match that, rather than widened here where the API would 403.
   'ingestion',
-  'signals', 'evidence', 'deliberation', 'workspace', 'executions',
+  'signals', 'evidence', 'deliberation', 'memory', 'workspace', 'executions',
   'executive', 'analytics', 'decisionintel', 'mentalmodels', 'graph',
-  'kasbaexplorer', 'search', 'copilot', 'aiworkspace', 'knowledgelibrary',
-  'memory', 'esolibrary', 'tasks', 'policies', 'settings',
+  'kasbaexplorer', 'aiassistant', 'knowledgelibrary', 'esolibrary', 'tasks',
+  'policies', 'settings',
 ];
 
 const MANAGER: View[] = [
@@ -35,14 +35,14 @@ const MANAGER: View[] = [
 
 const ANALYST: View[] = [
   'home', 'commandcenter', 'departments', 'people', 'capabilities',
-  'signals', 'evidence', 'deliberation', 'workspace', 'analytics',
-  'decisionintel', 'mentalmodels', 'graph', 'search', 'copilot',
-  'aiworkspace', 'knowledgelibrary', 'memory', 'settings',
+  'signals', 'evidence', 'deliberation', 'memory', 'workspace', 'analytics',
+  'decisionintel', 'mentalmodels', 'graph', 'aiassistant', 'knowledgelibrary',
+  'settings',
 ];
 
 const VIEWER: View[] = [
   'home', 'commandcenter', 'departments', 'people', 'capabilities',
-  'executive', 'analytics', 'decisionintel', 'graph', 'search', 'settings',
+  'executive', 'analytics', 'decisionintel', 'graph', 'aiassistant', 'settings',
 ];
 
 const MEMBER: View[] = ['home', 'commandcenter', 'settings'];
