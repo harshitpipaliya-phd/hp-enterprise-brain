@@ -39,11 +39,14 @@ export default function Login({ onLogin, onSwitchToSignup, initialEmail = '' }: 
     setLoading(true);
     setError(null);
 
+    let session: AuthSession | null = null;
+
     try {
+      const normalizedEmail = email.trim();
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: normalizedEmail, password }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -52,13 +55,29 @@ export default function Login({ onLogin, onSwitchToSignup, initialEmail = '' }: 
         throw new Error(data.message || data.error || `Login failed (HTTP ${res.status})`);
       }
 
-      const session = sessionFromResponse(data, email);
+      session = sessionFromResponse(data, normalizedEmail);
+      if (!session.accessToken || !session.refreshToken || !session.organizationId) {
+        throw new Error('Login response was missing session details.');
+      }
+
       persistTokens(session);
-      onLogin(session);
     } catch (err: any) {
       setError(err?.message || 'Incorrect email or password.');
-    } finally {
       setLoading(false);
+      return;
+    }
+
+    try {
+      onLogin(session);
+    } catch (err: any) {
+      setError(err?.message || 'Signed in, but the workspace could not open.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+    if (email !== email.trim()) {
+      setEmail(email.trim());
     }
   };
 
