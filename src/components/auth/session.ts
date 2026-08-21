@@ -1,3 +1,5 @@
+import { persistAuthTokens } from '../../utils/authTokens';
+
 /**
  * What Signup and Login both produce, and what both do with it.
  *
@@ -24,13 +26,12 @@ export interface AuthSession {
 /**
  * Store the tokens the rest of the app reads.
  *
- * api/client.ts and utils/tenant.ts both read 'accessToken' from localStorage
- * directly, so this is where the auth screens agree on that contract rather
- * than each writing it themselves.
+ * api/client.ts and utils/tenant.ts both read the token through the shared
+ * auth-token helper, so this is where the auth screens agree on that contract
+ * rather than each writing it themselves.
  */
 export function persistTokens(session: AuthSession): void {
-  localStorage.setItem('accessToken', session.accessToken);
-  localStorage.setItem('refreshToken', session.refreshToken);
+  persistAuthTokens(session.accessToken, session.refreshToken);
 }
 
 /**

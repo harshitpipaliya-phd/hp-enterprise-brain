@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect } from 'react';
 import type { Organization } from '../../App';
+import { getAccessToken } from '../../utils/authTokens';
 
 interface Props {
   organization: Organization;
@@ -39,7 +40,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
   useEffect(() => {
     setAuditLoading(true);
     setAuditError(null);
-    const token = localStorage.getItem('accessToken') || '';
+    const token = getAccessToken();
     fetch('/api/v1/organizations/' + organization.tenantId + '/' + organization.id + '/audit', {
       headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
     })
@@ -53,7 +54,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
     if (tab !== 'structure') return;
     setStructureLoading(true);
     setStructureError(null);
-    const token = localStorage.getItem('accessToken') || '';
+    const token = getAccessToken();
     fetch('/api/v1/organizations/' + organization.tenantId + '/' + organization.id + '/structure', {
       headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
     })
@@ -67,7 +68,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
     if (tab !== 'quality') return;
     setQualityLoading(true);
     setQualityError(null);
-    const token = localStorage.getItem('accessToken') || '';
+    const token = getAccessToken();
     fetch('/api/v1/organizations/' + organization.tenantId + '/' + organization.id + '/data-quality', {
       headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
     })

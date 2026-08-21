@@ -10,7 +10,6 @@ import PersonList from './PersonList';
 import PersonIntelligence from '../workspace/PersonIntelligence';
 import StudentList from '../student/StudentList';
 import StudentDetail from '../student/StudentDetail';
-import { api as studentApi } from '../../api/student';
 import type { Student } from '../../api/student';
 import { loadSession, saveSession } from '../../utils/session';
 import './PersonList.css';
@@ -18,20 +17,48 @@ import './PersonList.css';
 export type PersonView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
 
 /**
- * Which population this organization's People screen is actually about.
+ * Which population this organization's People screen is showing.
  *
- *   'erp'      — people come from the HR system. The original screen, unchanged.
- *   'students' — the organization's people are the subject of an imported
- *                dataset rather than rows in the ERP.
+ *   'erp'      — the staff the HR system records: teachers, administrators,
+ *                support staff, everyone with a row in the mapped Person table.
+ *   'students' — the children the organization holds records for.
  *
- * DECIDED BY ASKING THE SERVER, NOT BY NAMING A TENANT. The summary endpoint
- * reports how many students this organization has; a non-zero count means the
- * student experience, zero means the ERP one. No component in this tree knows
- * that Lions exists, so the next school to import a dataset gets the same screen
- * without a code change, and Sunrise — which has real ERP people and no student
- * dataset — keeps exactly the screen it had.
+ * BOTH ARE REACHABLE, AND THAT IS THE FIX. This used to be a decision the screen
+ * made ONCE and never revisited: any student at all and the whole screen became
+ * the student screen, with the staff list unreachable behind an early return. An
+ * organization that has both — which every school does — could only ever see
+ * one of them. A school's staff are not an alternative to its students; they are
+ * the other half of the same question.
+ *
+ * WHICH ONE OPENS FIRST IS UNCHANGED. Students when the organization has any,
+ * staff otherwise — the same rule as before, so an installation that was landing
+ * on one of these still lands on it. The switcher only adds the door that was
+ * missing.
+ *
+ * NO TENANT IS NAMED ANYWHERE IN THIS TREE. Both counts come from the server, so
+ * an organization with staff and no students gets a staff screen, one with
+ * students and no staff gets a student screen, and one with both gets the
+ * switcher — decided per organization, by its own data.
  */
-type Population = 'loading' | 'erp' | 'students';
+type Population = 'erp' | 'students';
+
+/**
+ * The two headline counts, from the SAME endpoint the Organization overview
+ * reads.
+ *
+ * This matters more than it looks. `GET /departments/{tenant}/summary` is
+ * FoundationCounts, the one place in the application that defines "how many
+ * staff" and "how many students" — the class that exists precisely because
+ * three screens once counted these two things three different ways and
+ * disagreed. Taking the tab counts from anywhere else, including from the
+ * length of the list this screen has loaded, would make a fourth definition and
+ * reintroduce the exact defect that class was written to end. The number on the
+ * Staff tab is therefore the number on the Organization card, always.
+ */
+interface PopulationCounts {
+  staff: number;
+  students: number;
+}
 
 export interface Person {
   id: string;
@@ -84,23 +111,39 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
   const [departments, setDepartments] = useState<PersonDepartment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [population, setPopulation] = useState<Population>('loading');
+  const [population, setPopulation] = useState<Population | null>(null);
+  const [counts, setCounts] = useState<PopulationCounts | null>(null);
   const [student, setStudent] = useState<Student | null>(null);
 
   /*
-    Asked once per organization, before anything heavy. It reads only counts off
-    the student projection, so an organization with no dataset pays one cheap
-    query and falls straight through to the ERP screen.
+    One request per organization, before anything heavy: two COUNTs and a
+    GROUP BY, no rows. It settles both the tab labels and which tab opens.
+
+    A FAILED SUMMARY OPENS THE STAFF SCREEN, as it did before. The staff list has
+    its own endpoint and its own error state, so the screen still works; falling
+    back to the student view instead would strand an organization whose student
+    projection is what failed.
   */
   useEffect(() => {
     let cancelled = false;
-    setPopulation('loading');
+    setPopulation(null);
+    setCounts(null);
     setStudent(null);
-    studentApi.getSummary(organization.tenantId)
-      .then((summary) => {
-        if (!cancelled) setPopulation(Number(summary?.total ?? 0) > 0 ? 'students' : 'erp');
+
+    departmentApi.getSummary(organization.tenantId)
+      .then((summary: any) => {
+        if (cancelled) return;
+        const staff = Number(summary?.people?.total ?? 0);
+        const students = Number(summary?.students?.total ?? 0);
+        setCounts({ staff, students });
+        setPopulation(students > 0 ? 'students' : 'erp');
       })
-      .catch(() => { if (!cancelled) setPopulation('erp'); });
+      .catch(() => {
+        if (cancelled) return;
+        setCounts(null);
+        setPopulation('erp');
+      });
+
     return () => { cancelled = true; };
   }, [organization.tenantId]);
 
@@ -156,6 +199,11 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
       if (match) {
         setSelected(match);
         setView('intelligence');
+        // A stored person is a STAFF profile, so the refresh has to land on the
+        // staff side of the switcher. Without this the summary's default wins
+        // and a school reopens on Students with the restored profile invisible
+        // behind it — the person is selected, and nothing shows them.
+        setPopulation('erp');
       } else {
         saveSession({ personId: null });
       }
@@ -174,13 +222,66 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
   };
 
   /*
-    THE STUDENT BRANCH RETURNS EARLY AND SHARES NOTHING BELOW IT.
+    THE SWITCHER IS OFFERED ONLY WHERE THERE IS A CHOICE.
+
+    An organization with staff and no students, or students and no staff, gets
+    exactly the single screen it got before — no tab bar, no empty second tab
+    inviting a click that leads to "nothing here". The control appears when both
+    populations exist, which is when its absence was the defect.
+
+    It is rendered from `counts`, so its labels are the Organization overview's
+    own numbers rather than the length of whatever this screen has loaded.
+  */
+  const showSwitcher = counts !== null && counts.staff > 0 && counts.students > 0;
+
+  const switcher = showSwitcher ? (
+    <div className="people-population" role="tablist" aria-label="Population">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={population === 'students'}
+        className={`eb-pill-btn${population === 'students' ? ' active' : ''}`}
+        onClick={() => { setPopulation('students'); setStudent(null); }}
+      >
+        Students <span className="people-population-count">{counts!.students.toLocaleString()}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={population === 'erp'}
+        className={`eb-pill-btn${population === 'erp' ? ' active' : ''}`}
+        onClick={() => { setPopulation('erp'); navigate('list'); }}
+      >
+        Staff <span className="people-population-count">{counts!.staff.toLocaleString()}</span>
+      </button>
+    </div>
+  ) : null;
+
+  // The summary has not answered yet. Deciding early would flash the staff
+  // screen at every school before swapping to students a moment later.
+  if (population === null) {
+    return (
+      <div className="people-app">
+        <header className="people-app-header">
+          <div>
+            <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
+            <h1>People</h1>
+          </div>
+        </header>
+        <div className="people-empty">Loading {organization.name}&apos;s people…</div>
+      </div>
+    );
+  }
+
+  /*
+    THE STUDENT BRANCH STILL RETURNS EARLY AND SHARES NOTHING BELOW IT.
 
     Not woven into the ERP screen's view machine on purpose: a student is not a
     Person, has no ERP row, and cannot be created, edited or archived from here.
     Rendering them through PersonList's create/edit/archive flows would offer
     four actions that would all fail. The two experiences stay separate, and the
-    ERP path below is byte-for-byte the screen Sunrise already had.
+    ERP path below is byte-for-byte the screen Sunrise already had — the switcher
+    is the only thing added to either.
   */
   if (population === 'students') {
     return (
@@ -190,9 +291,10 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
             <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
             <h1>Students</h1>
             <p>
-              The students {organization.name} has records for. They are derived from this organization&apos;s
-              imported academic and fee files — not from the HR system, which holds only its staff.
+              The students {organization.name} has records for — their class, section and, where this
+              organization has them, their results and fee history.
             </p>
+            {switcher}
           </div>
         </header>
 
@@ -208,13 +310,28 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
       <header className="people-app-header">
         <div>
           <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
-          <h1>People</h1>
-          <p>Everyone recorded in {organization.name}. Open a person to see their profile, department and recorded activity.</p>
+          <h1>{showSwitcher ? 'Staff' : 'People'}</h1>
+          <p>
+            {showSwitcher
+              ? `The staff ${organization.name} employs — teachers, administrators and support staff, as its HR system records them. Open someone to see their profile, department and recorded activity.`
+              : `Everyone recorded in ${organization.name}. Open a person to see their profile, department and recorded activity.`}
+          </p>
+          {switcher}
         </div>
         {view === 'list' && <button onClick={() => navigate('create')}>+ New Person</button>}
       </header>
 
       {error && <div className="people-alert" role="alert">{error}</div>}
+
+      {/*
+        An organization whose HR system holds nobody is a real state, not a
+        failure — a school that has entered its children but not yet its staff.
+        Said plainly, and only once the load has actually finished, so it cannot
+        be mistaken for the list still arriving.
+      */}
+      {view === 'list' && !loading && !error && people.length === 0 && (
+        <div className="people-empty">No staff records found for this organization.</div>
+      )}
 
       {view === 'list' && (
         <PersonList

@@ -1,3 +1,5 @@
+import { getAccessToken } from './authTokens';
+
 /**
  * The tenant is the selected organization's sub_institute_id.
  *
@@ -40,7 +42,7 @@ export function getTenantId(): string {
   const selected = getSelectedOrgId();
   if (selected) return selected;
 
-  const token = localStorage.getItem('accessToken');
+  const token = getAccessToken();
   if (token) {
     const claims = decodeJwtPayload(token);
     if (typeof claims?.tenantId === 'string' && claims.tenantId !== '') {
@@ -52,7 +54,7 @@ export function getTenantId(): string {
 }
 
 export function getAuthTenantId(): string {
-  const token = localStorage.getItem('accessToken');
+  const token = getAccessToken();
   if (token) {
     const claims = decodeJwtPayload(token);
     if (typeof claims?.tenantId === 'string' && claims.tenantId !== '') {

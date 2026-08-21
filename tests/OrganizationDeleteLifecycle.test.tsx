@@ -78,9 +78,10 @@ const ORG = {
 describe('permanent deletion ends the session', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     // A live workspace session for tenant 8, exactly as login would leave it.
-    localStorage.setItem('accessToken', 'access-token-for-tenant-8');
-    localStorage.setItem('refreshToken', 'refresh-token-for-tenant-8');
+    sessionStorage.setItem('accessToken', 'access-token-for-tenant-8');
+    sessionStorage.setItem('refreshToken', 'refresh-token-for-tenant-8');
     localStorage.setItem('hpbrain-session', JSON.stringify({
       role: 'tenant_admin', userName: 'Administrator', organization: ORG, view: 'home', personId: null,
     }));
@@ -117,6 +118,7 @@ describe('permanent deletion ends the session', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   async function deleteFromTheUi() {
@@ -151,6 +153,8 @@ describe('permanent deletion ends the session', () => {
     await waitFor(() => {
       expect(localStorage.getItem('accessToken')).toBeNull();
       expect(localStorage.getItem('refreshToken')).toBeNull();
+      expect(sessionStorage.getItem('accessToken')).toBeNull();
+      expect(sessionStorage.getItem('refreshToken')).toBeNull();
     });
   });
 
@@ -204,7 +208,8 @@ describe('permanent deletion ends the session', () => {
     await screen.findByText(/NOT deleted/i);
 
     // Still signed in, still holding the session.
-    expect(localStorage.getItem('accessToken')).toBe('access-token-for-tenant-8');
+    expect(sessionStorage.getItem('accessToken')).toBe('access-token-for-tenant-8');
+    expect(localStorage.getItem('accessToken')).toBeNull();
     expect(screen.queryByText('Welcome back')).toBeNull();
   });
 });

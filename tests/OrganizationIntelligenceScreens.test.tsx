@@ -77,13 +77,14 @@ function mockApi(bundle: Bundle) {
 }
 
 beforeEach(() => {
-  localStorage.setItem('accessToken', 'test-token');
+  sessionStorage.setItem('accessToken', 'test-token');
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 /* ─────────────────────────── Organizational Knowledge ─────────────────────────── */

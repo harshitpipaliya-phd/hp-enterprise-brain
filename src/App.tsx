@@ -57,6 +57,7 @@ import type { OrganizationRow, DeletionResult } from './api/organization';
 import { onSessionExpired } from './api/client';
 import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
 import { loadSession, saveSession, clearSession } from './utils/session';
+import { clearAuthTokens, clearLegacyPersistentTokens, getAccessToken, getRefreshToken } from './utils/authTokens';
 import { Alert, Button, EmptyState, ErrorState as ViewErrorState, LazyView } from './ui';
 import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
@@ -76,7 +77,8 @@ export default function App() {
 }
 
 function initialAuthState(): boolean {
-  return !!localStorage.getItem('accessToken');
+  clearLegacyPersistentTokens();
+  return !!getAccessToken();
 }
 
 /**
@@ -91,13 +93,19 @@ function initialAuthState(): boolean {
 const HOME_VIEW: View = 'home';
 
 function AuthenticatedApp() {
+  const hasActiveAuthSessionRef = useRef<boolean | null>(null);
+  if (hasActiveAuthSessionRef.current === null) {
+    hasActiveAuthSessionRef.current = initialAuthState();
+  }
+
   // Read ONCE, synchronously, before the first render. Everything below that
   // depends on it — the role filter in the sidebar, and the `selected` gate on
   // every view — is wrong for as long as it is unknown, and "wrong" here means
   // a stripped-down menu and an empty page rather than a spinner.
-  const restored = loadSession();
+  const hasActiveAuthSession = hasActiveAuthSessionRef.current;
+  const restored = hasActiveAuthSession ? loadSession() : null;
 
-  const [authenticated, setAuthenticated] = useState(initialAuthState);
+  const [authenticated, setAuthenticated] = useState(hasActiveAuthSession);
   // Which of the two auth screens is showing while unauthenticated. Local state
   // rather than a route because this app has no router — the whole shell is
   // driven by `view`, and the auth screens sit outside it.
@@ -109,15 +117,15 @@ function AuthenticatedApp() {
   // session persisted while that screen was open to the unified organization
   // page rather than restoring it to a route with no content.
   const [view, setView] = useState<View>(
-    restored.view === 'edit' ? 'details' : ((restored.view as View) || HOME_VIEW),
+    restored?.view === 'edit' ? 'details' : ((restored?.view as View) || HOME_VIEW),
   );
   const [tenantId, setTenantId] = useState(getAuthTenantId());
-  const [selected, setSelected] = useState<Organization | null>(restored.organization);
+  const [selected, setSelected] = useState<Organization | null>(restored?.organization ?? null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(restored.role);
-  const [userName, setUserName] = useState<string | null>(restored.userName);
+  const [userRole, setUserRole] = useState<string | null>(restored?.role ?? null);
+  const [userName, setUserName] = useState<string | null>(restored?.userName ?? null);
   const { showToast } = useToast();
   const navigationFinishTimer = useRef<number | null>(null);
 
@@ -277,14 +285,14 @@ function AuthenticatedApp() {
    */
   const logout = async (revokeOnServer = true) => {
     try {
-      const refreshToken = revokeOnServer ? localStorage.getItem('refreshToken') : null;
+      const refreshToken = revokeOnServer ? getRefreshToken() : null;
       if (refreshToken) {
         await fetch(`${API_BASE}/auth/logout`, {
           method: 'POST',
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}`,
+            Authorization: `Bearer ${getAccessToken()}`,
           },
           body: JSON.stringify({ refreshToken }),
         });
@@ -293,8 +301,7 @@ function AuthenticatedApp() {
       // Best-effort logout; local state is the authoritative clear.
     }
 
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    clearAuthTokens();
     // 'hpbrain-user' is deliberately NOT removed. It holds only the remembered
     // email for the sign-in form, and signing out then back in is the exact
     // situation "Remember me" exists for — clearing it here made the checkbox

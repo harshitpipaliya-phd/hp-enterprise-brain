@@ -51,6 +51,7 @@ let consoleWarn: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
   consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
@@ -267,7 +268,7 @@ describe('Signup', () => {
     expect(document.body.textContent).not.toMatch(/tenant id/i);
 
     // Signup does not enter the workspace; it does not hold a session either.
-    expect(localStorage.getItem('accessToken')).toBeNull();
+    expect(sessionStorage.getItem('accessToken')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /continue to sign in/i }));
     expect(onCreated).toHaveBeenCalledWith('ops@northwind.example');
@@ -328,8 +329,10 @@ describe('Login', () => {
 
     await waitFor(() => expect(onLogin).toHaveBeenCalled());
 
-    expect(localStorage.getItem('accessToken')).toBe('access-token');
-    expect(localStorage.getItem('refreshToken')).toBe('refresh-token');
+    expect(sessionStorage.getItem('accessToken')).toBe('access-token');
+    expect(sessionStorage.getItem('refreshToken')).toBe('refresh-token');
+    expect(localStorage.getItem('accessToken')).toBeNull();
+    expect(localStorage.getItem('refreshToken')).toBeNull();
     expect(onLogin.mock.calls[0][0]).toMatchObject({
       organizationId: '12',
       organizationName: 'Northwind Logistics',
@@ -350,7 +353,7 @@ describe('Login', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Incorrect email or password.');
-    expect(localStorage.getItem('accessToken')).toBeNull();
+    expect(sessionStorage.getItem('accessToken')).toBeNull();
   });
 
   it('routes to signup', () => {

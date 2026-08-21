@@ -1,3 +1,6 @@
+import { globalLoading, type GlobalLoaderMode } from '../ui/globalLoading';
+import { clearAuthTokens, getAccessToken, getRefreshToken, updateAccessTokens } from '../utils/authTokens';
+
 /**
  * Single HTTP entry point for the SPA. Every api/*.ts module goes through
  * request(), so headers and auth are configured in exactly one place.
@@ -10,7 +13,6 @@
 const API_ORIGIN: string = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const API_BASE = `${API_ORIGIN.replace(/\/+$/, '')}/api/v1`;
-import { globalLoading, type GlobalLoaderMode } from '../ui/globalLoading';
 
 export { API_ORIGIN, API_BASE };
 
@@ -42,7 +44,7 @@ export class ApiError extends Error {
 }
 
 export function authToken(): string {
-  return localStorage.getItem('accessToken') || '';
+  return getAccessToken();
 }
 
 function toCamel(key: string): string {
@@ -97,7 +99,7 @@ let sessionExpiredCallback: (() => void) | null = null;
 async function tryRefresh(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
     try {
       const res = await fetch(`${API_BASE}/auth/refresh`, {
@@ -107,8 +109,7 @@ async function tryRefresh(): Promise<boolean> {
       });
       if (!res.ok) return false;
       const tokens = await res.json();
-      localStorage.setItem('accessToken', tokens.accessToken);
-      if (tokens.refreshToken) localStorage.setItem('refreshToken', tokens.refreshToken);
+      updateAccessTokens(tokens.accessToken, tokens.refreshToken);
       return true;
     } catch {
       return false;
@@ -188,8 +189,7 @@ export async function request(path: string, options: ApiRequestOptions = {}, _is
       if (res.status === 401 && !_isRetry) {
         const refreshed = await tryRefresh();
         if (refreshed) return request(path, options, true);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        clearAuthTokens();
         sessionExpiredCallback?.();
         throw new Error('session_expired');
       }

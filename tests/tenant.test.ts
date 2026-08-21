@@ -34,20 +34,23 @@ function makeToken(payload: Record<string, unknown>): string {
 }
 
 describe('getAuthTenantId', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
 
   it('resolves the tenant from a real JWT rather than the fallback', () => {
-    localStorage.setItem('accessToken', makeToken({ sub: 'u-1', tenantId: 'tenant-alpha', role: 'analyst' }));
+    sessionStorage.setItem('accessToken', makeToken({ sub: 'u-1', tenantId: 'tenant-alpha', role: 'analyst' }));
 
     expect(getAuthTenantId()).toBe('tenant-alpha');
     expect(getAuthTenantId()).not.toBe('6');
   });
 
   it('tracks the session: a different token yields a different tenant', () => {
-    localStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-alpha' }));
+    sessionStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-alpha' }));
     expect(getAuthTenantId()).toBe('tenant-alpha');
 
-    localStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-beta' }));
+    sessionStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-beta' }));
     expect(getAuthTenantId()).toBe('tenant-beta');
   });
 
@@ -56,7 +59,7 @@ describe('getAuthTenantId', () => {
     const token = makeToken({ tenantId });
 
     expect(token.split('.')[1]).toMatch(/[-_]/);
-    localStorage.setItem('accessToken', token);
+    sessionStorage.setItem('accessToken', token);
 
     expect(getAuthTenantId()).toBe(tenantId);
   });
@@ -77,29 +80,32 @@ describe('getAuthTenantId', () => {
   });
 
   it('yields no tenant when the token is malformed, rather than throwing', () => {
-    localStorage.setItem('accessToken', 'not-a-jwt');
+    sessionStorage.setItem('accessToken', 'not-a-jwt');
     expect(getAuthTenantId()).toBe('');
 
-    localStorage.setItem('accessToken', 'a.!!!not-base64!!!.c');
+    sessionStorage.setItem('accessToken', 'a.!!!not-base64!!!.c');
     expect(getAuthTenantId()).toBe('');
   });
 
   it('yields no tenant when the payload carries no tenantId claim', () => {
-    localStorage.setItem('accessToken', makeToken({ sub: 'u-1', role: 'viewer' }));
+    sessionStorage.setItem('accessToken', makeToken({ sub: 'u-1', role: 'viewer' }));
     expect(getAuthTenantId()).toBe('');
   });
 
   it('ignores a non-string tenantId instead of returning a number', () => {
-    localStorage.setItem('accessToken', makeToken({ tenantId: 12345 }));
+    sessionStorage.setItem('accessToken', makeToken({ tenantId: 12345 }));
     expect(getAuthTenantId()).toBe('');
   });
 });
 
 describe('getTenantId', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
 
   it('is the selected organization, not the token tenant', () => {
-    localStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-alpha' }));
+    sessionStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-alpha' }));
     setSelectedOrgId('6');
 
     expect(getTenantId()).toBe('6');
@@ -120,7 +126,7 @@ describe('getTenantId', () => {
   });
 
   it('falls back to the token tenant when nothing has been selected yet', () => {
-    localStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-alpha' }));
+    sessionStorage.setItem('accessToken', makeToken({ tenantId: 'tenant-alpha' }));
 
     expect(hasSelectedOrg()).toBe(false);
     expect(getTenantId()).toBe('tenant-alpha');

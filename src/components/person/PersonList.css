@@ -410,3 +410,39 @@
   color: var(--content-secondary);
   line-height: 1.6;
 }
+
+/*
+  The population switcher on People.
+
+  Rendered only when an organization has BOTH staff and students, so on every
+  installation that has one population this is absent and the header is exactly
+  what it was. It reuses .eb-pill-btn and its existing .active state rather than
+  introducing a second kind of tab, because the shell already has one.
+*/
+.people-population {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/*
+  The count is the Organization overview's own figure. It is set slightly back
+  from the label so the tab reads as "Students" with a quantity, rather than as
+  two competing words.
+*/
+.people-population-count {
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: var(--surface-inset);
+  color: var(--content-secondary);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.people-population .eb-pill-btn.active .people-population-count {
+  background: color-mix(in srgb, var(--action-content) 22%, transparent);
+  color: var(--action-content);
+}
