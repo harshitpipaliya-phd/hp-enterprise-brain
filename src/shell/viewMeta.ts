@@ -72,7 +72,6 @@ export const VIEW_META: Record<View, ViewMeta> = {
   signals:          { label: 'Signals', section: 'Intelligence Loop', icon: Radio, requiresOrg: true, description: 'What the data has flagged, and who it concerns.' },
   evidence:         { label: 'Evidence', section: 'Intelligence Loop', icon: FileSearch, requiresOrg: true, description: 'What supports each signal, and how firmly it is held.' },
   deliberation:     { label: 'Deliberation', section: 'Intelligence Loop', icon: Scale, requiresOrg: true, description: 'Open investigations and the decisions waiting on them.' },
-  memory:           { label: 'Memory', section: 'Intelligence Loop', icon: Database, requiresOrg: true, description: 'What the Brain retains between sessions.' },
   workspace:        { label: 'Intelligence Workspace', section: 'Intelligence Loop', icon: Brain, requiresOrg: true, description: 'What this organization currently knows about itself.' },
   executions:       { label: 'Execution Center', section: 'Intelligence Loop', icon: Workflow, requiresOrg: true, description: 'What has been done about approved decisions, and the result.' },
 
@@ -84,6 +83,7 @@ export const VIEW_META: Record<View, ViewMeta> = {
   graph:            { label: 'Graph Explorer', section: 'Knowledge', icon: Network, requiresOrg: true, description: 'Entities and the relationships between them.' },
   kasbaexplorer:    { label: 'KASBA Explorer', section: 'Knowledge', icon: Layers, requiresOrg: true, description: 'Knowledge, ability, skill, behaviour and attitude.' },
   knowledgelibrary: { label: 'Knowledge Library', section: 'Knowledge', icon: Library, requiresOrg: true, description: 'Reusable knowledge assets.' },
+  memory:           { label: 'Memory', section: 'Knowledge', icon: Database, requiresOrg: true, description: 'What the Brain retains between sessions.' },
   aiassistant:      { label: 'AI Assistant', section: 'Knowledge', icon: Sparkles, requiresOrg: true, description: 'Context-scoped search, conversation and AI operation history.' },
   esolibrary:       { label: 'ESO Library', section: 'Knowledge', icon: Boxes, requiresOrg: true, description: 'Executable strategic objectives.' },
 

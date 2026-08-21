@@ -178,6 +178,29 @@ describe('sidebar', () => {
     // No invented "Member" label for a user whose role we do not know.
     expect(screen.queryByText('member')).toBeNull();
   });
+
+  it('places Memory under Knowledge, not Intelligence Loop', () => {
+    renderSidebar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Intelligence Loop' }));
+    expect(screen.queryByRole('button', { name: 'Memory' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Knowledge' }));
+
+    const knowledgeItems = within(screen.getByRole('button', { name: 'Knowledge' }).closest('.s-section') as HTMLElement)
+      .getAllByRole('button')
+      .map((button) => button.textContent);
+
+    expect(knowledgeItems).toEqual([
+      'Knowledge',
+      'Graph Explorer',
+      'KASBA Explorer',
+      'Knowledge Library',
+      'Memory',
+      'AI Assistant',
+      'ESO Library',
+    ]);
+  });
 });
 
 describe('collapse preference', () => {
@@ -294,6 +317,7 @@ describe('breadcrumbs', () => {
     ['signals', 'Intelligence Loop', 'Signals'],
     ['executive', 'Analytics', 'Executive Dashboard'],
     ['graph', 'Knowledge', 'Graph Explorer'],
+    ['memory', 'Knowledge', 'Memory'],
     ['tasks', 'Automation', 'Task Orchestrator'],
     ['settings', 'Account', 'Settings'],
   ] as const)('maps %s through its section', (view, section, label) => {
