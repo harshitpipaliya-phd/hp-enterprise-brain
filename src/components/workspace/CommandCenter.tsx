@@ -33,6 +33,7 @@ import { api as capabilityApi } from '../../api/capability';
 import { ingestionApi } from '../../api/ingestion';
 import { LoadingState, ErrorState } from '../shared/States';
 import type { Organization, View } from '../../App';
+import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
 import './CommandCenter.css';
 
 interface CommandCenterProps {
@@ -56,6 +57,8 @@ interface CommandCenterProps {
    * render afterwards, so the caller must clear its selection and leave.
    */
   onDeleted?: (organization: Organization, result: DeletionResult) => void;
+  /** Open Graph Explorer centred on this organization. Optional: absent in tests. */
+  onExploreInGraph?: (label: string, id: string) => void;
 }
 
 type Health = 'good' | 'warn' | 'crit';
@@ -135,7 +138,7 @@ const LOOP_STAGES: Array<{ key: string; label: string; icon: ReactNode; view: Vi
   { key: 'learnings', label: 'Learnings', icon: <GraduationCap size={17} />, view: 'mentalmodels', meaning: 'Reusable knowledge kept from outcomes.' },
 ];
 
-export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onDeleted }: CommandCenterProps) {
+export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onDeleted, onExploreInGraph }: CommandCenterProps) {
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics | null>(null);
   const [capabilityCount, setCapabilityCount] = useState<number | null>(null);
   const [dataSources, setDataSources] = useState<any[]>([]);
@@ -440,6 +443,16 @@ export default function CommandCenter({ tenantId, organizationName, organization
           </div>
         </div>
         <div className="cc-org-hero__actions">
+          {/* The organization is the graph's root, so this opens the default
+              view rather than a focused subgraph — but it goes through the same
+              handler as every other entry point. */}
+          <ExploreInGraphButton
+            label="Organization"
+            id={tenantId}
+            entityName={organizationName || organization?.name}
+            onExplore={onExploreInGraph}
+            className="eb-pill-btn"
+          />
           <button type="button" onClick={() => onNavigate('ingestion')}>
             <Upload size={15} /> Open Ingestion Engine <ArrowRight size={15} />
           </button>

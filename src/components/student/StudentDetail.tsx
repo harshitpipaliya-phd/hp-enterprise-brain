@@ -3,11 +3,14 @@ import { AlertTriangle, BookOpen, IndianRupee, Info } from 'lucide-react';
 import { api } from '../../api/student';
 import type { AcademicRecord, FeeRecord, Page, StudentDetail as Detail } from '../../api/student';
 import './StudentList.css';
+import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
 
 interface Props {
   tenantId: string;
   studentId: string;
   onBack: () => void;
+  /** Open Graph Explorer centred on this student. Absent renders no button. */
+  onExploreInGraph?: (label: string, id: string) => void;
 }
 
 function money(v: number | null | undefined): string {
@@ -29,7 +32,7 @@ function money(v: number | null | undefined): string {
  * nine subjects and three assessment types has several hundred result rows, and
  * a page of fifty is enough to look at.
  */
-export default function StudentDetail({ tenantId, studentId, onBack }: Props) {
+export default function StudentDetail({ tenantId, studentId, onBack, onExploreInGraph }: Props) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,8 +87,17 @@ export default function StudentDetail({ tenantId, studentId, onBack }: Props) {
 
   return (
     <div className="student-detail">
-      <div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button className="eb-pill-btn" onClick={onBack}>Back to Students</button>
+        {/* The graph is where this child's results, fee records and any signals
+            raised against their enrolment number are visible together. */}
+        <ExploreInGraphButton
+          label="Student"
+          id={studentId}
+          entityName={s.studentName || s.studentRef}
+          onExplore={onExploreInGraph}
+          className="eb-pill-btn"
+        />
       </div>
 
       <header className="student-hero">

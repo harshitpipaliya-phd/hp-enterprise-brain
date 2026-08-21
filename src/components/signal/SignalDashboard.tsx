@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Activity, AlertTriangle, Clock3, FileSearch, RefreshCw, Signal as SignalIcon } from 'lucide-react';
+import { Activity, AlertTriangle, Clock3, FileSearch, RefreshCw, Share2, Signal as SignalIcon } from 'lucide-react';
 import { api } from '../../api/signal';
 import type { View } from '../../App';
 import './SignalDashboard.css';
@@ -257,7 +257,7 @@ const PAGE_SIZE = 25;
  */
 const SIGNAL_FETCH_LIMIT = 5000;
 
-export default function SignalDashboard({ tenantId, onNavigate }: { tenantId: string; onNavigate?: (view: View) => void }) {
+export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph }: { tenantId: string; onNavigate?: (view: View) => void; onExploreInGraph?: (label: string, id: string) => void }) {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [severityFilter, setSeverityFilter] = useState('');
@@ -531,6 +531,17 @@ export default function SignalDashboard({ tenantId, onNavigate }: { tenantId: st
                             {onNavigate && (
                               <button onClick={() => onNavigate('evidence')} title="Open the Evidence screen">
                                 <FileSearch size={13} /> Evidence
+                              </button>
+                            )}
+                            {/* The graph is where this signal's evidence, the
+                                case it opened and the recommendation it led to
+                                are visible as one chain. */}
+                            {onExploreInGraph && (
+                              <button
+                                onClick={() => onExploreInGraph('Signal', String(signal.id))}
+                                title="Open Graph Explorer centred on this signal"
+                              >
+                                <Share2 size={13} /> Graph
                               </button>
                             )}
                           </div>

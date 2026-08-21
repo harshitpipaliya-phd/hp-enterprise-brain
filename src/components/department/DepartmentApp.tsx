@@ -9,6 +9,7 @@ import DepartmentArchiveConfirm from './DepartmentArchiveConfirm';
 import DepartmentIntelligence from '../workspace/DepartmentIntelligence';
 import PersonIntelligence from '../workspace/PersonIntelligence';
 import { api } from '../../api/department';
+import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
 
 export type DepartmentView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
 
@@ -27,7 +28,7 @@ export interface Department {
   updatedDate: string;
 }
 
-export default function DepartmentApp({ organization, onBack }: { organization: Organization; onBack: () => void }) {
+export default function DepartmentApp({ organization, onBack, onExploreInGraph }: { organization: Organization; onBack: () => void; onExploreInGraph?: (label: string, id: string) => void }) {
   const [view, setView] = useState<DepartmentView>('list');
   const [selected, setSelected] = useState<Department | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -100,11 +101,19 @@ export default function DepartmentApp({ organization, onBack }: { organization: 
           personId={viewingPersonId}
           onBack={() => setViewingPersonId(null)}
           backLabel={`Back to ${selected.name}`}
+          onExploreInGraph={onExploreInGraph}
         />
       )}
       {view === 'intelligence' && selected && !viewingPersonId && (
         <div>
           <div style={{ display: 'flex', gap: 8, marginBottom: -4, justifyContent: 'flex-end' }}>
+            <ExploreInGraphButton
+              label="Department"
+              id={selected.id}
+              entityName={selected.name}
+              onExplore={onExploreInGraph}
+              className="eb-pill-btn"
+            />
             <button className="eb-pill-btn" onClick={() => navigate('details', selected)}>Raw Details</button>
             <button className="eb-pill-btn" onClick={() => navigate('edit', selected)}>Edit</button>
             <button className="eb-pill-btn" onClick={() => navigate('archive', selected)}>Archive</button>

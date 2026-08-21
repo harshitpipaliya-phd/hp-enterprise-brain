@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { api as personApi } from '../../api/person';
 import { LoadingState, ErrorState } from '../shared/States';
 import './PersonProfile.css';
+import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
 
 /**
  * The person profile.
@@ -205,6 +206,13 @@ export interface PersonProfileActions {
   onEdit?: () => void;
   onArchive?: () => void;
   onViewSourceRecord?: () => void;
+  /**
+   * Open Graph Explorer centred on this person.
+   *
+   * Optional, and absent by default: a host that has no navigation — a test, an
+   * embed — renders no button rather than a dead one.
+   */
+  onExploreInGraph?: (label: string, id: string) => void;
 }
 
 /* ──────────────────────────────── formatting ─────────────────────────────── */
@@ -332,6 +340,7 @@ export default function PersonIntelligence({
   onEdit,
   onArchive,
   onViewSourceRecord,
+  onExploreInGraph,
 }: { tenantId: string; personId: string } & PersonProfileActions) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -382,6 +391,13 @@ export default function PersonIntelligence({
       <div className="pp-actions">
         {onBack && <button className="eb-pill-btn" onClick={onBack}>{'← '}{backLabel}</button>}
         <span className="pp-actions-spacer" />
+        <ExploreInGraphButton
+          label="Person"
+          id={personId}
+          entityName={name}
+          onExplore={onExploreInGraph}
+          className="eb-pill-btn"
+        />
         {onEdit && <button className="eb-pill-btn" onClick={onEdit}>Edit contact details</button>}
         {onViewSourceRecord && <button className="eb-pill-btn" onClick={onViewSourceRecord}>Source record</button>}
         <button className="eb-pill-btn" onClick={load} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>

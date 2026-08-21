@@ -104,7 +104,7 @@ export interface PersonDepartment {
  */
 let restorePending = true;
 
-export default function PersonApp({ organization, onBack }: { organization: Organization; onBack: () => void }) {
+export default function PersonApp({ organization, onBack, onExploreInGraph }: { organization: Organization; onBack: () => void; onExploreInGraph?: (label: string, id: string) => void }) {
   const [view, setView] = useState<PersonView>('list');
   const [selected, setSelected] = useState<Person | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
@@ -299,7 +299,14 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
         </header>
 
         {student
-          ? <StudentDetail tenantId={organization.tenantId} studentId={student.id} onBack={() => setStudent(null)} />
+          ? (
+            <StudentDetail
+              tenantId={organization.tenantId}
+              studentId={student.id}
+              onBack={() => setStudent(null)}
+              onExploreInGraph={onExploreInGraph}
+            />
+          )
           : <StudentList tenantId={organization.tenantId} onSelect={setStudent} />}
       </div>
     );
@@ -364,6 +371,7 @@ export default function PersonApp({ organization, onBack }: { organization: Orga
           onEdit={() => navigate('edit', selected)}
           onArchive={() => navigate('archive', selected)}
           onViewSourceRecord={() => navigate('details', selected)}
+          onExploreInGraph={onExploreInGraph}
         />
       )}
 

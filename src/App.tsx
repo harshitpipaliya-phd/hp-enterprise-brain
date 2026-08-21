@@ -11,6 +11,7 @@ import IntelligenceWorkspace from './components/workspace/IntelligenceWorkspace'
 import DecisionAnalyticsPanel from './components/workspace/DecisionAnalyticsPanel';
 import ExecutiveDashboard from './components/workspace/ExecutiveDashboard';
 import GraphExplorer from './components/workspace/GraphExplorer';
+import type { GraphFocus } from './components/graph/graphTypes';
 import AgentMonitor from './components/workspace/AgentMonitor';
 import EvidenceWorkspace from './components/workspace/EvidenceWorkspace';
 /*
@@ -121,6 +122,17 @@ function AuthenticatedApp() {
   );
   const [tenantId, setTenantId] = useState(getAuthTenantId());
   const [selected, setSelected] = useState<Organization | null>(restored?.organization ?? null);
+  /*
+    THE NODE GRAPH EXPLORER SHOULD OPEN ON, when a screen sent the user there.
+
+    Deliberately NOT persisted with the rest of the session. "Explore this
+    student in the graph" is an act, not a preference: restoring it days later
+    would drop somebody into a subgraph they have no memory of asking for, and
+    the entity may not exist any more. It is cleared as soon as it is consumed —
+    navigating to the graph by any other route opens the organization, which is
+    the correct default.
+  */
+  const [graphFocus, setGraphFocus] = useState<GraphFocus | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -256,7 +268,7 @@ function AuthenticatedApp() {
     );
   }
 
-  const navigate = (v: View, org?: Organization) => {
+  const navigate = (v: View, org?: Organization, focus?: GraphFocus | null) => {
     globalLoading.navigationStarted();
     if (navigationFinishTimer.current !== null) window.clearTimeout(navigationFinishTimer.current);
     navigationFinishTimer.current = window.setTimeout(() => {
@@ -273,8 +285,24 @@ function AuthenticatedApp() {
     if (nextOrg) setSelectedOrgId(nextOrg.id);
     setSelected(nextOrg);
     setView(v);
+
+    // Only a navigation that NAMES a node carries one. Any other route to the
+    // graph — the sidebar, the command palette, a reload — opens on the
+    // organization.
+    setGraphFocus(v === 'graph' ? (focus ?? null) : null);
+
     saveSession({ organization: nextOrg, view: v });
   };
+
+  /**
+   * "Explore in Graph", from any screen that shows an entity.
+   *
+   * It carries the entity's OWN label and id — the same ids the graph API reads
+   * against this tenant — so nothing about the entity is re-derived and no
+   * second identity scheme appears. A node id that does not belong to this
+   * tenant simply does not resolve, and the graph opens on the organization.
+   */
+  const exploreInGraph = (label: string, id: string) => navigate('graph', selected ?? undefined, { label, id });
 
   /**
    * @param revokeOnServer POST /auth/logout to revoke the refresh token.
@@ -437,6 +465,7 @@ function AuthenticatedApp() {
                 onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
                 onArchive={() => navigate('archive', selected)}
                 onDeleted={handleOrganizationDeleted}
+                onExploreInGraph={exploreInGraph}
               />
             )}
             {view === 'list' && (
@@ -472,19 +501,32 @@ function AuthenticatedApp() {
                 onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
                 onArchive={() => navigate('archive', selected)}
                 onDeleted={handleOrganizationDeleted}
+                onExploreInGraph={exploreInGraph}
               />
             )}
             {view === 'departments' && selected && (
-              <DepartmentApp organization={selected} onBack={() => navigate('details', selected)} />
+              <DepartmentApp
+                organization={selected}
+                onBack={() => navigate('details', selected)}
+                onExploreInGraph={exploreInGraph}
+              />
             )}
             {view === 'people' && selected && (
-              <PersonApp organization={selected} onBack={() => navigate('details', selected)} />
+              <PersonApp
+                organization={selected}
+                onBack={() => navigate('details', selected)}
+                onExploreInGraph={exploreInGraph}
+              />
             )}
             {view === 'capabilities' && selected && (
               <CapabilityApp organization={selected} onBack={() => navigate('details', selected)} />
             )}
             {view === 'signals' && selected && (
-              <SignalDashboard tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
+              <SignalDashboard
+                tenantId={selected.tenantId}
+                onNavigate={(v) => navigate(v, selected)}
+                onExploreInGraph={exploreInGraph}
+              />
             )}
             {view === 'workspace' && selected && (
               <IntelligenceWorkspace tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
@@ -496,7 +538,12 @@ function AuthenticatedApp() {
               <ExecutiveDashboard tenantId={selected.tenantId} />
             )}
             {view === 'graph' && selected && (
-              <GraphExplorer tenantId={selected.tenantId} />
+              <GraphExplorer
+                tenantId={selected.tenantId}
+                organizationName={selected.name}
+                focus={graphFocus}
+                onNavigate={(v) => navigate(v, selected)}
+              />
             )}
             {view === 'agents' && selected && (
               <AgentMonitor tenantId={selected.tenantId} />
