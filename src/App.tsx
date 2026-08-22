@@ -603,7 +603,7 @@ function AuthenticatedApp() {
               <EsoLibraryScreen tenantId={selected.tenantId} />
             )}
             {view === 'kasbaexplorer' && selected && (
-              <KasbaExplorer tenantId={selected.tenantId} />
+              <KasbaExplorer tenantId={selected.tenantId} organizationName={selected.name} />
             )}
             {view === 'archive' && selected && (
               <OrganizationArchiveConfirm

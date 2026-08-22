@@ -1,0 +1,266 @@
+/**
+ * KASBA Explorer.
+ *
+ * Every colour and space is a design token, matching graph.css and the .u-
+ * primitives, so this screen follows the theme instead of carrying the wall of
+ * inline style objects it used to. The .kx- prefix keeps it clear of .gx- and
+ * the older .eb- vocabulary.
+ */
+
+.kx-page {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-5) var(--space-5);
+  color: var(--content-primary);
+}
+
+/* ------------------------------------------------------------------ head --- */
+
+.kx-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.kx-kicker {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+}
+
+.kx-title { margin: 2px 0 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+.kx-title strong { color: var(--accent-intelligence); font-weight: 700; }
+
+.kx-lede {
+  margin: 4px 0 0;
+  max-width: 90ch;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--content-secondary);
+}
+
+/* --------------------------------------------------------------- metrics --- */
+
+.kx-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 6px;
+  margin: var(--space-3) 0;
+}
+
+.kx-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+
+.kx-metric__value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+/* A metric with nothing behind it says so, rather than showing a confident 0. */
+.kx-metric__value--none { color: var(--content-tertiary); font-size: 15px; }
+
+.kx-metric__label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+}
+
+/* ------------------------------------------------------------ dimensions --- */
+
+.kx-section { margin-top: var(--space-4); }
+
+.kx-section__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: var(--space-2);
+}
+
+.kx-section__title { margin: 0; font-size: 13px; font-weight: 700; }
+.kx-section__note { font-size: 11.5px; color: var(--content-tertiary); }
+
+.kx-dims {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+
+.kx-dim {
+  display: grid;
+  grid-template-columns: 26px minmax(84px, 130px) minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+/* K / A / S / B / At — the five dimensions must stay distinguishable at a
+   glance even when the label column is narrow. */
+.kx-dim__key {
+  display: grid;
+  place-items: center;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--content-secondary);
+}
+
+.kx-dim__name { font-size: 12.5px; font-weight: 600; text-transform: capitalize; }
+
+.kx-dim__bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  overflow: hidden;
+}
+
+.kx-dim__fill { display: block; height: 100%; border-radius: 4px; background: var(--accent-intelligence); }
+
+.kx-dim__value {
+  min-width: 116px;
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/*
+ * NOT ASSESSED IS NOT ZERO.
+ *
+ * The whole point of KASBA is that a dimension nobody measured is null, not 0.
+ * An empty track and the words "Not assessed" is how that reads on screen; a
+ * bar of length zero would say the opposite — that someone looked and found
+ * nothing.
+ */
+.kx-dim--null .kx-dim__value { color: var(--content-tertiary); font-weight: 500; }
+.kx-dim--null .kx-dim__bar { background: transparent; box-shadow: inset 0 0 0 1px var(--border-subtle); }
+
+.kx-dim__count { font-size: 10.5px; color: var(--content-tertiary); font-weight: 500; }
+
+/* ------------------------------------------------------------- heatmap --- */
+
+.kx-cells { display: grid; gap: 8px; }
+
+/* ----------------------------------------------------------- empty state --- */
+
+.kx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-6) var(--space-5);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-xl);
+  background: var(--surface-card);
+  text-align: center;
+}
+
+.kx-empty__title { margin: 0; font-size: 15px; font-weight: 700; }
+
+.kx-empty__body {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--content-secondary);
+}
+
+.kx-empty__facts {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--space-3);
+}
+
+.kx-empty__fact { display: flex; flex-direction: column; gap: 2px; }
+
+.kx-empty__fact-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.kx-empty__fact-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+}
+
+/* ---------------------------------------------------------------- tasks --- */
+
+.kx-tasks { display: grid; gap: 6px; }
+
+.kx-task {
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+
+.kx-task__head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.kx-task__name { font-size: 13px; font-weight: 650; }
+.kx-task__flag { font-size: 10px; color: var(--content-tertiary); white-space: nowrap; }
+.kx-task__desc { margin: 4px 0 0; font-size: 12px; color: var(--content-tertiary); }
+
+.kx-task__subs {
+  margin-top: 8px;
+  padding-left: 14px;
+  border-left: 2px solid var(--border-subtle);
+}
+
+.kx-task__sub { font-size: 12px; padding: 3px 0; color: var(--content-secondary); }
+
+.kx-form {
+  display: grid;
+  gap: 8px;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+}
+
+.kx-row { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; margin-bottom: var(--space-2); }
+.kx-row .u-select { min-width: 260px; }
+
+.kx-check { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--content-secondary); }
+
+.kx-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-6);
+  justify-content: center;
+  color: var(--content-secondary);
+  font-size: 13px;
+}
