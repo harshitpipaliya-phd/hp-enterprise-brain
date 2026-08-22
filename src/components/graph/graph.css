@@ -11,10 +11,17 @@
  * vocabulary.
  */
 
+/*
+ * THE GRAPH IS THE SCREEN, so the chrome above it is kept deliberately thin.
+ * Measured in the browser, the header, metric strip, toolbar and data-quality
+ * panel together pushed the graph 670px down a 900px viewport — the reader had
+ * to scroll before seeing any of it. Everything below trims that block so the
+ * controls AND a large graph fit one screen.
+ */
 .gx-page {
   max-width: 1600px;
   margin: 0 auto;
-  padding: var(--space-6);
+  padding: var(--space-3) var(--space-5) var(--space-2);
   color: var(--content-primary);
 }
 
@@ -23,10 +30,10 @@
 .gx-head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-5);
+  align-items: center;
+  gap: var(--space-4);
   flex-wrap: wrap;
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -41,23 +48,40 @@
 }
 
 .gx-title {
-  margin: 2px 0 0;
-  font-size: 26px;
+  margin: 1px 0 0;
+  font-size: 21px;
   font-weight: 700;
   letter-spacing: -.01em;
 }
 
+/* One line. The full sentence is still the accessible name of the graph, but
+   three wrapped lines of preamble cost more vertical space than they earn. */
 .gx-lede {
-  margin: 6px 0 0;
-  max-width: 72ch;
-  font-size: 13px;
-  line-height: 1.55;
+  margin: 3px 0 0;
+  max-width: 78ch;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--content-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
 }
 
 .gx-lede strong { color: var(--content-primary); font-weight: 650; }
 
-.gx-head__actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+/* Ten controls live here. Tight gaps and small type keep them on one row at
+   1440px, which is worth ~60px of vertical space above the graph. */
+.gx-head__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.gx-head__actions .u-btn { padding-inline: 9px; font-size: 12px; }
 
 .gx-btn--on {
   border-color: var(--accent-intelligence);
@@ -69,16 +93,16 @@
 
 .gx-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  gap: var(--space-2);
-  margin: var(--space-4) 0;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 6px;
+  margin: var(--space-2) 0;
 }
 
 .gx-metric {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
+  gap: 1px;
+  padding: 6px 10px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-card);
@@ -87,13 +111,13 @@
 .gx-metric__value {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.1;
 }
 
 .gx-metric__label {
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 600;
   letter-spacing: .05em;
   text-transform: uppercase;
@@ -107,7 +131,7 @@
   gap: var(--space-3);
   align-items: center;
   flex-wrap: wrap;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .gx-search { position: relative; flex: 1 1 380px; min-width: 260px; }
@@ -271,6 +295,97 @@
 
 .gx-truncations svg { flex: 0 0 auto; margin-top: 2px; color: var(--status-warn); }
 
+/* ---------------------------------------------------------- data quality --- */
+
+/*
+ * ONE LINE, NOT A PANEL.
+ *
+ * The figures matter — a graph drawing 5 of 1,697 students looks identical to
+ * one drawing all of them unless it says so — but stacked rows cost ~95px above
+ * the graph, and at 1440x900 that is the difference between the reader seeing
+ * the graph and having to scroll for it. Every number the panel showed is still
+ * here, laid out across instead of down.
+ */
+.gx-dq {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+  padding: 5px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+}
+
+.gx-dq__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--content-secondary);
+}
+
+.gx-dq__title svg { color: var(--status-warn); }
+
+.gx-dq__list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gx-dq__item { display: flex; align-items: center; gap: 8px; }
+
+.gx-dq__kind {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--content-primary);
+  text-transform: capitalize;
+}
+
+.gx-dq__bar {
+  width: 84px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-card);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  overflow: hidden;
+}
+
+.gx-dq__fill { display: block; height: 100%; border-radius: 3px; background: var(--status-warn); }
+
+.gx-dq__figure {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.gx-dq__figure strong { font-weight: 700; color: var(--content-primary); }
+.gx-dq__of { color: var(--content-tertiary); }
+.gx-dq__pct { font-weight: 700; color: var(--content-secondary); }
+
+.gx-dq__hint {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--content-tertiary);
+}
+
+@media (max-width: 900px) {
+  .gx-dq__bar { display: none; }
+  .gx-dq__hint { display: none; }
+}
+
 /* ----------------------------------------------------------------- stage --- */
 
 .gx-stage {
@@ -278,7 +393,28 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-3);
-  min-height: 560px;
+
+  /*
+   * A DEFINITE height, not a min-height.
+   *
+   * min-height is a floor: the box still grows to fit its content, which is
+   * what let the canvas push the page taller and taller. A definite height
+   * makes the stage a fixed window that the graph is drawn INSIDE, so the page
+   * is exactly as tall as one screen however large the graph is.
+   *
+   * clamp keeps it sane on every display: never shorter than 460px on a small
+   * laptop, never taller than 900px on a large monitor, and otherwise whatever
+   * is left below the header, toolbar and data-quality panel.
+   */
+  /*
+   * Measured, not guessed. In Chromium at 1440x900 the chrome above the canvas
+   * (app bar, header, metric strip, search row, data-quality strip) occupies
+   * 386px and the page needs ~24px below, which leaves 490. calc(100vh - 410px)
+   * lands exactly there, so the whole screen fits without scrolling while the
+   * graph still gets the largest share of it. The clamp keeps it usable on a
+   * short laptop and stops it stretching absurdly on a tall monitor.
+   */
+  height: clamp(400px, calc(100vh - 410px), 820px);
 }
 
 .gx-stage--panelled { grid-template-columns: minmax(0, 1fr) 372px; }
@@ -289,30 +425,81 @@
 
 .gx-canvas {
   position: relative;
-  min-height: 560px;
+  /* Fills the stage cell exactly. Height comes from the grid, never from the
+     SVG inside it — see .gx-svg, which is taken out of flow for that reason. */
+  height: 100%;
+  min-height: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   background:
     radial-gradient(circle at 1px 1px, var(--border-subtle) 1px, transparent 0) 0 0 / 26px 26px,
     var(--surface-card);
   overflow: hidden;
+
+  /* The one accent the highlighted path uses, named once so the edge stroke,
+     its arrowhead and the card outline cannot drift apart. */
+  --gx-path: var(--accent-intelligence);
 }
 
-.gx-svg { display: block; touch-action: none; cursor: grab; }
+/* The flow view reads as a document, not an instrument panel: the dot grid that
+   helps in a free-form radial layout only adds noise under a tidy tree. */
+.gx-canvas--flow {
+  background:
+    linear-gradient(180deg, var(--surface-page, var(--surface-card)) 0%, var(--surface-card) 42%);
+}
+
+/*
+ * OUT OF FLOW, DELIBERATELY — this is the fix for the page growing forever.
+ *
+ * The SVG used to be a normal in-flow block whose height attribute was set from
+ * the container's measured border-box height. The container only had a
+ * min-height, so it grew to fit that SVG, which made the next measurement two
+ * pixels larger (the borders), which grew the SVG, which grew the container.
+ * The page crept downward a couple of pixels per frame for as long as it was
+ * open.
+ *
+ * Absolutely positioned, the SVG contributes nothing to layout, so the loop
+ * cannot exist: the container's height comes from the grid alone and the SVG
+ * simply fills it.
+ */
+.gx-svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
 .gx-svg:active { cursor: grabbing; }
 .gx-svg:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 
 /* ----------------------------------------------------------------- edges --- */
 
-.gx-edge line {
-  stroke: var(--border-strong);
-  stroke-width: 1.2;
-  opacity: .5;
-  transition: opacity var(--dur-tap, .12s) var(--ease-out, ease);
+/* Edges are <path> elements — a straight chord in the radial view, a cubic in
+   the flow view. The old rules here selected `line`, which nothing has rendered
+   since the connectors became curves, so every edge fell back to the SVG
+   default of a 1px black stroke with no dimming at all. */
+
+.gx-edge path {
+  stroke: var(--content-tertiary);
+  stroke-width: 1.7;
+  opacity: .8;
+  transition:
+    opacity var(--dur-tap, .12s) var(--ease-out, ease),
+    stroke-width var(--dur-tap, .12s) var(--ease-out, ease);
 }
 
-.gx-edge--active line { stroke: var(--accent-intelligence); stroke-width: 2; opacity: 1; }
-.gx-edge--dim line { opacity: .1; }
+/* The highlighted root-to-node chain. Gold, thicker, fully opaque — this is the
+   one thing on the canvas that should pull the eye. */
+.gx-edge--path path {
+  stroke: var(--gx-path);
+  stroke-width: 3;
+  opacity: 1;
+}
+
+/* Muted, never removed: hiding a branch would misrepresent what is connected. */
+.gx-edge--dim path { opacity: .18; }
 
 .gx-edge__label {
   font-family: var(--sans);
@@ -339,6 +526,106 @@
 .gx-node--root .gx-node__body { stroke-width: 2.5; }
 .gx-node--hover .gx-node__body { fill-opacity: 1; }
 .gx-node--dim { opacity: .22; }
+
+/* ------------------------------------------------------- nodes: flow cards --- */
+
+/* A card states its name, its kind and its size in one glance. The body stays
+   near-white so the TEXT carries the contrast; colour is spent entirely on the
+   family stripe, which is what keeps a screen full of these calm. */
+
+.gx-card__body {
+  fill: var(--surface-card);
+  stroke: var(--border-strong);
+  stroke-width: 1.4;
+  transition:
+    stroke var(--dur-tap, .12s) var(--ease-out, ease),
+    stroke-width var(--dur-tap, .12s) var(--ease-out, ease);
+}
+
+.gx-card__stripe { transition: opacity var(--dur-tap, .12s) var(--ease-out, ease); }
+
+/* The stripe is the only saturated colour on a card, so it carries the family
+   at full strength while the body stays quiet. */
+.gx-node--dim .gx-card__stripe { opacity: .5; }
+
+.gx-card__title {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 650;
+  fill: var(--content-primary);
+  pointer-events: none;
+}
+
+.gx-card__meta {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  fill: var(--content-tertiary);
+  pointer-events: none;
+}
+
+.gx-card__badge-bg {
+  fill: var(--surface-sunken, var(--surface-card));
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.gx-card__badge-text {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  fill: var(--content-secondary);
+  pointer-events: none;
+}
+
+.gx-card__halo {
+  fill: none;
+  stroke: var(--gx-path);
+  stroke-width: 2;
+  opacity: .85;
+}
+
+/* A group is an aggregate, and its card says so with a dashed rim — the same
+   claim the radial view makes with a dashed circle. It can never be misread as
+   one record. */
+.gx-node--group .gx-card__body { stroke-dasharray: 5 4; }
+
+/* Hover lifts the card off the page a little. The only animation on the screen,
+   and it is on the pointer's own target, so it cannot make the graph drift. */
+.gx-node--hover .gx-card__body {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.gx-node--root .gx-card__body {
+  stroke: var(--accent-intelligence);
+  stroke-width: 2.2;
+  fill: var(--accent-intelligence-glow);
+}
+
+.gx-node--root .gx-card__title { font-weight: 750; font-size: 14.5px; }
+
+/* On the highlighted path: the card outlines in gold. */
+.gx-node--path .gx-card__body {
+  stroke: var(--gx-path);
+  stroke-width: 2.2;
+}
+
+.gx-node--path .gx-card__title { font-weight: 750; }
+
+/* Off the lit path. Faded, never hidden: the shape of what is set aside still
+   has to be visible or the reader cannot tell how much they are ignoring. */
+.gx-node--dim { opacity: .3; }
+
+.gx-node--selected .gx-card__body {
+  stroke: var(--gx-path);
+  stroke-width: 2;
+}
+
+.gx-node:focus-visible .gx-card__body {
+  stroke: var(--focus-ring);
+  stroke-width: 3;
+}
 
 .gx-node__halo {
   fill: none;
@@ -393,22 +680,23 @@
   right: 14px;
   bottom: 14px;
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
   padding: 4px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
   background: var(--surface-card);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md, var(--shadow-sm));
 }
 
 .gx-zoom button {
   width: 28px;
-  height: 28px;
+  height: 26px;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--content-secondary);
   font-size: 15px;
@@ -419,7 +707,9 @@
 .gx-zoom button:hover { background: var(--surface-hover); color: var(--content-primary); }
 
 .gx-zoom__level {
-  padding: 0 8px 0 4px;
+  padding: 3px 0 1px;
+  text-align: center;
+  border-top: 1px solid var(--border-subtle);
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   font-size: 11px;
@@ -429,7 +719,7 @@
 .gx-tooltip {
   position: absolute;
   left: 14px;
-  top: 14px;
+  bottom: 14px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -437,8 +727,8 @@
   padding: 9px 12px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  background: var(--surface-overlay, var(--surface-card));
-  box-shadow: var(--shadow-md);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-lg);
   pointer-events: none;
 }
 
@@ -455,6 +745,38 @@
 .gx-tooltip__count { font-size: 11.5px; color: var(--content-secondary); }
 .gx-tooltip__hint { margin-top: 3px; font-size: 10.5px; color: var(--content-tertiary); }
 
+/* The relationship that reaches this node, and the column it came from. The
+   provenance sentence is the server's own — it is why the reader can trust the
+   edge rather than take it on faith. */
+.gx-tooltip__rel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.gx-tooltip__rel em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--accent-intelligence);
+}
+
+.gx-tooltip__why {
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--content-tertiary);
+}
+
+.gx-tooltip__depth {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--content-tertiary);
+}
+
 /* ---------------------------------------------------------- states --- */
 
 .gx-loading,
@@ -464,7 +786,11 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 560px;
+  /* Fills the fixed stage rather than asserting 560px of its own — a taller
+     minimum than the stage would push the page down while the graph loads,
+     which is exactly the jump the fixed viewport removes. */
+  height: 100%;
+  min-height: 0;
   padding: var(--space-6);
   text-align: center;
   border: 1px solid var(--border-subtle);
@@ -490,7 +816,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-height: 78vh;
+  /* Fills the fixed stage and scrolls INSIDE it. A max-height in viewport units
+     could exceed the stage and push the page taller — the very thing the fixed
+     viewport exists to prevent. */
+  height: 100%;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-4);
   border: 1px solid var(--border-subtle);
@@ -667,11 +997,12 @@
 .gx-legend {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-4);
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
+  margin-top: 6px;
+  padding-top: 6px;
   border-top: 1px solid var(--border-subtle);
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--content-secondary);
 }
 
@@ -682,4 +1013,235 @@
 .gx-legend__dot--group {
   background: transparent;
   border: 1.5px dashed var(--content-tertiary);
+}
+
+/* ------------------------------------------------------- layout switcher --- */
+
+.gx-modes {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--surface-inset);
+}
+
+.gx-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--content-tertiary);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gx-mode:hover { color: var(--content-primary); }
+
+.gx-mode--on {
+  background: var(--surface-card);
+  color: var(--content-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ------------------------------------------------------------- bars view --- */
+
+.gx-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.gx-barcard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background: var(--surface-card);
+}
+
+.gx-barcard__head h3 { font-size: 14px; font-weight: 700; }
+
+.gx-barcard__head p {
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--content-tertiary);
+}
+
+.gx-barlist { display: flex; flex-direction: column; gap: 9px; margin: 0; padding: 0; list-style: none; }
+
+.gx-bar {
+  display: grid;
+  grid-template-columns: 132px 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.gx-bar__label {
+  font-size: 12px;
+  color: var(--content-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gx-bar__track {
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-inset);
+  overflow: hidden;
+}
+
+.gx-bar__fill { display: block; height: 100%; border-radius: var(--radius-pill); }
+
+.gx-bar__value {
+  min-width: 62px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.gx-bar__value--action {
+  border: 0;
+  background: transparent;
+  color: var(--content-link);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gx-bar__value--action:hover { color: var(--content-link-hover); }
+
+.gx-rels { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 0; list-style: none; }
+
+.gx-rel {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+}
+
+.gx-rel__count {
+  min-width: 40px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gx-rel__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gx-rel__label { font-size: 12.5px; font-weight: 600; }
+.gx-rel__why { font-size: 10.5px; line-height: 1.45; color: var(--content-tertiary); }
+
+/* The bars view scrolls as a page rather than being clipped to the canvas. */
+/* The bar chart is a document, not a viewport: it sizes to its own content
+   rather than being locked to the graph's fixed window. */
+.gx-stage--bars { height: auto; min-height: 0; }
+
+/* ------------------------------------------------------------- sunburst --- */
+
+/* The ring IS the content: a small circle marooned in a large empty box is what
+   this padding exists to prevent. 3% keeps a margin without wasting viewport. */
+.gx-canvas--sunburst {
+  display: grid;
+  place-items: center;
+  padding: 3%;
+  background: var(--surface-card);
+}
+
+/* The ring fills the viewport it is given rather than sitting as a small circle
+   in a large empty box. */
+.gx-canvas--sunburst .gx-sun {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.gx-sun {
+  width: 100%;
+  height: 100%;
+}
+
+.gx-sun__arc {
+  stroke: var(--surface-card);
+  stroke-width: 1.2;
+  fill-opacity: .82;
+  cursor: pointer;
+  /* Opacity only. Nothing here changes geometry, so the ring cannot shift
+     under the pointer. */
+  transition: fill-opacity var(--dur-tap, .12s) var(--ease-out, ease);
+}
+
+.gx-sun__arc:hover { fill-opacity: 1; }
+.gx-sun__arc--lit { fill-opacity: 1; }
+.gx-sun__arc--dim { fill-opacity: .13; }
+
+.gx-sun__arc--selected {
+  stroke: var(--gx-path, var(--accent-intelligence));
+  stroke-width: 2.5;
+}
+
+.gx-sun__arc:focus-visible {
+  outline: none;
+  stroke: var(--focus-ring);
+  stroke-width: 3;
+}
+
+.gx-sun__hub {
+  fill: var(--surface-card);
+  stroke: var(--accent-intelligence);
+  stroke-width: 2;
+}
+
+/* The organization's NAME is the strongest text on this view. */
+.gx-sun__hub-title {
+  font-family: var(--sans);
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: -.01em;
+  fill: var(--content-primary);
+  pointer-events: none;
+}
+
+.gx-sun__hub-kicker {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  fill: var(--content-tertiary);
+  pointer-events: none;
+}
+
+.gx-sun__hub-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  fill: var(--content-tertiary);
+  pointer-events: none;
+}
+
+/* Segment labels. Only drawn where there is room — see GraphSunburst. */
+.gx-sun__label {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--content-primary);
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--surface-card);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }

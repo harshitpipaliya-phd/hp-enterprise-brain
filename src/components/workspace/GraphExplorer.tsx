@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, Crosshair, Loader2, Maximize2, RefreshCw, Search, SlidersHorizontal, X,
+  AlertTriangle, BarChart3, Crosshair, Expand, GitBranch, Loader2, Maximize2, Orbit, PieChart,
+  RefreshCw, Search, Shrink, SlidersHorizontal, Target, X,
 } from 'lucide-react';
 import { graphApi } from '../../api/graph';
 import type { View } from '../../App';
 import { ErrorState } from '../../ui';
+import { GraphBreakdown } from '../graph/GraphBreakdown';
 import { GraphCanvas } from '../graph/GraphCanvas';
+import { GraphSunburst } from '../graph/GraphSunburst';
 import { GraphDetailPanel } from '../graph/GraphDetailPanel';
+import type { LayoutMode } from '../graph/layout';
 import type {
   EdgeFamily, GraphAvailability, GraphEdge, GraphFocus, GraphNode, GraphNodeDetail,
   GraphOverview, GraphSummary, NodeFamily,
@@ -52,6 +56,54 @@ interface GraphExplorerProps {
   onNavigate?: (view: View) => void;
 }
 
+/**
+ * DATA QUALITY — how much of the organization the picture is actually showing.
+ *
+ * WHY IT IS A PANEL AND NOT A WARNING STRIP. The information here is the single
+ * most misreadable thing on the screen: a graph drawing 25 of 4,321 students
+ * looks exactly like a graph drawing all of them unless it says so. The old
+ * form ran the figures together into one sentence — "25 of 4,321 students drawn
+ * / 25 of 15,006 evidence drawn" — which reads as a footnote, and a footnote is
+ * the wrong weight for "you are looking at half a percent of this".
+ *
+ * Each kind now gets its own row with a coverage bar, so the shortfall is
+ * legible at a glance and comparable BETWEEN kinds. Nothing is hidden and no
+ * figure is rounded away: shown and total are printed exactly as the server
+ * reported them.
+ */
+function DataQualityPanel({ truncations }: { truncations: GraphOverview['truncated'] }) {
+  return (
+    <section className="gx-dq" aria-labelledby="gx-dq-title">
+      <span className="gx-dq__title" id="gx-dq-title">
+        <AlertTriangle size={13} aria-hidden="true" />
+        Data quality
+      </span>
+
+      <ul className="gx-dq__list">
+        {truncations.map((t) => {
+          const pct = t.total > 0 ? Math.min(100, (t.shown / t.total) * 100) : 0;
+
+          return (
+            <li className="gx-dq__item" key={t.kind}>
+              <span className="gx-dq__kind">{t.kind}</span>
+              <span className="gx-dq__bar" aria-hidden="true">
+                <span className="gx-dq__fill" style={{ width: `${Math.max(pct, 2)}%` }} />
+              </span>
+              <span className="gx-dq__figure">
+                <strong>{t.shown.toLocaleString()}</strong>
+                <span className="gx-dq__of">/ {t.total.toLocaleString()}</span>
+                <span className="gx-dq__pct">{pct < 1 ? '<1' : Math.round(pct)}%</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <span className="gx-dq__hint">Expand a node to load more</span>
+    </section>
+  );
+}
+
 /** The intelligence branches the overview may include. Matches the API. */
 const INTELLIGENCE_BRANCHES = [
   { key: 'signals', label: 'Signals' },
@@ -78,14 +130,41 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fitToken, setFitToken] = useState(0);
+  /* Bumped by the Focus control. Selecting a node no longer moves the viewport
+     on its own, so recentring on it is an explicit request. */
+  const [focusToken, setFocusToken] = useState(0);
 
   /* ------------------------------------------------------------- controls */
 
+  /*
+    HOW THE GRAPH IS DRAWN, and it is the reader's choice rather than the
+    layout engine's.
+
+    'hierarchy' — shown as INTELLIGENCE FLOW — is the default because it is the
+    one that answers the question this screen exists for without any training:
+    the organization on the LEFT, each hop a column to its right, and the loop's
+    own signals and recommendations at the far right where the flow lands. It
+    draws cards on a tidy tree, so a column of four and a column of forty are
+    both legible. 'radial' — shown as DATA RELATIONSHIPS — is the same tree bent
+    into rings, which is more compact when the graph is wide and is the better
+    shape for asking what touches what rather than what came from what.
+    'sunburst' — shown as COMPOSITION — is the same tree again as nested rings,
+    which answers which branch is most of the organization. 'bars' abandons the
+    node-link picture entirely for quantities, which is the honest form for "how
+    many of each are there" — a question circles and lines answer badly.
+
+    All four read the same nodes, edges and totals, so they cannot disagree.
+  */
+  const [viewMode, setViewMode] = useState<LayoutMode | 'bars' | 'sunburst'>('hierarchy');
   const [depth, setDepth] = useState(2);
   const [include, setInclude] = useState<string[]>(INTELLIGENCE_BRANCHES.map((b) => b.key));
   const [nodeFilter, setNodeFilter] = useState<Set<NodeFamily>>(new Set(NODE_FAMILIES));
   const [edgeFilter, setEdgeFilter] = useState<Set<EdgeFamily>>(new Set(EDGE_FAMILIES));
   const [showFilters, setShowFilters] = useState(false);
+
+  /* The two node-link views. Bars and the sunburst have no viewport, so the
+     zoom / fit / expand controls do not apply to them. */
+  const isCanvasView = viewMode === 'hierarchy' || viewMode === 'radial';
 
   /* ------------------------------------------------------------- selection */
 
@@ -94,6 +173,8 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  /** True while "Expand all" is working through its round. */
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   /* ------------------------------------------------------------- search */
@@ -242,6 +323,48 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
     });
     if (selectedKey && !keep.has(selectedKey)) setSelectedKey(null);
   }, [edges, rootKey, selectedKey]);
+
+  /**
+   * Expand all — ONE round, over the nodes that are on screen right now.
+   *
+   * Deliberately not recursive. Expanding until nothing is expandable would
+   * walk a 4,321-student organization node by node and produce exactly the
+   * unreadable wall this screen was rebuilt to stop being. One round opens
+   * every branch the reader can currently see, which is what they are actually
+   * asking for, and it stays bounded however large the organization is.
+   *
+   * Sequential rather than parallel: each expansion merges into the same node
+   * and edge maps, and the server pages a group's members from an offset. A
+   * burst of concurrent calls would race on both.
+   */
+  const expandAll = useCallback(async () => {
+    const targets = [...nodes.values()].filter((node) => node.expandable && !expandedKeys.has(node.key));
+    if (targets.length === 0) return;
+
+    setBulkBusy(true);
+    try {
+      for (const node of targets) {
+        if (!liveRef.current) return;
+        await expand(node);
+      }
+      if (liveRef.current) setFitToken((n) => n + 1);
+    } finally {
+      if (liveRef.current) setBulkBusy(false);
+    }
+  }, [nodes, expandedKeys, expand]);
+
+  /**
+   * Collapse all — back to the graph the screen opened on.
+   *
+   * This is load(), not a client-side prune: the opening graph is the server's
+   * answer to "what branches does this organization genuinely have", and
+   * re-asking is both simpler and truer than trying to reconstruct it by
+   * deleting nodes here.
+   */
+  const collapseAll = useCallback(() => {
+    setSelectedKey(null);
+    void load();
+  }, [load]);
 
   /* ------------------------------------------------------------- selection */
 
@@ -431,6 +554,31 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
         </div>
 
         <div className="gx-head__actions">
+          <div className="gx-modes" role="group" aria-label="How to draw the graph">
+            {([
+              ['hierarchy', 'Intelligence Flow', GitBranch],
+              ['radial', 'Data Relationships', Orbit],
+              ['sunburst', 'Composition', PieChart],
+              ['bars', 'Bar Chart', BarChart3],
+            ] as const).map(([value, label, Icon]) => (
+              <button
+                key={value}
+                type="button"
+                className={`gx-mode${viewMode === value ? ' gx-mode--on' : ''}`}
+                onClick={() => setViewMode(value)}
+                aria-pressed={viewMode === value}
+                title={
+                  value === 'hierarchy' ? 'Left to right, organization to intelligence — how this data becomes an insight'
+                    : value === 'radial' ? 'Rings around the organization — compact for wide graphs'
+                      : value === 'sunburst' ? 'One ring per hop — which branch is most of this organization'
+                        : 'Counts as bars — for how many rather than what connects to what'
+                }
+              >
+                <Icon size={13} aria-hidden="true" />
+                {label}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             className={`u-btn u-btn-secondary u-btn-sm${showFilters ? ' gx-btn--on' : ''}`}
@@ -440,10 +588,46 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
             <SlidersHorizontal size={14} aria-hidden="true" />
             Filters
           </button>
-          <button type="button" className="u-btn u-btn-secondary u-btn-sm" onClick={() => setFitToken((n) => n + 1)}>
-            <Maximize2 size={14} aria-hidden="true" />
-            Fit
-          </button>
+          {isCanvasView && (
+            <>
+              <button
+                type="button"
+                className="u-btn u-btn-secondary u-btn-sm"
+                onClick={() => void expandAll()}
+                disabled={bulkBusy || loading}
+                title="Open every branch currently on screen, one level deeper"
+              >
+                {bulkBusy
+                  ? <Loader2 size={14} className="gx-spin" aria-hidden="true" />
+                  : <Expand size={14} aria-hidden="true" />}
+                Expand all
+              </button>
+              <button
+                type="button"
+                className="u-btn u-btn-secondary u-btn-sm"
+                onClick={collapseAll}
+                disabled={bulkBusy || loading}
+                title="Back to the branches this organization opens on"
+              >
+                <Shrink size={14} aria-hidden="true" />
+                Collapse all
+              </button>
+              <button
+                type="button"
+                className="u-btn u-btn-secondary u-btn-sm"
+                onClick={() => setFocusToken((n) => n + 1)}
+                disabled={!selectedKey}
+                title="Centre the view on the selected node"
+              >
+                <Target size={14} aria-hidden="true" />
+                Focus
+              </button>
+              <button type="button" className="u-btn u-btn-secondary u-btn-sm" onClick={() => setFitToken((n) => n + 1)}>
+                <Maximize2 size={14} aria-hidden="true" />
+                Fit
+              </button>
+            </>
+          )}
           <button type="button" className="u-btn u-btn-secondary u-btn-sm" onClick={() => { setSelectedKey(null); void load(); }}>
             <RefreshCw size={14} aria-hidden="true" />
             Reset
@@ -521,17 +705,9 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
         />
       )}
 
-      {truncations.length > 0 && (
-        <div className="gx-truncations" role="note">
-          <AlertTriangle size={13} aria-hidden="true" />
-          <span>
-            {truncations.map((t) => `${t.shown.toLocaleString()} of ${t.total.toLocaleString()} ${t.kind.toLowerCase()} drawn`).join(' · ')}
-            {' — expand a node to load more.'}
-          </span>
-        </div>
-      )}
+      {truncations.length > 0 && <DataQualityPanel truncations={truncations} />}
 
-      <div className={`gx-stage${selectedNode ? ' gx-stage--panelled' : ''}`}>
+      <div className={`gx-stage${selectedNode ? ' gx-stage--panelled' : ''}${viewMode === 'bars' ? ' gx-stage--bars' : ''}`}>
         {loading ? (
           <div className="gx-loading" role="status">
             <Loader2 size={22} className="gx-spin" aria-hidden="true" />
@@ -546,11 +722,36 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
               nothing for the graph to connect. Import data or add a department, and it will appear here.
             </p>
           </div>
+        ) : viewMode === 'bars' ? (
+          summary && (
+            <GraphBreakdown
+              summary={summary}
+              nodes={nodeList}
+              edges={edgeList}
+              // Clicking a count jumps back to the picture with that kind of
+              // node selected, so the two views are one screen rather than two.
+              onSelectLabel={(label) => {
+                const match = nodeList.find((n) => (n.kind === 'group' ? `${n.groupOf ?? 'Group'} (groups)` : n.label) === label);
+                if (match) { setViewMode('hierarchy'); void select(match); }
+              }}
+            />
+          )
+        ) : viewMode === 'sunburst' ? (
+          <GraphSunburst
+            nodes={nodeList}
+            edges={edgeList}
+            rootKey={rootKey}
+            selectedKey={selectedKey}
+            dimmedKeys={dimmedKeys}
+            organizationName={organizationName}
+            onSelect={(node) => { void select(node); }}
+          />
         ) : (
           <GraphCanvas
             nodes={nodeList}
             edges={edgeList}
             rootKey={rootKey}
+            mode={viewMode}
             selectedKey={selectedKey}
             dimmedKeys={dimmedKeys}
             expandedKeys={expandedKeys}
@@ -558,6 +759,8 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
             onSelect={(node) => { void select(node); }}
             onExpand={(node) => { void expand(node); }}
             fitToken={fitToken}
+            focusToken={focusToken}
+            organizationName={organizationName}
           />
         )}
 

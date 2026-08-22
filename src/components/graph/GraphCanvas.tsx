@@ -1,73 +1,132 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GraphEdge, GraphNode } from './graphTypes';
 import { FAMILY_COLOR, nodeRadius } from './graphTypes';
-import { GraphLayout } from './layout';
+import type { LayoutMode } from './layout';
+import { CARD_H, CARD_W, computeLayout, flowThrough, layoutBounds } from './layout';
 
 /**
- * The canvas. SVG, because it gives hit-testing, focus, keyboard access and
- * crisp text for free at the scale this graph operates at — a couple of hundred
- * nodes. A <canvas> renderer would be faster at ten thousand and would need
- * every one of those four things reimplemented, and the node budget on the
- * server means ten thousand never arrives.
+ * The canvas. SVG, and STILL — nothing on this screen animates.
  *
- * WHAT IT OWNS: the viewport (zoom and pan), the simulation loop, dragging, and
- * which node is hovered. It does NOT own selection or expansion — those are the
- * screen's, so the detail panel and the graph cannot disagree about what is
- * selected.
+ * Positions come from computeLayout(), a pure function of the nodes, the edges
+ * and the chosen layout. There is no simulation and no requestAnimationFrame
+ * loop: the picture is drawn once per data change and then holds absolutely
+ * still until the reader expands something or drags a node. The same
+ * organization always lays out the same way, so a reader can build a memory of
+ * where things are.
  *
- * ACCESSIBILITY. Nodes are real focusable elements in a list-shaped role, so the
- * graph is reachable by keyboard: Tab moves between nodes, Enter selects, and
- * the container takes arrow keys for panning and +/- for zoom. A force-directed
- * picture is never going to be a good experience for a screen reader, which is
- * why every node also carries its full label and count in an accessible name and
- * why the detail panel — an ordinary list of fields — is where the same
- * information can actually be read.
+ * WHAT IT OWNS: the viewport (zoom and pan), dragging, and which node is
+ * hovered. It does NOT own selection or expansion — those belong to the screen,
+ * so the detail panel and the graph cannot disagree about what is selected.
+ *
+ * THE FLOW VIEW DRAWS CARDS, NOT DOTS. A circle can carry a colour and a radius
+ * and nothing else, so every reading of the old graph meant crossing to a label
+ * and back. A card states the entity's name, what kind of thing it is and how
+ * many rows are behind it in one glance, which is the whole reason this screen
+ * exists. Circles are kept for the radial view, where a ring of cards would not
+ * fit.
+ *
+ * PATH HIGHLIGHTING IS THE POINT OF THE SCREEN. Hovering or selecting a node
+ * lights the chain from the organization down to it and mutes everything else.
+ * That chain is the spanning-tree ancestry, and because the spanning tree is
+ * BFS it is also the SHORTEST route from the organization — so the highlight
+ * answers "where did this come from" with the most direct real answer, not a
+ * decorative one. Nothing is hidden: muted branches stay in place, because
+ * removing them would misrepresent the shape of what is connected.
  */
 
 export interface GraphCanvasProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   rootKey: string | null;
+  mode: LayoutMode;
   selectedKey: string | null;
-  /** Keys drawn dimmed rather than removed — filtered out, but still located. */
   dimmedKeys: Set<string>;
-  /** Keys already expanded, so the affordance can say "collapse". */
   expandedKeys: Set<string>;
   busyKey: string | null;
   onSelect: (node: GraphNode) => void;
   onExpand: (node: GraphNode) => void;
-  /** Bumped by the screen to request a re-fit (after load, or "Reset view"). */
+  /** Bumped by the screen to request a re-fit (after load, or "Fit"). */
   fitToken: number;
+  /**
+   * Bumped by the screen to centre on the selected node ("Focus"), which is the
+   * ONLY thing that moves the viewport apart from an explicit fit. Selecting a
+   * node on its own deliberately does not.
+   */
+  focusToken?: number;
+  /**
+   * The organization's display name. Preferred over the root node's title,
+   * which falls back to a generated "Organization 1000010" when the source
+   * table records no name — an internal id is the wrong thing to put on the
+   * most important card on the screen.
+   */
+  organizationName?: string;
 }
 
-const MIN_SCALE = 0.25;
-const MAX_SCALE = 2.6;
+/*
+ * ZOOM RANGE AND STEPS.
+ *
+ * The old range bottomed out at 0.12 — a scale at which the graph is a grey
+ * smudge — and the wheel multiplied by a fixed 1.12 per EVENT. A trackpad or a
+ * high-resolution wheel emits dozens of events per gesture, so one flick ran
+ * that multiplier twenty times and the graph leapt from unreadably small to
+ * absurdly large. Hence both a tighter range and a per-event cap below.
+ */
+const MIN_SCALE = 0.4;
+const MAX_SCALE = 2.5;
 
-interface Viewport {
-  x: number;
-  y: number;
-  scale: number;
-}
+/** The rungs the +/- buttons move between. Predictable, and never a jump. */
+const ZOOM_STEPS = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5];
+
+/** Hard cap on how far ONE wheel event may zoom, whatever delta it reports. */
+const MAX_WHEEL_FACTOR = 1.08;
+
+/**
+ * Floor for an automatic fit — below this the card text stops being readable.
+ *
+ * 0.75 puts the 13.5px card title at ~10px, which is the smallest that still
+ * reads. Past a certain size READABLE and FULLY-VISIBLE are not both available:
+ * 105 cards at 212x62 need more card area than a 1440x760 viewport physically
+ * has, whatever the layout does. When they conflict this picks readable and
+ * lets the reader pan, because a graph you can see all of but cannot read
+ * answers no question at all. Small graphs are unaffected — they fit at 1:1.
+ */
+const FIT_MIN_SCALE = 0.7;
+
+/**
+ * A small graph is allowed to grow into the space rather than sit as a postage
+ * stamp in an empty viewport — but not past 1.5, where four cards blown up to
+ * fill a monitor look broken rather than generous.
+ */
+const MAX_FIT_SCALE = 1.5;
+
+/** Margin left around the graph when fitting, as a fraction of the viewport. */
+const FIT_MARGIN = 0.06;
+
+interface Viewport { x: number; y: number; scale: number }
 
 export function GraphCanvas({
-  nodes, edges, rootKey, selectedKey, dimmedKeys, expandedKeys, busyKey, onSelect, onExpand, fitToken,
+  nodes, edges, rootKey, mode, selectedKey, dimmedKeys, expandedKeys, busyKey, onSelect, onExpand, fitToken,
+  focusToken = 0, organizationName,
 }: GraphCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const layoutRef = useRef<GraphLayout | null>(null);
-  const frameRef = useRef<number | null>(null);
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
-  const fitRef = useRef(0);
+  const fitRef = useRef(-1);
+  const focusRef = useRef(0);
 
-  const [size, setSize] = useState({ width: 900, height: 600 });
+  const [size, setSize] = useState({ width: 900, height: 620 });
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 });
-  const [, forceRender] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [pinned, setPinned] = useState<Map<string, { x: number; y: number }>>(new Map());
 
   const dragRef = useRef<{ key: string; moved: boolean } | null>(null);
   const panRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
 
   const nodeByKey = useMemo(() => new Map(nodes.map((n) => [n.key, n])), [nodes]);
+
+  /* Dragged positions belong to one layout. Switching layout clears them, or a
+     node pinned in the hierarchy would sit in the wrong place on the ring. */
+  useEffect(() => { setPinned(new Map()); }, [mode]);
 
   /* --------------------------------------------------------------- sizing */
 
@@ -76,65 +135,71 @@ export function GraphCanvas({
     if (!host) return undefined;
 
     const measure = () => {
-      const rect = host.getBoundingClientRect();
-      const next = { width: Math.max(320, rect.width), height: Math.max(320, rect.height) };
-      setSize((current) => (current.width === next.width && current.height === next.height ? current : next));
+      /*
+       * clientWidth/clientHeight, NOT getBoundingClientRect.
+       *
+       * getBoundingClientRect returns the BORDER box. Feeding that back in as
+       * the SVG's size added the container's two border pixels every tick, and
+       * with only a min-height on the container the box grew to fit — the page
+       * crept downward for as long as the screen was open. The client
+       * dimensions are the content box, which is the space the SVG actually
+       * has. The SVG is also out of flow now, so this can no longer feed back
+       * at all; measuring the right box keeps it honest regardless.
+       */
+      const next = {
+        width: Math.max(320, host.clientWidth),
+        height: Math.max(360, host.clientHeight),
+      };
+      setSize((c) => (c.width === next.width && c.height === next.height ? c : next));
     };
 
     measure();
-
-    // ResizeObserver rather than a window listener: the sidebar collapsing
-    // changes this element's width without the window changing at all.
+    // ResizeObserver, not a window listener: collapsing the sidebar changes
+    // this element's width without the window changing at all.
     const observer = new ResizeObserver(measure);
     observer.observe(host);
     return () => observer.disconnect();
   }, []);
 
-  /* ------------------------------------------------------------ simulation */
+  /* --------------------------------------------------------------- layout */
 
-  const runLoop = useCallback(() => {
-    if (frameRef.current !== null) return;
+  const { positions, parents } = useMemo(
+    () => computeLayout(nodes, edges, { mode, width: size.width, height: size.height, rootKey, pinned }),
+    [nodes, edges, mode, size.width, size.height, rootKey, pinned],
+  );
 
-    const step = () => {
-      const layout = layoutRef.current;
-      if (!layout) {
-        frameRef.current = null;
-        return;
-      }
+  const isFlow = mode === 'hierarchy';
 
-      const moving = layout.tick();
-      forceRender((n) => n + 1);
+  /* ------------------------------------------------------ path highlight */
 
-      // Stops when the graph stops. A rAF loop that never ends is a battery
-      // bug on a screen the user has walked away from.
-      frameRef.current = moving ? requestAnimationFrame(step) : null;
-    };
+  /* Hover wins over selection, so moving the pointer explores without losing
+     the node whose detail panel is open. */
+  const focusKey = hovered ?? selectedKey;
 
-    frameRef.current = requestAnimationFrame(step);
-  }, []);
+  /*
+   * THE HIGHLIGHT IS THE WHOLE FLOW THROUGH THE NODE, not just the half above
+   * it. Upstream answers "where did this come from"; downstream answers "where
+   * does it lead". Hovering an intermediate node lights both, so a reader lands
+   * on one card and immediately sees the entire chain it belongs to.
+   */
+  const pathKeys = useMemo(() => flowThrough(parents, focusKey), [parents, focusKey]);
 
-  useEffect(() => () => {
-    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-  }, []);
-
-  useEffect(() => {
-    const options = { width: size.width, height: size.height, rootKey };
-
-    if (!layoutRef.current) {
-      layoutRef.current = new GraphLayout(nodes, edges, options);
-    } else {
-      layoutRef.current.update(nodes, edges, options);
+  /* An edge is "on the path" when both endpoints are in the highlighted flow AND
+     they are adjacent in the spanning tree. Testing adjacency as well as
+     membership stops a cross-edge between two lit nodes being drawn as part of
+     the chain when the tree does not actually route through it. Both directions
+     are recorded because the tree and the drawn edge can disagree about which
+     end is the parent. */
+  const pathPairs = useMemo(() => {
+    const pairs = new Set<string>();
+    for (const key of pathKeys) {
+      const parent = parents.get(key);
+      if (!parent || !pathKeys.has(parent)) continue;
+      pairs.add(`${parent} ${key}`);
+      pairs.add(`${key} ${parent}`);
     }
-
-    runLoop();
-  }, [nodes, edges, rootKey, size.width, size.height, runLoop]);
-
-  useEffect(() => {
-    layoutRef.current?.resize(size.width, size.height);
-    runLoop();
-  }, [size.width, size.height, runLoop]);
-
-  /* ---------------------------------------------------------------- fit */
+    return pairs;
+  }, [parents, pathKeys]);
 
   const applyViewport = useCallback((next: Viewport) => {
     viewportRef.current = next;
@@ -142,53 +207,95 @@ export function GraphCanvas({
   }, []);
 
   const fit = useCallback(() => {
-    const layout = layoutRef.current;
-    if (!layout) return;
-
-    const b = layout.bounds();
+    const b = layoutBounds(positions, size, mode);
     const w = Math.max(1, b.maxX - b.minX);
     const h = Math.max(1, b.maxY - b.minY);
-    const padding = 64;
+    /* Proportional, so the graph fills ~88% of whatever viewport it is given
+       instead of leaving a fixed 56px gutter that is generous on a laptop and
+       invisible on a large monitor. */
+    const pad = Math.max(24, Math.min(size.width, size.height) * FIT_MARGIN);
 
-    const scale = Math.min(
-      MAX_SCALE,
-      Math.max(MIN_SCALE, Math.min((size.width - padding * 2) / w, (size.height - padding * 2) / h)),
-    );
+    /*
+     * A FIT THAT REFUSES TO GO UNREADABLE.
+     *
+     * The old bound let this fall to MIN_SCALE (12%), so a large organization
+     * "fitted" to a grey smear of unreadable cards — the reported "graph
+     * becomes very small". Below FIT_MIN_SCALE it is better to overflow the
+     * viewport and let the reader pan than to render text nobody can read, and
+     * it never scales PAST 1:1 either, because a four-node graph blown up to
+     * fill a wall looks broken rather than generous.
+     */
+    const raw = Math.min((size.width - pad * 2) / w, (size.height - pad * 2) / h);
+    const scale = Math.min(MAX_FIT_SCALE, Math.max(FIT_MIN_SCALE, raw));
 
     applyViewport({
       x: size.width / 2 - ((b.minX + b.maxX) / 2) * scale,
       y: size.height / 2 - ((b.minY + b.maxY) / 2) * scale,
       scale,
     });
-  }, [applyViewport, size.width, size.height]);
+  }, [positions, size, mode, applyViewport]);
 
+  // Re-fit whenever the screen asks, and whenever the layout changes shape.
+  // No timer is needed any more: the positions are final the moment they exist.
   useEffect(() => {
     if (fitToken === fitRef.current) return;
     fitRef.current = fitToken;
-
-    // Let the simulation get its first few ticks in before framing it, or the
-    // fit is computed against the seed positions and lands off-centre.
-    const timer = window.setTimeout(fit, 420);
-    return () => window.clearTimeout(timer);
+    fit();
   }, [fitToken, fit]);
 
-  /** Bring one node to the middle of the viewport without changing zoom. */
-  const centreOn = useCallback((key: string) => {
-    const p = layoutRef.current?.position(key);
-    if (!p) return;
+  useEffect(() => { fit(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [mode]);
 
+  /**
+   * Centre the viewport on one node. Called ONLY when the screen explicitly
+   * asks (the "focus" control and search-result selection), never as a side
+   * effect of selecting.
+   *
+   * IT USED TO RUN ON EVERY SELECTION, and that was the single most visible
+   * cause of "the graph keeps moving": clicking any node slid the whole picture
+   * under the pointer, so the thing you just clicked was no longer where you
+   * clicked it. Selection is now a purely visual change — the layout and the
+   * viewport both hold still.
+   */
+  const centreOn = useCallback((key: string) => {
+    const p = positions.get(key);
+    if (!p) return;
     const { scale } = viewportRef.current;
     applyViewport({ x: size.width / 2 - p.x * scale, y: size.height / 2 - p.y * scale, scale });
-  }, [applyViewport, size.width, size.height]);
+  }, [positions, size, applyViewport]);
 
   useEffect(() => {
-    if (!selectedKey) return;
-    // Give a freshly-expanded graph a moment to place the node first.
-    const timer = window.setTimeout(() => centreOn(selectedKey), 260);
-    return () => window.clearTimeout(timer);
-  }, [selectedKey, centreOn]);
+    if (focusToken === focusRef.current) return;
+    focusRef.current = focusToken;
+    if (selectedKey) centreOn(selectedKey);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [focusToken]);
 
   /* ------------------------------------------------------- zoom and pan */
+
+  /** Zoom to an explicit scale, keeping the anchor point fixed on screen. */
+  const zoomTo = useCallback((target: number, anchorX?: number, anchorY?: number) => {
+    const current = viewportRef.current;
+    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, target));
+    if (Math.abs(scale - current.scale) < 1e-4) return;
+
+    const ax = anchorX ?? size.width / 2;
+    const ay = anchorY ?? size.height / 2;
+
+    applyViewport({
+      x: ax - ((ax - current.x) / current.scale) * scale,
+      y: ay - ((ay - current.y) / current.scale) * scale,
+      scale,
+    });
+  }, [applyViewport, size]);
+
+  /** One rung up or down the ladder — what the + and − buttons do. */
+  const stepZoom = useCallback((direction: 1 | -1) => {
+    const current = viewportRef.current.scale;
+    const next = direction > 0
+      ? ZOOM_STEPS.find((s) => s > current + 1e-4) ?? MAX_SCALE
+      : [...ZOOM_STEPS].reverse().find((s) => s < current - 1e-4) ?? MIN_SCALE;
+    zoomTo(next);
+  }, [zoomTo]);
 
   const zoomBy = useCallback((factor: number, anchorX?: number, anchorY?: number) => {
     const current = viewportRef.current;
@@ -198,24 +305,40 @@ export function GraphCanvas({
     const ax = anchorX ?? size.width / 2;
     const ay = anchorY ?? size.height / 2;
 
-    // Keep the point under the anchor fixed while the scale changes.
     applyViewport({
       x: ax - ((ax - current.x) / current.scale) * scale,
       y: ay - ((ay - current.y) / current.scale) * scale,
       scale,
     });
-  }, [applyViewport, size.width, size.height]);
+  }, [applyViewport, size]);
 
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return undefined;
 
-    // Registered non-passively so the page does not scroll behind the graph.
-    // React's onWheel is passive and cannot preventDefault.
+    // Non-passive so the page does not scroll behind the graph. React's onWheel
+    // is passive and cannot preventDefault.
     const onWheel = (event: WheelEvent) => {
+      // Stops the PAGE scrolling while the pointer is over the graph.
       event.preventDefault();
+      event.stopPropagation();
+
       const rect = svg.getBoundingClientRect();
-      zoomBy(event.deltaY < 0 ? 1.12 : 1 / 1.12, event.clientX - rect.left, event.clientY - rect.top);
+
+      /*
+       * Scale the step by how much the device actually reported, then cap it.
+       * A mouse notch reports ~100, a trackpad reports a stream of small
+       * deltas; both end up moving a similar, small amount, and neither can
+       * leap more than 8% in a single event.
+       */
+      const magnitude = Math.min(Math.abs(event.deltaY), 100) / 100;
+      const factor = 1 + magnitude * (MAX_WHEEL_FACTOR - 1);
+
+      zoomBy(
+        event.deltaY < 0 ? factor : 1 / factor,
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      );
     };
 
     svg.addEventListener('wheel', onWheel, { passive: false });
@@ -225,10 +348,7 @@ export function GraphCanvas({
   const toWorld = useCallback((clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect();
     const { x, y, scale } = viewportRef.current;
-    return {
-      x: ((clientX - (rect?.left ?? 0)) - x) / scale,
-      y: ((clientY - (rect?.top ?? 0)) - y) / scale,
-    };
+    return { x: (clientX - (rect?.left ?? 0) - x) / scale, y: (clientY - (rect?.top ?? 0) - y) / scale };
   }, []);
 
   const onPointerDownBackground = (event: React.PointerEvent) => {
@@ -244,8 +364,7 @@ export function GraphCanvas({
     if (drag) {
       const world = toWorld(event.clientX, event.clientY);
       drag.moved = true;
-      layoutRef.current?.pin(drag.key, world.x, world.y);
-      runLoop();
+      setPinned((current) => new Map(current).set(drag.key, world));
       return;
     }
 
@@ -263,11 +382,9 @@ export function GraphCanvas({
     const drag = dragRef.current;
 
     if (drag) {
-      // A press that never moved is a click, not a drag: select, and let the
-      // node go back to the simulation. A press that DID move leaves the node
-      // pinned where the user put it, which is the point of dragging it.
+      // A press that never moved is a click. A press that DID move leaves the
+      // node exactly where the user let go of it.
       if (!drag.moved) {
-        layoutRef.current?.release(drag.key);
         const node = nodeByKey.get(drag.key);
         if (node) onSelect(node);
       }
@@ -287,17 +404,15 @@ export function GraphCanvas({
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
   };
 
-  /* ------------------------------------------------------------ keyboard */
-
   const onKeyDown = (event: React.KeyboardEvent) => {
     const step = 60;
-    const current = viewportRef.current;
+    const c = viewportRef.current;
 
     switch (event.key) {
-      case 'ArrowLeft': applyViewport({ ...current, x: current.x + step }); break;
-      case 'ArrowRight': applyViewport({ ...current, x: current.x - step }); break;
-      case 'ArrowUp': applyViewport({ ...current, y: current.y + step }); break;
-      case 'ArrowDown': applyViewport({ ...current, y: current.y - step }); break;
+      case 'ArrowLeft': applyViewport({ ...c, x: c.x + step }); break;
+      case 'ArrowRight': applyViewport({ ...c, x: c.x - step }); break;
+      case 'ArrowUp': applyViewport({ ...c, y: c.y + step }); break;
+      case 'ArrowDown': applyViewport({ ...c, y: c.y - step }); break;
       case '+': case '=': zoomBy(1.2); break;
       case '-': case '_': zoomBy(1 / 1.2); break;
       case '0': fit(); break;
@@ -309,31 +424,30 @@ export function GraphCanvas({
 
   /* -------------------------------------------------------------- render */
 
-  const layout = layoutRef.current;
-  const positionOf = (key: string) => layout?.position(key);
+  const showLabels = viewport.scale > 0.42;
 
-  // Labels are hidden below a zoom where they would overlap into illegibility.
-  // The node stays; only its text goes, and the tooltip and panel still name it.
-  const showLabels = viewport.scale > 0.55;
-  const neighbourKeys = useMemo(() => {
-    if (!selectedKey) return new Set<string>();
-    const out = new Set<string>([selectedKey]);
-    for (const edge of edges) {
-      if (edge.from === selectedKey) out.add(edge.to);
-      if (edge.to === selectedKey) out.add(edge.from);
-    }
-    return out;
-  }, [edges, selectedKey]);
+  /* The relationship that reaches the hovered node from its parent in the
+     spanning tree. This is what the tooltip explains, and its provenance is the
+     server's own clause naming the column the edge came from — nothing here
+     invents a description. */
+  const focusEdge = useMemo(() => {
+    if (!hovered) return null;
+    const parent = parents.get(hovered);
+    if (!parent) return null;
+    return edges.find(
+      (e) => (e.from === parent && e.to === hovered) || (e.from === hovered && e.to === parent),
+    ) ?? null;
+  }, [hovered, parents, edges]);
 
   return (
-    <div className="gx-canvas" ref={hostRef}>
+    <div className={`gx-canvas${isFlow ? ' gx-canvas--flow' : ''}`} ref={hostRef}>
       <svg
         ref={svgRef}
         className="gx-svg"
         width={size.width}
         height={size.height}
         role="application"
-        aria-label="Organization graph. Use Tab to move between nodes, Enter to select, arrow keys to pan, plus and minus to zoom."
+        aria-label="Organization graph. Tab moves between nodes, Enter selects, arrow keys pan, plus and minus zoom."
         tabIndex={0}
         onKeyDown={onKeyDown}
         onPointerDown={onPointerDownBackground}
@@ -345,42 +459,40 @@ export function GraphCanvas({
           <marker id="gx-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--border-strong)" />
           </marker>
+          {/* A second marker, because a marker cannot inherit the stroke of the
+              path that uses it — the active arrowhead has to be its own shape. */}
+          <marker id="gx-arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--gx-path)" />
+          </marker>
         </defs>
 
         <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.scale})`}>
-          {/* Edges first, so nodes sit on top of them. */}
           <g className="gx-edges">
             {edges.map((edge) => {
-              const a = positionOf(edge.from);
-              const b = positionOf(edge.to);
+              const a = positions.get(edge.from);
+              const b = positions.get(edge.to);
               if (!a || !b) return null;
 
-              const dimmed = dimmedKeys.has(edge.from) || dimmedKeys.has(edge.to);
-              const active = !!selectedKey && (edge.from === selectedKey || edge.to === selectedKey);
+              const onPath = pathPairs.has(`${edge.from} ${edge.to}`);
+              const dimmed = dimmedKeys.has(edge.from) || dimmedKeys.has(edge.to)
+                || (!!focusKey && !onPath);
 
-              // Stop the line at the node's edge rather than its centre, so the
-              // arrowhead lands on the circle instead of under it.
-              const dx = b.x - a.x;
-              const dy = b.y - a.y;
-              const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-              const x1 = a.x + (dx / dist) * a.r;
-              const y1 = a.y + (dy / dist) * a.r;
-              const x2 = b.x - (dx / dist) * (b.r + 6);
-              const y2 = b.y - (dy / dist) * (b.r + 6);
+              const { path, midX, midY } = isFlow
+                ? flowLink(a, b)
+                : straightLink(a, b);
 
               return (
-                <g key={edge.id} className={`gx-edge${active ? ' gx-edge--active' : ''}${dimmed ? ' gx-edge--dim' : ''}`}>
-                  <line x1={x1} y1={y1} x2={x2} y2={y2} markerEnd="url(#gx-arrow)" />
-                  {/* An edge label is only readable when the reader is close in
-                      and the edge is one they are looking at. Drawing all of
-                      them at all zooms is what turns a graph into noise. */}
-                  {active && showLabels && (
-                    <text
-                      className="gx-edge__label"
-                      x={(x1 + x2) / 2}
-                      y={(y1 + y2) / 2 - 5}
-                      textAnchor="middle"
-                    >
+                <g
+                  key={edge.id}
+                  className={`gx-edge${onPath ? ' gx-edge--path' : ''}${dimmed ? ' gx-edge--dim' : ''}`}
+                >
+                  <path
+                    d={path}
+                    fill="none"
+                    markerEnd={onPath ? 'url(#gx-arrow-active)' : 'url(#gx-arrow)'}
+                  />
+                  {onPath && showLabels && (
+                    <text className="gx-edge__label" x={midX} y={midY - 7} textAnchor="middle">
                       {edge.label}
                     </text>
                   )}
@@ -391,31 +503,35 @@ export function GraphCanvas({
 
           <g className="gx-nodes">
             {nodes.map((node) => {
-              const p = positionOf(node.key);
+              const p = positions.get(node.key);
               if (!p) return null;
 
-              const r = nodeRadius(node);
               const colour = FAMILY_COLOR[node.family];
               const selected = node.key === selectedKey;
-              const dimmed = dimmedKeys.has(node.key)
-                || (!!selectedKey && !neighbourKeys.has(node.key));
+              const onPath = pathKeys.has(node.key);
+              const dimmed = dimmedKeys.has(node.key) || (!!focusKey && !onPath);
               const isRoot = node.key === rootKey;
               const expanded = expandedKeys.has(node.key);
               const busy = busyKey === node.key;
 
+              /* The same name the card shows, so the accessible label and the
+                 visible text cannot disagree — the root card in particular
+                 shows the organization's real name rather than its id. */
+              const shownTitle = isRoot ? (organizationName?.trim() || node.title) : node.title;
+
               const name = node.count !== null && node.count !== undefined
-                ? `${node.title}, ${node.count.toLocaleString()} ${node.groupOf ?? node.label}`
-                : `${node.label}: ${node.title}`;
+                ? `${shownTitle}, ${node.count.toLocaleString()} ${node.groupOf ?? node.label}`
+                : `${node.label}: ${shownTitle}`;
 
               return (
                 <g
                   key={node.key}
                   className={[
-                    'gx-node',
-                    `gx-node--${node.family}`,
+                    'gx-node', `gx-node--${node.family}`,
                     node.kind === 'group' ? 'gx-node--group' : '',
                     selected ? 'gx-node--selected' : '',
                     dimmed ? 'gx-node--dim' : '',
+                    onPath && !!focusKey ? 'gx-node--path' : '',
                     isRoot ? 'gx-node--root' : '',
                     hovered === node.key ? 'gx-node--hover' : '',
                   ].filter(Boolean).join(' ')}
@@ -434,52 +550,32 @@ export function GraphCanvas({
                   onDoubleClick={(event) => { event.stopPropagation(); if (node.expandable) onExpand(node); }}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onSelect(node);
+                      event.preventDefault(); event.stopPropagation(); onSelect(node);
                     }
                     if (event.key === 'e' && node.expandable) {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onExpand(node);
+                      event.preventDefault(); event.stopPropagation(); onExpand(node);
                     }
                   }}
                 >
-                  {selected && <circle className="gx-node__halo" r={r + 9} />}
+                  {isFlow
+                    ? (
+                      <NodeCard
+                        node={node}
+                        colour={colour}
+                        selected={selected}
+                        showLabels={showLabels}
+                        displayTitle={shownTitle}
+                      />
+                    )
+                    : <NodeDot node={node} colour={colour} selected={selected} showLabels={showLabels} />}
 
-                  <circle
-                    className="gx-node__body"
-                    r={r}
-                    fill={colour}
-                    // A group is an aggregate, and it is drawn as one: hollow
-                    // with a dashed rim, so it can never be read as a record.
-                    fillOpacity={node.kind === 'group' ? 0.16 : 0.9}
-                    stroke={colour}
-                    strokeDasharray={node.kind === 'group' ? '5 4' : undefined}
-                  />
-
-                  {node.kind === 'group' && node.count !== null && (
-                    <text className="gx-node__count" textAnchor="middle" dy="4">
-                      {compact(node.count)}
-                    </text>
-                  )}
-
-                  {/* The expandable affordance: a small ring, filled once the
-                      node has been expanded, so "already open" is visible
-                      without clicking. */}
                   {node.expandable && (
                     <circle
                       className={`gx-node__pip${expanded ? ' gx-node__pip--open' : ''}${busy ? ' gx-node__pip--busy' : ''}`}
-                      cx={r * 0.72}
-                      cy={-r * 0.72}
+                      cx={isFlow ? CARD_W / 2 - 10 : nodeRadius(node) * 0.72}
+                      cy={isFlow ? -CARD_H / 2 + 10 : -nodeRadius(node) * 0.72}
                       r={4.5}
                     />
-                  )}
-
-                  {showLabels && (
-                    <text className="gx-node__label" textAnchor="middle" y={r + 15}>
-                      {truncate(node.title, node.label === 'Organization' ? 34 : 22)}
-                    </text>
                   )}
                 </g>
               );
@@ -488,29 +584,182 @@ export function GraphCanvas({
         </g>
       </svg>
 
-      {/* Zoom controls. Buttons rather than wheel-only, because a trackpad
-          user and a touch user both need a target. */}
       <div className="gx-zoom" role="group" aria-label="Graph view controls">
-        <button type="button" onClick={() => zoomBy(1.25)} aria-label="Zoom in" title="Zoom in">+</button>
-        <button type="button" onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out" title="Zoom out">−</button>
-        <button type="button" onClick={fit} aria-label="Fit graph to view" title="Fit to view">⤢</button>
-        <span className="gx-zoom__level" aria-live="off">{Math.round(viewport.scale * 100)}%</span>
+        <button type="button" onClick={() => stepZoom(1)} aria-label="Zoom in" title="Zoom in">+</button>
+        <button type="button" onClick={() => stepZoom(-1)} aria-label="Zoom out" title="Zoom out">−</button>
+        <button type="button" onClick={fit} aria-label="Reset and fit graph to view" title="Reset / fit">⌂</button>
+        <span className="gx-zoom__level">{Math.round(viewport.scale * 100)}%</span>
       </div>
 
       {hovered && nodeByKey.get(hovered) && (
-        <NodeTooltip node={nodeByKey.get(hovered)!} />
+        <NodeTooltip node={nodeByKey.get(hovered)!} edge={focusEdge} depth={pathKeys.size - 1} />
       )}
     </div>
   );
 }
 
+/* ─────────────────────────────────────────────────────────────── node art ── */
+
 /**
- * The hover card. Fixed to a corner rather than following the pointer: a card
- * chasing the cursor across a graph covers the very nodes the reader is
- * comparing, and reflowing it on every mousemove is the most expensive thing on
- * the screen.
+ * The flow view's node: a rounded card with a family stripe down its left edge.
+ *
+ * The stripe carries the colour so the card body can stay near-white and the
+ * TEXT can hold the contrast — which is what makes a wall of these readable at
+ * a glance. Colour states what family the node belongs to and nothing else.
  */
-function NodeTooltip({ node }: { node: GraphNode }) {
+function NodeCard({
+  node, colour, selected, showLabels, displayTitle,
+}: {
+  node: GraphNode; colour: string; selected: boolean; showLabels: boolean; displayTitle?: string;
+}) {
+  const x = -CARD_W / 2;
+  const y = -CARD_H / 2;
+
+  return (
+    <>
+      {selected && (
+        <rect className="gx-card__halo" x={x - 5} y={y - 5} width={CARD_W + 10} height={CARD_H + 10} rx={13} />
+      )}
+
+      <rect className="gx-card__body" x={x} y={y} width={CARD_W} height={CARD_H} rx={9} />
+
+      {/* The stripe is clipped to the card's own rounded corner by drawing it as
+          a rounded rect the same radius and covering its right half. */}
+      <path className="gx-card__stripe" d={stripePath(x, y, CARD_H)} fill={colour} />
+
+      {showLabels && (
+        <>
+          <text className="gx-card__title" x={x + 16} y={y + 21}>
+            {truncate(displayTitle ?? node.title, 22)}
+          </text>
+          <text className="gx-card__meta" x={x + 16} y={y + 38}>
+            {truncate(
+              node.kind === 'group'
+                ? `${node.count?.toLocaleString() ?? '—'} ${node.groupOf ?? 'records'}`
+                : node.subtitle || node.label,
+              24,
+            )}
+          </text>
+        </>
+      )}
+
+      {node.kind === 'group' && node.count !== null && node.count !== undefined && (
+        <g className="gx-card__badge" transform={`translate(${CARD_W / 2 - 8},${y + 10})`}>
+          <rect className="gx-card__badge-bg" x={-badgeWidth(node.count)} y={0} width={badgeWidth(node.count)} height={17} rx={8.5} />
+          <text className="gx-card__badge-text" x={-badgeWidth(node.count) / 2} y={12} textAnchor="middle">
+            {compact(node.count)}
+          </text>
+        </g>
+      )}
+    </>
+  );
+}
+
+/** The radial view's node: the original circle, unchanged in meaning. */
+function NodeDot({
+  node, colour, selected, showLabels,
+}: { node: GraphNode; colour: string; selected: boolean; showLabels: boolean }) {
+  const r = nodeRadius(node);
+
+  return (
+    <>
+      {selected && <circle className="gx-node__halo" r={r + 9} />}
+
+      <circle
+        className="gx-node__body"
+        r={r}
+        fill={colour}
+        // A group is an aggregate and is drawn as one: hollow, with a dashed
+        // rim, so it can never be read as a single record.
+        fillOpacity={node.kind === 'group' ? 0.16 : 0.9}
+        stroke={colour}
+        strokeDasharray={node.kind === 'group' ? '5 4' : undefined}
+      />
+
+      {node.kind === 'group' && node.count !== null && node.count !== undefined && (
+        <text className="gx-node__count" textAnchor="middle" dy="4">{compact(node.count)}</text>
+      )}
+
+      {showLabels && (
+        <text className="gx-node__label" textAnchor="middle" y={r + 15}>
+          {truncate(node.title, node.label === 'Organization' ? 30 : 18)}
+        </text>
+      )}
+    </>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────── links ── */
+
+/**
+ * A smooth horizontal connector between two cards.
+ *
+ * A cubic with both control points on the horizontal mid-line: the curve leaves
+ * the parent going straight right and arrives at the child going straight right,
+ * so a fan of siblings reads as a fan rather than as a bundle of diagonals.
+ * This is d3's linkHorizontal shape, written out rather than imported so the
+ * endpoints can sit on the card EDGES instead of their centres.
+ */
+function flowLink(
+  a: { x: number; y: number; w: number },
+  b: { x: number; y: number; w: number },
+) {
+  const rightward = b.x >= a.x;
+  const x1 = a.x + (rightward ? a.w / 2 : -a.w / 2);
+  const x2 = b.x - (rightward ? b.w / 2 + 8 : -(b.w / 2 + 8));
+  const mid = (x1 + x2) / 2;
+
+  return {
+    path: `M ${x1} ${a.y} C ${mid} ${a.y}, ${mid} ${b.y}, ${x2} ${b.y}`,
+    midX: mid,
+    midY: (a.y + b.y) / 2,
+  };
+}
+
+/** The radial view's connector: centre to centre, trimmed to the circle rims. */
+function straightLink(
+  a: { x: number; y: number; r: number },
+  b: { x: number; y: number; r: number },
+) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+  const x1 = a.x + (dx / dist) * a.r;
+  const y1 = a.y + (dy / dist) * a.r;
+  const x2 = b.x - (dx / dist) * (b.r + 6);
+  const y2 = b.y - (dy / dist) * (b.r + 6);
+
+  return { path: `M ${x1} ${y1} L ${x2} ${y2}`, midX: (x1 + x2) / 2, midY: (y1 + y2) / 2 };
+}
+
+/** The family stripe: rounded on the left, square where it meets the card. */
+function stripePath(x: number, y: number, h: number): string {
+  const w = 5;
+  const r = 9;
+  return [
+    `M ${x + w} ${y}`,
+    `H ${x + r}`,
+    `A ${r} ${r} 0 0 0 ${x} ${y + r}`,
+    `V ${y + h - r}`,
+    `A ${r} ${r} 0 0 0 ${x + r} ${y + h}`,
+    `H ${x + w}`,
+    'Z',
+  ].join(' ');
+}
+
+/* ──────────────────────────────────────────────────────────────── tooltip ── */
+
+/**
+ * The hover card, fixed to a corner rather than following the pointer: a card
+ * chasing the cursor covers the very nodes the reader is comparing.
+ *
+ * When the node has a parent in the spanning tree, the card also states the
+ * relationship that reaches it and the PROVENANCE the server published for that
+ * relationship — the clause naming the column the edge came from. That sentence
+ * is the difference between "these two things are connected" and "these two
+ * things are connected BECAUSE of this column".
+ */
+function NodeTooltip({ node, edge, depth }: { node: GraphNode; edge: GraphEdge | null; depth: number }) {
   return (
     <div className="gx-tooltip" role="status">
       <span className="gx-tooltip__label" style={{ color: FAMILY_COLOR[node.family] }}>
@@ -521,9 +770,25 @@ function NodeTooltip({ node }: { node: GraphNode }) {
       {node.count !== null && node.count !== undefined && (
         <span className="gx-tooltip__count">{node.count.toLocaleString()} records</span>
       )}
+
+      {edge && (
+        <span className="gx-tooltip__rel">
+          <em>{edge.label}</em>
+          {edge.provenance && <span className="gx-tooltip__why">{edge.provenance}</span>}
+        </span>
+      )}
+
+      {depth > 0 && (
+        <span className="gx-tooltip__depth">{depth} {depth === 1 ? 'step' : 'steps'} from the organization</span>
+      )}
+
       {node.expandable && <span className="gx-tooltip__hint">Click to inspect · double-click to expand</span>}
     </div>
   );
+}
+
+function badgeWidth(value: number): number {
+  return Math.max(24, compact(value).length * 7 + 12);
 }
 
 function compact(value: number): string {
