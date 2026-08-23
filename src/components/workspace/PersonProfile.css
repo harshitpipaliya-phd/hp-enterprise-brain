@@ -47,7 +47,7 @@
   padding: clamp(20px, 3vw, 30px);
   margin-bottom: var(--space-5);
   border: 1px solid var(--border-default);
-  border-radius: 18px;
+  border-radius: var(--radius);
   background:
     radial-gradient(circle at 88% 18%, rgba(201, 162, 77, 0.14), transparent 36%),
     linear-gradient(135deg, var(--eb-white) 0%, var(--eb-cream-100) 58%, var(--eb-cream-200) 100%);

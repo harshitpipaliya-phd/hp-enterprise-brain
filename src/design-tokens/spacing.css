@@ -68,10 +68,27 @@
   --section-md: var(--space-12);
   --section-lg: var(--space-16);
 
-  /* ---- Radius ---- */
+  /* ---- Radius ----
+     FIVE STEPS, AND THEY CONVERGE. This file loads after brand.css, so these
+     are the values the product actually computes.
+
+     Panels used to land on 14px (--radius), 16px (--radius-lg) and 22px
+     (--radius-xl) depending on which stylesheet drew them, plus a scatter of
+     literal 18/20/24/26px, so cards sitting side by side had visibly different
+     corners. --radius-lg is now the same 14px as --radius, which is what makes
+     a panel a panel whichever token its author reached for, and --radius-xl
+     comes down from 22px — a 22px corner on a 300px card is the "excessive
+     rounding" the polish pass is meant to remove.
+
+     --radius-sm drops 9px → 8px so the bare <button> in theme.css and the
+     .u-btn primitive stop disagreeing by a pixel on every row that mixes
+     them. */
   --radius-xs: 6px;
-  --radius-sm: 9px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius: 14px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
 
   /* ---- Elevation ---- soft, neutral; premium on white, subtle on dark ---- */
   /*

@@ -19,7 +19,7 @@
   margin-bottom: 20px;
   padding: clamp(28px, 4vw, 46px);
   border: 1px solid var(--border-default);
-  border-radius: 20px;
+  border-radius: var(--radius);
   color: var(--content-primary);
   background:
     radial-gradient(circle at 82% 16%, rgba(201, 162, 77, 0.16), transparent 34%),
@@ -105,7 +105,7 @@
   align-items: center;
   padding: 18px;
   border: 1px solid var(--border-default);
-  border-radius: 18px;
+  border-radius: var(--radius);
   background: rgba(74, 64, 53, 0.105);
   backdrop-filter: blur(12px);
 }
@@ -195,7 +195,7 @@
 .evidence-intel__header p {
   margin: 12px 0 0;
   max-width: 760px;
-  color: #bd2f68;
+  color: var(--status-crit);
   font-family: var(--display);
   font-size: 17px;
 }
@@ -238,8 +238,8 @@
   background: var(--color-green-600);
 }
 
-.evidence-intel__proof-metric[data-tone='warn']::before { background: #a8892f; }
-.evidence-intel__proof-metric[data-tone='crit']::before { background: #bd2f68; }
+.evidence-intel__proof-metric[data-tone='warn']::before { background: var(--status-warn); }
+.evidence-intel__proof-metric[data-tone='crit']::before { background: var(--status-crit); }
 
 .evidence-intel__proof-metric > span {
   width: 38px;
@@ -384,10 +384,10 @@
   background: var(--border-strong);
 }
 
-.evidence-intel__kpi[data-tone='state']::before { background: #3f8798; }
-.evidence-intel__kpi[data-tone='good']::before { background: #2f7f93; }
-.evidence-intel__kpi[data-tone='warn']::before { background: #a8892f; }
-.evidence-intel__kpi[data-tone='crit']::before { background: #bd2f68; }
+.evidence-intel__kpi[data-tone='state']::before { background: var(--status-info); }
+.evidence-intel__kpi[data-tone='good']::before { background: var(--status-good); }
+.evidence-intel__kpi[data-tone='warn']::before { background: var(--status-warn); }
+.evidence-intel__kpi[data-tone='crit']::before { background: var(--status-crit); }
 
 .evidence-intel__kpi-icon {
   width: 34px;
@@ -436,9 +436,9 @@
   box-shadow: var(--shadow);
 }
 
-.evidence-intel__summary-card--state { border-top-color: #3f8798; }
-.evidence-intel__summary-card--movement { border-top-color: #a8892f; }
-.evidence-intel__summary-card--impact { border-top-color: #bd2f68; }
+.evidence-intel__summary-card--state { border-top-color: var(--status-info); }
+.evidence-intel__summary-card--movement { border-top-color: var(--status-warn); }
+.evidence-intel__summary-card--impact { border-top-color: var(--status-crit); }
 
 .evidence-intel__summary-label {
   color: var(--accent-intelligence-deep);
@@ -534,7 +534,7 @@
 }
 
 .evidence-intel__card-foot svg {
-  color: #bd2f68;
+  color: var(--status-crit);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -828,7 +828,7 @@
 
 .evidence-intel__gap-number {
   margin-bottom: 6px;
-  color: #bd2f68;
+  color: var(--status-crit);
   font-family: var(--mono);
   font-size: 42px;
   font-weight: 800;

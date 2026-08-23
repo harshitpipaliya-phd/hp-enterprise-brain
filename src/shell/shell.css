@@ -344,7 +344,7 @@
   justify-content: space-between;
   gap: var(--eb-space-4);
   height: var(--topbar-height);
-  padding: 0 var(--page-padding);
+  padding-block: 0;
   background: var(--surface-card);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -477,14 +477,41 @@
 .s-main { grid-column: 2; min-width: 0; display: flex; flex-direction: column; }
 .s-shell-compact .s-main { grid-column: 1; }
 
-.s-content { flex: 1; padding: var(--page-padding); }
+/*
+  ONE CONTENT GRID FOR THE WHOLE PRODUCT.
+
+  The header and the content region compute the SAME horizontal inset:
+  the page gutter, or — once the viewport is wider than the measure — whatever
+  it takes to centre a --content-max-width column. Because both boxes solve the
+  identical expression, the breadcrumb, the page title and the first card all
+  start on one vertical line at every width. Previously the header was padded a
+  flat 32px while the content was centred inside a 1440px column, so on a wide
+  monitor the trail sat well to the left of the title it described.
+*/
+.s-content,
+.s-header {
+  padding-inline: max(
+    var(--page-padding),
+    calc((100% - var(--content-max-width)) / 2)
+  );
+}
+
+.s-content { flex: 1; padding-block: var(--page-padding); }
 /* Focused programmatically by the skip link; it must not draw a ring for
    pointer users who never asked for it. */
 .s-content:focus { outline: none; }
-.s-content-inner { max-width: var(--content-max-width); margin: 0 auto; }
+/* The inset above already caps the column; this keeps the guarantee explicit
+   for anything that measures the box directly. */
+.s-content-inner { max-width: var(--content-max-width); margin: 0 auto; min-width: 0; }
 
-@media (max-width: 1024px) { .s-content, .s-header { padding: var(--page-padding-tablet); } .s-header { padding-block: 0; } }
-@media (max-width: 640px)  { .s-content, .s-header { padding: var(--page-padding-mobile); } .s-header { padding-block: 0; } }
+@media (max-width: 1024px) {
+  .s-content, .s-header { padding-inline: var(--page-padding-tablet); }
+  .s-content { padding-block: var(--page-padding-tablet); }
+}
+@media (max-width: 640px) {
+  .s-content, .s-header { padding-inline: var(--page-padding-mobile); }
+  .s-content { padding-block: var(--page-padding-mobile); }
+}
 
 /* =============================================================================
    COMMAND PALETTE

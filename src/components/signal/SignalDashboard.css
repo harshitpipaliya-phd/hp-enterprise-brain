@@ -34,7 +34,7 @@
 .signal-intel__header p {
   margin: 12px 0 0;
   max-width: 720px;
-  color: #bd2f68;
+  color: var(--status-crit);
   font-family: var(--display);
   font-size: 17px;
 }
@@ -147,9 +147,9 @@
   background: var(--border-strong);
 }
 
-.signal-intel__kpi[data-tone='good']::before { background: #2f7f93; }
-.signal-intel__kpi[data-tone='warn']::before { background: #b88a22; }
-.signal-intel__kpi[data-tone='crit']::before { background: #bd2f68; }
+.signal-intel__kpi[data-tone='good']::before { background: var(--status-good); }
+.signal-intel__kpi[data-tone='warn']::before { background: var(--status-warn); }
+.signal-intel__kpi[data-tone='crit']::before { background: var(--status-crit); }
 
 .signal-intel__kpi-icon {
   width: 34px;
@@ -229,7 +229,7 @@
 }
 
 .signal-intel__card-foot svg {
-  color: #bd2f68;
+  color: var(--status-crit);
   flex-shrink: 0;
   margin-top: 2px;
 }

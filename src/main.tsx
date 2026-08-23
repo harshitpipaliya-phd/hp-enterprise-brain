@@ -16,6 +16,12 @@ import './ui/layers.css';
 // Shell last: it composes the primitives and needs to win on the few rules
 // where the old .eb-* chrome and the new .s-* chrome describe the same box.
 import './shell/shell.css';
+// The cross-screen refinement layer. Genuinely last: it is the file that
+// settles the decisions every screen has to agree on — the content box, the
+// heading roles, table metrics, badge shape and the empty/error states — so
+// it has to be able to override both the .eb-* chrome and the per-screen
+// stylesheets Vite injects for each component.
+import './ui/refine.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <StrictMode>

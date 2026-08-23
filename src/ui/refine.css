@@ -1,0 +1,817 @@
+/* =============================================================================
+   ENTERPRISE BRAIN — CROSS-SCREEN REFINEMENT LAYER
+   Loaded last. Visual only: alignment, rhythm, type roles, surface consistency.
+
+   WHY A SHARED LAYER AND NOT FIFTEEN EDITS.
+   The product already has a design system (design-tokens/*, ui/ui.css). What it
+   did not have was agreement. Every screen shipped with its own page container
+   width (1120 / 1180 / 1240 / 1320 / 1360 / 1440 / 1540 / 1600), its own page
+   padding stacked on top of the shell's, and its own page-title size — 52px on
+   the Intelligence suite, 42px on People, 40px on Ingestion, 30px on
+   Departments and Signals, 21px on the Kasba explorer. No two screens started
+   on the same vertical line. This file settles the handful of decisions that
+   have to be shared and leaves everything screen-specific alone.
+
+   NOTHING HERE CHANGES BEHAVIOUR. It touches box metrics, type roles, borders,
+   radii, shadows and existing colour tokens. No layout rule a screen's grid
+   depends on is overridden, and no colour is introduced that the product was
+   not already using.
+   ============================================================================= */
+
+/* =============================================================================
+   1 · ONE CONTENT BOX
+
+   Every screen root is a direct child of .s-content-inner, which the shell has
+   already centred and capped. A second max-width plus a second padding on the
+   screen root is what produced the uneven left and right boundaries: the People
+   directory sat inside 1320px with 24px of its own gutter while the
+   Intelligence suite sat inside 1540px with its own, so the first pixel of
+   content on the two screens differed by more than a hundred.
+
+   The screen roots hand the horizontal box back to the shell and keep only
+   their own vertical rhythm.
+   ============================================================================= */
+/* Applies to anything the shell hosts: a track may shrink, and a long
+   unbroken token wraps instead of widening the page. Deliberately does NOT
+   touch padding — an Alert or a card rendered directly by App.tsx is a direct
+   child too, and it needs the padding it declares. */
+.s-content-inner > * {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/*
+  THE SCREEN ROOTS, by name.
+
+  Each of these declared its own max-width and its own gutter on top of the
+  shell's, and three of them also claimed a viewport height and painted their
+  own wash. The height only ever added a screenful of dead space under a short
+  screen — the "large unnecessary empty areas" — and the wash painted a tinted
+  rectangle INSIDE the shell's padding, which is why those screens read as a
+  panel floating on the page rather than as the page itself.
+
+  Named rather than matched by wildcard because the list is finite and knowable,
+  and because a wildcard here would also flatten a component that legitimately
+  sits at the top of the content column.
+*/
+.s-content-inner > .dept-intel,
+.s-content-inner > .signal-intel,
+.s-content-inner > .evidence-intel,
+.s-content-inner > .oi-page,
+.s-content-inner > .cc-page,
+.s-content-inner > .intel-page,
+.s-content-inner > .kx-page,
+.s-content-inner > .gx-page,
+.s-content-inner > .ingestion-page,
+.s-content-inner > .people-app,
+.s-content-inner > .people-create,
+.s-content-inner > .dept-create,
+.s-content-inner > .cap-create,
+.s-content-inner > .cap-library,
+.s-content-inner > .pp,
+.s-content-inner > .eb-content {
+  max-width: none;
+  margin-inline: 0;
+  padding-inline: 0;
+  padding-block: 0;
+  min-height: 0;
+  background: none;
+}
+
+/*
+  THE SCREEN ROOTS THAT DECLARE THEIR BOX IN AN INLINE STYLE.
+
+  Eighteen screens — AI Assistant, Global Search, Knowledge Library, Memory,
+  Tasks, Policies, Agent Monitor, Conversation, Capabilities, Departments,
+  Audit, Events and the rest — open with
+
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: 24,
+                    backgroundColor: theme.bg, minHeight: '100vh' }}>
+
+  and the number differs per screen: 800 / 900 / 1000 / 1200 / 1320 / 1400.
+  A stylesheet cannot reach an inline style, so while every CSS-driven screen
+  now aligns on the shell's column, these still sat in their own narrower box
+  with a second 24px gutter — the single most visible remaining misalignment,
+  and the reason moving between, say, Search (800px) and Departments (1320px)
+  shifted the whole page.
+
+  Three further consequences travelled with that wrapper:
+    · minHeight:100vh inside a shell already 100vh tall — a screenful of dead
+      space under every short screen;
+    · backgroundColor: theme.bg, which resolves to --surface-ground, painting a
+      flat rectangle of ground ON TOP of the page wash so the wash survived only
+      in the 32px gutters — the "container looks disconnected" symptom;
+    · a page-level width cap that made wide tables scroll early.
+
+  !important is the only thing that outranks an inline declaration, and this is
+  what it is for. It is scoped to direct children of the content column — i.e.
+  screen roots — and touches ONLY box geometry. Every other inline style on
+  these screens, and their colour, is left exactly as it is.
+*/
+.s-content-inner > div[style],
+.s-content-inner > main[style],
+.s-content-inner > section[style],
+.s-content-inner > article[style] {
+  max-width: none !important;
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
+  padding-block: 0 !important;
+  min-height: 0 !important;
+  background: none !important;
+}
+
+/*
+  ONE PAGE WASH, painted by the shell so it runs edge to edge beneath the
+  header on every screen. It is the same champagne glow three screens were each
+  drawing for themselves — no new hue, just one owner.
+*/
+.s-content {
+  background:
+    linear-gradient(180deg, var(--accent-intelligence-glow), transparent 320px),
+    var(--surface-ground);
+}
+
+/* Nothing inside the content column may push the page sideways; wide tables
+   scroll their own wrapper instead (section 5). */
+.s-main { overflow-x: clip; }
+
+/* =============================================================================
+   2 · TYPE ROLES
+
+   One page-title size, one section size, one card-heading size, everywhere.
+   These sit at the same specificity as the screen rules they replace and win on
+   source order, so a screen keeps its colour, its accent and its layout and
+   gives up only its private idea of how big a heading is.
+   ============================================================================= */
+
+/* ---- page title — one per screen, top of the content grid ---- */
+.s-content-inner h1,
+.dept-create__hero h2,
+.people-create__hero h2,
+.student-hero h2,
+.cap-create > header h2,
+.school-intel__header h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--fs-page-title);
+  font-weight: 700;
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-title);
+  color: var(--content-primary);
+  /* A title may wrap, but it should break between words rather than leaving a
+     single orphan on the second line. */
+  text-wrap: balance;
+}
+
+/* ---- section title ---- */
+.s-content-inner h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--fs-section-title);
+  font-weight: 700;
+  line-height: var(--lh-heading);
+  letter-spacing: -0.012em;
+  color: var(--content-primary);
+}
+
+/* ---- card / panel heading ---- */
+.s-content-inner h3 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-card-title);
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.008em;
+  color: var(--content-primary);
+}
+
+.s-content-inner h4,
+.s-content-inner h5,
+.s-content-inner h6 {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--content-primary);
+}
+
+/* A heading and the sentence under it are one block, at one distance, on every
+   screen. :where() keeps the added specificity at zero so a screen that needs a
+   different gap can still state it. */
+.s-content-inner :where(h1, h2, h3, h4, h5, h6) + p {
+  margin-top: var(--eb-space-2);
+  margin-bottom: 0;
+}
+
+/* ---- page lede: the one sentence under the page title ---- */
+.intel-header p,
+.dept-intel__header p,
+.signal-intel__header p,
+.evidence-intel__header p,
+.people-app-header p,
+.oi-head__text p,
+.cc-org-hero__lede,
+.ingestion-hero > p,
+.dept-create__hero p,
+.people-create__hero p,
+.kx-lede,
+.cap-create > header p,
+.school-intel__header p {
+  margin: var(--eb-space-2) 0 0;
+  /* ch, not px: the measure that keeps a line readable is a count of
+     characters, and it survives a change to the type scale. */
+  max-width: 72ch;
+  font-family: var(--sans);
+  font-size: var(--fs-body-lg);
+  font-weight: 400;
+  line-height: var(--lh-snug);
+  color: var(--content-secondary);
+}
+
+/* ---- eyebrow / kicker: eight screens had eight sizes, 9.5px to 11px ---- */
+.intel-eyebrow,
+.cc-kicker,
+.kx-kicker,
+.oi-eyebrow,
+.people-eyebrow,
+.dept-intel__kpi-label,
+.signal-intel__kpi-label,
+.eb-stat-label,
+.eb-tile-label,
+.eb-card-title,
+.u-metric-label,
+.intel-kpi-label,
+.kx-metric__label,
+.pp-stat-label,
+.cap-kpi em {
+  font-size: var(--fs-eyebrow);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+}
+
+/* ---- numbers read as data, and columns of them line up ---- */
+.eb-stat-value,
+.eb-tile-value,
+.u-metric-value,
+.intel-kpi-value,
+.intel-number,
+.kx-metric__value,
+.pp-stat-value,
+.cap-kpi strong,
+.oi-table__num,
+.pp-num,
+.pp-money,
+.eb-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Secondary / helper copy, one colour and one size wherever it appears. */
+.intel-muted,
+.intel-subtle,
+.intel-section-note,
+.kx-section__note,
+.cc-hint,
+.oi-label,
+.pp-stat-hint,
+.pp-note,
+.u-help,
+.eb-stat-sub,
+.eb-tile-note {
+  font-size: var(--fs-tiny);
+  line-height: var(--lh-snug);
+  color: var(--content-tertiary);
+}
+
+/* =============================================================================
+   3 · VERTICAL RHYTHM
+
+   Section-to-section and heading-to-content distances were chosen independently
+   on every screen — 18px here, 20px there, 22px, 24px, 28px. One scale.
+   ============================================================================= */
+.intel-header,
+.dept-intel__header,
+.signal-intel__header,
+.evidence-intel__header,
+.people-app-header,
+.oi-head,
+.kx-head,
+.gx-head,
+.pp-head,
+.cc-org-hero,
+.ingestion-hero,
+.dept-create__hero,
+.people-create__hero,
+.student-hero,
+.school-intel__header {
+  margin-bottom: var(--page-head-gap);
+}
+
+.intel-section,
+.kx-section,
+.oi-sections > section,
+.oi-ai-section {
+  margin-bottom: var(--section-gap);
+}
+.intel-section:last-child,
+.kx-section:last-child,
+.oi-sections > section:last-child { margin-bottom: 0; }
+
+/*
+  Heading block → the content it introduces. These are the "title on the left,
+  count or action on the right" rows every screen has and every screen laid out
+  slightly differently. Baseline alignment is what makes the title and its
+  trailing meta sit on one line rather than one being a pixel or two proud.
+*/
+.intel-section-head,
+.cc-section-head,
+.dept-intel__card-head,
+.dept-intel__table-head,
+.signal-intel__card-head,
+.evidence-intel__card-head,
+.evidence-intel__table-head,
+.ingestion-card-head,
+.eb-panel-head,
+.kx-section__head,
+.gx-panel__head,
+.cc-record__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--eb-space-3);
+  /* The title and its action stay on one row until there is genuinely no room,
+     then stack — rather than the action being pushed to a second line while a
+     two-word title sits alone on the first. */
+  flex-wrap: wrap;
+}
+
+/* =============================================================================
+   4 · SURFACES
+
+   Radius and elevation are settled in the tokens (see design-tokens/spacing.css
+   and brand.css) so every card that already reads a token converges without
+   being named here. What is left is the page header, which was the one surface
+   styled as a hero rather than as a panel.
+   ============================================================================= */
+.intel-header {
+  padding: var(--eb-space-5);
+  gap: var(--eb-space-5);
+  border-radius: var(--radius-lg);
+  border-color: var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Every grid track may shrink, so a long unbroken value can never push a column
+   off the screen. */
+.s-content-inner [class*="grid"] > *,
+.s-content-inner [class*="cards"] > *,
+.s-content-inner [class*="-list"] > * { min-width: 0; }
+
+/* One gutter for card grids. */
+.eb-kpi-grid,
+.eb-tile-grid,
+.cap-library__kpis,
+.cap-library__grid,
+.cc-kpi-grid,
+.cc-main-grid,
+.intel-stat-grid,
+.intel-loop-grid,
+.intel-trend-grid,
+.intel-exec-kpi-strip,
+.kx-metrics,
+.pp-stats,
+.oi-ai-grid { gap: var(--card-gap); }
+
+/* -----------------------------------------------------------------------------
+   4b · HERO PANELS AND FORCED HEIGHTS
+
+   Five screens opened with a "hero" whose padding clamped up to 42–46px and,
+   on two of them, a 250px floor. On a 1440px monitor that is most of the first
+   screenful spent on a title and one sentence. Same panel, on the shared inset,
+   sized by what it contains.
+   -------------------------------------------------------------------------- */
+.evidence-intel__hero,
+.ingestion-hero,
+.intel-enterprise-board-copy,
+.intel-exec-hero,
+.pp-head {
+  min-height: 0;
+  padding: var(--eb-space-5);
+  border-radius: var(--radius);
+}
+
+/*
+  Two Command Center panels reserved a fixed height so the two-column grid would
+  not jump while the attention list loaded. The intent is right; 420px and 300px
+  were simply more than the content ever needs. Kept as a floor, at a height a
+  populated list actually reaches.
+*/
+.cc-attention { min-height: 280px; }
+.cc-healthy { min-height: 200px; }
+
+/* =============================================================================
+   5 · TABLES
+
+   Header rows ran 9.5 / 10 / 11 / 12px across five screens and cell padding ran
+   7 / 8 / 10 / 11 / 12px, so no two tables in the product shared a row height.
+   One header treatment, one row metric, numerics right-aligned.
+   ============================================================================= */
+.u-table,
+.cc-table,
+.intel-table,
+.oi-table,
+.pp-table,
+.people-table,
+.students-table,
+.ingestion-preview-table,
+.dept-intel__table,
+.signal-intel__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.u-table thead th,
+.cc-table th,
+.intel-table th,
+.oi-table th,
+.pp-table th,
+.people-table th,
+.students-table thead th,
+.ingestion-preview-table th,
+.dept-intel__table th,
+.signal-intel__table th {
+  padding: 10px var(--eb-space-3);
+  font-family: var(--sans);
+  font-size: var(--fs-eyebrow);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--content-tertiary);
+  background: var(--surface-inset);
+  border-bottom: 1px solid var(--border-default);
+  vertical-align: middle;
+}
+
+.u-table tbody td,
+.cc-table td,
+.intel-table td,
+.oi-table td,
+.pp-table td,
+.people-table td,
+.students-table td,
+.ingestion-preview-table td,
+.dept-intel__table td,
+.signal-intel__table td {
+  padding: 10px var(--eb-space-3);
+  /* A predictable row height without freezing it: `height` on a cell behaves as
+     a minimum, so a cell that genuinely needs two lines still gets them. */
+  height: var(--row-h);
+  font-size: var(--fs-small);
+  line-height: var(--lh-snug);
+  color: var(--content-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+/* The identifying column carries the weight; the rest stays quiet. */
+.u-cell-primary,
+.oi-table__name,
+.pp-table tbody td:first-child,
+.cc-table tbody td:first-child,
+.people-table tbody td:first-child {
+  color: var(--content-primary);
+  font-weight: 600;
+}
+
+/* Numbers right, actions right, neither wrapping. */
+.oi-table__num,
+.pp-num,
+.pp-money,
+.u-cell-num { text-align: right; white-space: nowrap; }
+
+.u-cell-actions,
+.dept-intel__row-actions,
+.signal-intel__row-actions,
+.people-row-actions,
+.cc-record__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--eb-space-2);
+  white-space: nowrap;
+}
+
+/* A wide table scrolls itself rather than widening the page. */
+.u-table-wrap,
+.u-table-scroll,
+.cc-table-wrap,
+.intel-table-wrap,
+.pp-table-wrap,
+.people-table-wrap,
+.students-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/* =============================================================================
+   6 · CONTROLS
+
+   The primitive button and the app's bare <button> disagreed on both radius
+   (8px vs 6px) and type size (14px vs 13px), which showed wherever a row mixed
+   the two — which is most rows.
+   ============================================================================= */
+/* The size modifiers keep their own type; only the default size moves, so a
+   .u-btn and a bare <button> side by side finally read as one control set. */
+.u-btn:not(.u-btn-sm):not(.u-btn-lg) { font-size: var(--fs-small); }
+
+.s-content-inner button,
+.s-content-inner .u-btn,
+.s-content-inner input,
+.s-content-inner select,
+.s-content-inner textarea { border-radius: var(--radius-sm); }
+
+/* Groups of controls sit on one baseline with one gap and wrap rather than
+   overflow. */
+.intel-inline-actions,
+.intel-header__actions,
+.cc-org-hero__actions,
+.oi-head__aside,
+.oi-toolbar,
+.dept-intel__actions,
+.dept-intel__filters,
+.signal-intel__actions,
+.signal-intel__filters,
+.evidence-intel__actions,
+.people-inline-actions,
+.gx-head__actions,
+.pp-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--eb-space-2);
+}
+
+.s-content-inner label { font-size: var(--fs-label); line-height: 1.4; }
+
+/* =============================================================================
+   7 · ICONS
+
+   lucide renders inline SVG, and two things go wrong by default: an icon in a
+   flex row is allowed to squash when the label beside it is long, and an icon
+   in a text run sits on the baseline rather than on the text's optical centre.
+   ============================================================================= */
+.s-content-inner :where(
+  button, a, label, th, summary,
+  [class*="badge"], [class*="chip"], [class*="pill"],
+  [class*="eyebrow"], [class*="kicker"],
+  [class*="__head"], [class*="-head"]
+) > svg {
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+.u-badge svg,
+.eb-badge svg,
+.oi-chip svg { width: 12px; height: 12px; }
+
+/* =============================================================================
+   8 · BADGES
+
+   One pill shape and one type size wherever a status is shown. Colour still
+   comes from the feedback tokens each screen already chose, so status meaning
+   is untouched — only its shape and size are made consistent.
+   ============================================================================= */
+.u-badge,
+.eb-badge,
+.oi-chip,
+.intel-pill,
+.intel-mini-badge,
+.cap-card__status,
+.cap-card__criticality,
+.dept-intel__badge,
+.kx-task__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-eyebrow);
+  font-weight: 650;
+  line-height: 1.5;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* =============================================================================
+   9 · EMPTY · LOADING · ERROR
+
+   These were the weakest moment on most screens: one sentence floating in two
+   hundred pixels of nothing, sized differently everywhere. Same box, centred
+   content, honest height. The message text is untouched — an error still says
+   exactly what it said before, and nothing is hidden.
+   ============================================================================= */
+/*
+  TWO KINDS OF EMPTY, and they must not be treated alike.
+
+  The distinction is whether the state REPLACES A SCREEN or sits inside
+  something. A screen-level blank slate should read as a considered state and
+  earns a floor. A "no rows match" line inside a table cell, a card or a chart
+  slot must stay the size of its sentence — give that one a 180px floor and a
+  panel that said one quiet line becomes a hole, which is the problem this pass
+  exists to remove, not to spread.
+
+  ---- shared: centred, one measure, one type size, no floor ---- */
+.u-state,
+.u-state-shell,
+.cap-library__empty,
+.cap-library__blank,
+.intel-blank-slate,
+.gx-empty,
+.kx-empty,
+.dept-intel__empty,
+.dept-intel__empty--page,
+.signal-intel__empty,
+.signal-intel__empty--page,
+.evidence-intel__empty,
+.people-empty,
+.pp-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--eb-space-2);
+  margin: 0;
+  padding: var(--eb-space-5);
+  text-align: center;
+  color: var(--content-secondary);
+  font-size: var(--fs-small);
+  line-height: var(--lh-snug);
+}
+
+/* ---- screen-level only: a floor, and a smaller one than any of them had ----
+   (.dept-intel__empty carried 220px, and the --page variants padded
+   clamp(40px, 8vw, 80px), i.e. up to 160px of vertical padding alone.) */
+.u-state-shell,
+.cap-library__blank,
+.intel-blank-slate,
+.gx-empty,
+.kx-empty,
+.dept-intel__empty,
+.dept-intel__empty--page,
+.signal-intel__empty--page,
+.people-empty--page {
+  min-height: 180px;
+  padding: var(--eb-space-6) var(--eb-space-5);
+}
+
+/*
+  NOT in either list, deliberately: .cc-empty. It is a <p> that Command Center
+  uses eight times as an inline "nothing here yet" line inside panels that are
+  already sized — including one that sits in a flex row beside a check icon.
+  Centring it in a 180px box turned eight quiet sentences into eight holes on
+  the landing screen.
+*/
+
+/* An empty state's prose is centred, so it needs the tighter measure or the
+   ragged edges read as a mistake. */
+.u-state-shell > *,
+.gx-empty > *,
+.kx-empty > *,
+.cap-library__blank > *,
+.dept-intel__empty--page > *,
+.signal-intel__empty--page > *,
+.intel-blank-slate > * { max-width: 58ch; }
+
+/* The loading / permission / error card the shared states render. */
+.u-state-card {
+  width: min(680px, 100%);
+  padding: var(--eb-space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+}
+
+/* An error keeps its full contrast and its left edge — it is the one state a
+   polish pass must not quieten. */
+/*
+  .oi-ai-unavailable is NOT here: it is a baseline-aligned flex row ("
+  Interpretation unavailable." + the reason inline), and forcing it to block
+  dropped the reason onto its own line.
+*/
+.people-alert,
+.cap-library__error,
+.cap-create__error,
+.cc-record__error,
+.pp-alert {
+  min-height: 0;
+  padding: var(--eb-space-3) var(--eb-space-4);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font-size: var(--fs-small);
+  line-height: var(--lh-snug);
+}
+
+/* =============================================================================
+   10 · RESPONSIVE GUARDS
+
+   No screen may overflow horizontally, and no fixed second column survives past
+   the width at which it stops fitting.
+   ============================================================================= */
+.s-content-inner img,
+.s-content-inner canvas { max-width: 100%; }
+
+.s-content-inner pre,
+.s-content-inner code {
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+  /* "Form + aside" layouts collapse before the aside is squeezed below a
+     usable width. */
+  .people-create__layout,
+  .dept-create__layout,
+  .cap-create__layout,
+  .intel-header { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .dept-intel__header,
+  .signal-intel__header,
+  .evidence-intel__header,
+  .people-app-header,
+  .cc-org-hero,
+  .oi-head,
+  .kx-head,
+  .gx-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--eb-space-4);
+  }
+}
+
+/* =============================================================================
+   11 · SIDEBAR ALIGNMENT
+
+   Section labels were inset 18px while the nav icons beneath them started at
+   24px (10px of list padding plus 14px of item padding), so every group heading
+   sat six pixels to the left of the items it labelled. Everything now hangs off
+   one rail.
+   ============================================================================= */
+.s-brand { padding: 18px 24px 16px; }
+.s-section-title,
+.s-section-group-header { padding-inline: 24px; }
+.s-section-rule { margin-inline: 24px; }
+.s-profile { padding: 14px 10px; }
+.s-profile-row { padding: 10px 14px; border-radius: 12px; }
+
+/* 16px on a 48px row is a lozenge; 10px reads as an enterprise rail. */
+.s-item,
+.s-sidebar-collapsed .s-item { border-radius: 10px; }
+
+/* The hover lift on a navigation row was the one animation in the shell that
+   moved content rather than revealing it — on a 12-item rail it made the whole
+   menu feel loose. */
+.s-item:hover:not(:disabled) { transform: none; box-shadow: none; }
+
+/* The breadcrumb trail sits on the same left edge as the page title below it,
+   which it could not do while it carried its own inset. */
+.s-crumbs ol { margin-inline-start: -5px; }
+
+/*
+  THE TOP-LEFT CORNER. The sidebar's brand block was 72px tall and the header
+  64px, so the hairline under the logo and the hairline under the breadcrumb —
+  which meet at the corner of every single screen — were eight pixels apart.
+  They are now one line. The collapsed rail keeps its own padding (that rule is
+  more specific) because a 36px mark and a 32px button will not sit side by side
+  in a 76px column.
+*/
+.s-brand {
+  min-height: var(--topbar-height);
+  padding: 0 24px;
+}
+
+/* =============================================================================
+   11b · HEADER CONTROLS
+
+   The header carried a 36px search button, a 40px icon button and a 38px avatar
+   trigger in one row, so nothing in it shared a baseline. One height.
+   ============================================================================= */
+.s-header-right { gap: var(--eb-space-2); }
+.s-header-right .u-icon-btn,
+.s-header .s-usermenu-trigger,
+.s-header .s-search-btn {
+  height: 36px;
+  min-height: 36px;
+}
+.s-header-right .u-icon-btn { width: 36px; }
+.s-header .s-usermenu-trigger { width: 36px; }
