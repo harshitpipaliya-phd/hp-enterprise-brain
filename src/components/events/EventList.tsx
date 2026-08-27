@@ -53,7 +53,7 @@ export default function EventList() {
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1>Event Store</h1>
+        <span className="eb-page-kicker">Automation</span><h1>Event Store</h1>
         <button onClick={load}>Refresh</button>
       </header>
 

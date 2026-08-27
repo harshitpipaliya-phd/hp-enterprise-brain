@@ -206,12 +206,24 @@ export default function KasbaExplorer(
           <span className="kx-metric__value">{assignmentCount.toLocaleString()}</span>
           <span className="kx-metric__label">Assignments</span>
         </div>
-        {['Assessed', 'Demonstrated', 'Inferred', 'Asserted', 'Unknown'].map((st) => (
-          <div className="kx-metric" key={st}>
-            <span className="kx-metric__value">{stateCount(st).toLocaleString()}</span>
-            <span className="kx-metric__label">{st}</span>
-          </div>
-        ))}
+        {/*
+          THE CONFIDENCE BREAKDOWN, ONLY WHERE THERE IS ONE.
+
+          Five tiles reading 0 do not describe a distribution — they describe an
+          organization that has assessed nothing, which the empty state below
+          already says at length and better. Filtering to the states that are
+          actually populated turns this strip from a row of zeroes into the
+          shape of what has been recorded, and it collapses to nothing on a
+          tenant that has recorded none of it.
+        */}
+        {['Assessed', 'Demonstrated', 'Inferred', 'Asserted', 'Unknown']
+          .filter((st) => stateCount(st) > 0)
+          .map((st) => (
+            <div className="kx-metric" key={st}>
+              <span className="kx-metric__value">{stateCount(st).toLocaleString()}</span>
+              <span className="kx-metric__label">{st}</span>
+            </div>
+          ))}
         <div className="kx-metric">
           {/* Em dash, not 0, when nothing anywhere has been assessed. */}
           {overallAverage === null

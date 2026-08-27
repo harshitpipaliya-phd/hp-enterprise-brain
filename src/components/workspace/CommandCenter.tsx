@@ -15,7 +15,10 @@ import {
   GraduationCap,
   IdCard,
   Lightbulb,
+  Mail,
+  Network,
   Pencil,
+  Phone,
   Radio,
   RefreshCw,
   Scale,
@@ -24,7 +27,7 @@ import {
   Upload,
   Users,
   Workflow,
-  X,
+  X
 } from 'lucide-react';
 import { api } from '../../api/intelligence';
 import { api as organizationApi } from '../../api/organization';
@@ -33,6 +36,7 @@ import { api as capabilityApi } from '../../api/capability';
 import { ingestionApi } from '../../api/ingestion';
 import { LoadingState, ErrorState } from '../shared/States';
 import type { Organization, View } from '../../App';
+import type { OrganizationField } from '../../api/organization';
 import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
 import './CommandCenter.css';
 
@@ -40,6 +44,15 @@ interface CommandCenterProps {
   tenantId: string;
   organizationName?: string;
   organization?: Organization;
+  /**
+   * The signed-in role, used ONLY to decide which workspace tiles to draw.
+   *
+   * Advisory, exactly as in the sidebar: the API re-checks permissions from the
+   * JWT on every request. Its purpose here is that a tile never leads somewhere
+   * the menu hides, because a dead tile reads as a broken product rather than
+   * as a boundary.
+   */
+  userRole?: string | null;
   onNavigate: (view: View) => void;
   onUpdated?: (organization: Organization) => void;
   /**
@@ -113,7 +126,54 @@ interface HomeMetrics {
 }
 
 type RecordPanel = 'structure' | 'quality' | 'audit';
-type OrganizationProfileDraft = Pick<Organization, 'name' | 'orgCode' | 'industry'>;
+type OrganizationProfileDraft = Partial<Record<OrganizationField, string | null>>;
+
+/**
+ * ONE DESCRIPTION OF THE ORGANIZATION RECORD, read by both the detail list and
+ * the edit form.
+ *
+ * The two used to be separate hand-written lists, which is how the panel came
+ * to show six rows of "Not recorded" while the form offered three inputs that
+ * could not fix any of them. Order here is reading order: who this organization
+ * legally is, where it is, how to reach it, how big it is.
+ *
+ * NOTHING IN THIS LIST IS ASSUMED TO EXIST. It is the product's vocabulary; the
+ * server says per tenant which entries are backed by a real column
+ * (`identityFields` / `profileFields`), and both renderings intersect with that
+ * before drawing anything. A tenant whose ERP has no website column gets no
+ * Website row and no Website input — not a blank one.
+ */
+interface OrganizationFieldSpec {
+  key: OrganizationField;
+  label: string;
+  /** Rendered across both columns of the editor grid — long free text. */
+  wide?: boolean;
+  inputType?: 'text' | 'email' | 'url' | 'tel';
+  required?: boolean;
+  /** How the value reads in the detail list, when it is not simply itself. */
+  display?: (value: string) => string;
+}
+
+const ORGANIZATION_FIELDS: OrganizationFieldSpec[] = [
+  { key: 'name', label: 'Name', required: true },
+  { key: 'legalName', label: 'Legal name' },
+  { key: 'orgCode', label: 'Organization code' },
+  { key: 'industry', label: 'Industry' },
+  { key: 'registrationNumber', label: 'Registration number' },
+  { key: 'taxId', label: 'Tax registration' },
+  { key: 'country', label: 'Country' },
+  { key: 'address', label: 'Registered address', wide: true },
+  { key: 'email', label: 'Email', inputType: 'email' },
+  { key: 'phone', label: 'Phone', inputType: 'tel' },
+  { key: 'website', label: 'Website', inputType: 'url' },
+  { key: 'contactPerson', label: 'Primary contact' },
+  // A BAND ('51-200'), NOT A HEADCOUNT. Labelled so it cannot be read as one:
+  // the People tile beside it reports the roster the ERP actually holds, and
+  // the two disagreeing is normal rather than a data-quality problem.
+  { key: 'employeeCount', label: 'Recorded size', display: (v) => `${v} employees` },
+  { key: 'workWeek', label: 'Working week', display: describeWorkWeek },
+  { key: 'logo', label: 'Logo' },
+];
 
 /**
  * The nine loop stages, in the order data actually moves through them.
@@ -145,6 +205,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const [structure, setStructure] = useState<any>(null);
 
   const [recordPanel, setRecordPanel] = useState<RecordPanel>('structure');
+  const [logoBroken, setLogoBroken] = useState(false);
   const [recordData, setRecordData] = useState<any>(null);
   const [recordLoading, setRecordLoading] = useState(false);
   const [recordError, setRecordError] = useState<string | null>(null);
@@ -174,6 +235,19 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const loadSecondary = useCallback(async () => {
+    const secondary = await Promise.allSettled([
+      capabilityApi.listCapabilities(tenantId, organization?.id),
+      ingestionApi.listSources(tenantId),
+    ]);
+
+    const [capabilitiesRes, sourceRes] =
+      secondary.map((result) => (result.status === 'fulfilled' ? result.value : null));
+
+    if (capabilitiesRes) setCapabilityCount(asArray(capabilitiesRes).length);
+    if (sourceRes) setDataSources(asArray(sourceRes));
+  }, [tenantId, organization?.id]);
+
   const load = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     if (mode === 'initial') setLoading(true);
     if (mode === 'refresh') setRefreshing(true);
@@ -185,26 +259,14 @@ export default function CommandCenter({ tenantId, organizationName, organization
       const metrics = await api.getHomeMetrics(tenantId);
       setHomeMetrics(metrics as HomeMetrics);
       setLoading(false);
-
-      const secondary = await Promise.allSettled([
-        capabilityApi.listCapabilities(tenantId, organization?.id),
-        ingestionApi.listSources(tenantId),
-        organization ? organizationApi.getStructure(tenantId, organization.id) : Promise.resolve(null),
-      ]);
-
-      const [capabilitiesRes, sourceRes, structureRes] =
-        secondary.map((result) => (result.status === 'fulfilled' ? result.value : null));
-
-      if (capabilitiesRes) setCapabilityCount(asArray(capabilitiesRes).length);
-      if (sourceRes) setDataSources(asArray(sourceRes));
-      if (structureRes) setStructure(structureRes);
+      window.setTimeout(() => { void loadSecondary(); }, 0);
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [tenantId, organization?.id]);
+  }, [tenantId, loadSecondary]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -236,7 +298,11 @@ export default function CommandCenter({ tenantId, organizationName, organization
         : organizationApi.getAuditLogs(tenantId, organization.id);
 
     loader
-      .then((data) => { if (!cancelled) setRecordData(data); })
+      .then((data) => {
+        if (cancelled) return;
+        setRecordData(data);
+        if (recordPanel === 'structure') setStructure(data);
+      })
       .catch((e: any) => { if (!cancelled) setRecordError(e.message || 'Unable to load this organization record.'); })
       .finally(() => { if (!cancelled) setRecordLoading(false); });
 
@@ -245,14 +311,15 @@ export default function CommandCenter({ tenantId, organizationName, organization
 
   useEffect(() => {
     if (!organization) return;
-    setProfileForm({ name: organization.name, orgCode: organization.orgCode, industry: organization.industry });
+    setLogoBroken(false);
+    setProfileForm(profileDraftFromOrganization(organization));
     setEditingProfile(false);
     setProfileError(null);
   }, [organization?.id]);
 
   const beginProfileEdit = () => {
     if (!organization) return;
-    setProfileForm({ name: organization.name, orgCode: organization.orgCode, industry: organization.industry });
+    setProfileForm(profileDraftFromOrganization(organization));
     setProfileError(null);
     setEditingProfile(true);
   };
@@ -262,11 +329,21 @@ export default function CommandCenter({ tenantId, organizationName, organization
     setProfileSaving(true);
     setProfileError(null);
     try {
-      const updated = await organizationApi.updateOrganization(organization.tenantId, organization.id, {
-        name: profileForm.name,
-        orgCode: profileForm.orgCode || null,
-        industry: profileForm.industry || null,
-      });
+      /*
+        ONLY WHAT THIS TENANT CAN HOLD, and only what the user could see.
+
+        Sending the whole vocabulary would ask the server to write columns this
+        organization's source system does not have; sending a field the form
+        never rendered would blank it from an untouched draft. Both are avoided
+        by building the payload from the same spec list the form was built from.
+      */
+      const payload: Record<string, string | null> = {};
+      for (const spec of supportedOrganizationFields(organization)) {
+        const value = (profileForm[spec.key] ?? '').toString().trim();
+        payload[spec.key] = value === '' ? null : value;
+      }
+
+      const updated = await organizationApi.updateOrganization(organization.tenantId, organization.id, payload);
       onUpdated?.(updated);
       setEditingProfile(false);
     } catch (e: any) {
@@ -418,12 +495,33 @@ export default function CommandCenter({ tenantId, organizationName, organization
     title: String(department.name || 'Unnamed department'),
     meta: `${Number(structure?.peopleByDepartment?.[department.id] ?? 0).toLocaleString()} ${memberNoun}`,
   }));
+  const recordedDetails = organization ? organizationDetailRows(organization) : [];
+  const structureFindings = departmentConcentration(structure, memberNoun);
+  const loopStagesWithData = LOOP_STAGES.filter((stage) => Number(counts[stage.key] ?? 0) > 0).length;
+  const loopCoverage = Math.round((loopStagesWithData / LOOP_STAGES.length) * 100);
 
   return (
     <div className="cc-page eb-fade-in">
       <header className="cc-org-hero">
         <div className="cc-org-hero__identity">
-          <div className="cc-org-hero__icon">{organization?.logo ? <img src={organization.logo} alt="" /> : <Building2 size={31} />}</div>
+          {/*
+            A LOGO THAT DOES NOT LOAD MUST LOOK LIKE NO LOGO, NOT LIKE A FAULT.
+
+            The source system stores a bare filename ('1756884159_Sids.jpg'),
+            which resolves against whatever origin the SPA happens to be served
+            from and frequently 404s. The <img> then rendered as an empty tinted
+            square — the first thing on the page, and unmistakably broken.
+
+            `logoBroken` flips on the element's own error event, so the fallback
+            is driven by whether the image actually loaded rather than by
+            guessing at the URL's shape. Reset per organization, so switching to
+            one whose logo does resolve shows it.
+          */}
+          <div className="cc-org-hero__icon">
+            {organization?.logo && !logoBroken
+              ? <img src={organization.logo} alt="" onError={() => setLogoBroken(true)} />
+              : <Building2 size={31} />}
+          </div>
           <div>
             <div className="cc-org-hero__title">
               <h1>{organizationName || organization?.name || 'Organization'}</h1>
@@ -438,6 +536,8 @@ export default function CommandCenter({ tenantId, organizationName, organization
               {organization?.industry && <span><Building2 size={14} /> {organization.industry}</span>}
               {organization?.orgCode && <span><IdCard size={14} /> {organization.orgCode}</span>}
               {organization?.country && <span><Globe2 size={14} /> {organization.country}</span>}
+              {organization?.email && <span><Mail size={14} /> {organization.email}</span>}
+              {organization?.phone && <span><Phone size={14} /> {organization.phone}</span>}
               {organization?.createdDate && <span><Calendar size={14} /> Created {formatShortDate(organization.createdDate)}</span>}
             </div>
           </div>
@@ -471,6 +571,18 @@ export default function CommandCenter({ tenantId, organizationName, organization
       </header>
 
       <section className="cc-kpi-grid" aria-label="What this organization contains">
+        <OverviewKpi
+          icon={<FolderTree />}
+          label="Departments"
+          value={activeDepartments}
+          detail={activeDepartments === 0
+            ? 'No departments are recorded for this organization'
+            : departmentSource === 'academic'
+              ? 'Teaching sections, from imported academic data'
+              : 'Units in the connected HR system'}
+          tone={activeDepartments === 0 ? 'warn' : 'good'}
+          onClick={() => onNavigate('departments')}
+        />
         {/*
           "Staff", not "People", and it says where it comes from.
 
@@ -513,24 +625,6 @@ export default function CommandCenter({ tenantId, organizationName, organization
             describe a population it is not counting. The old detail read
             "N without a manager" from an ERP-wide figure while the count came
             from the visibility-scoped list — 15 without a manager, out of 5. */}
-        <OverviewKpi
-          icon={<FolderTree />}
-          label="Departments"
-          value={activeDepartments}
-          /*
-            The detail names WHERE the count came from, because the same tile
-            legitimately shows two different kinds of unit. `departmentSource`
-            is published by the server beside the count, so this can never drift
-            from what was actually counted.
-          */
-          detail={activeDepartments === 0
-            ? 'None recorded for this organization'
-            : departmentSource === 'academic'
-              ? 'Teaching sections, from imported academic data'
-              : 'Units in the connected HR system'}
-          tone="good"
-          onClick={() => onNavigate('departments')}
-        />
         <OverviewKpi
           icon={<Target />}
           label="Capabilities"
@@ -575,8 +669,31 @@ export default function CommandCenter({ tenantId, organizationName, organization
           tone={importedRecords > 0 ? 'good' : 'warn'}
           onClick={() => onNavigate('ingestion')}
         />
+        <OverviewKpi
+          icon={<Network />}
+          label="Intelligence health"
+          value={`${loopCoverage}%`}
+          detail={`${loopStagesWithData} of ${LOOP_STAGES.length} loop stages contain tenant data`}
+          tone={loopStagesWithData >= 4 ? 'good' : loopStagesWithData > 0 ? 'warn' : 'crit'}
+          onClick={() => onNavigate('signals')}
+        />
       </section>
 
+      {/*
+        THE WHOLE LOOP, IN THE ORDER DATA MOVES THROUGH IT.
+
+        Foundation first — what the organization IS — then each stage of the
+        intelligence loop in sequence, then the cross-cutting views. Ordered
+        rather than alphabetised because the sequence is the product's central
+        claim: a signal is only meaningful beside the evidence under it, and a
+        decision only beside the case that produced it.
+
+        FILTERED BY ROLE. `visibleViewsForRole` is the same advisory list the
+        sidebar draws from, so a tile is never offered here that the menu hides
+        — a member clicking through to a screen their role cannot open would
+        land on an empty pane, which reads as a broken product rather than as a
+        permission boundary.
+      */}
       <section className="cc-flow" aria-label="Progress through the intelligence loop">
         <div className="cc-section-head">
           <div>
@@ -631,9 +748,15 @@ export default function CommandCenter({ tenantId, organizationName, organization
               {attention.map((item) => (
                 <li key={item.id}>
                   <button type="button" onClick={() => onNavigate(viewFromHomeLink(item.link))}>
-                    <span className="cc-attention__tone" data-health={item.severity === 'high' ? 'crit' : 'warn'}><AlertTriangle size={16} /></span>
+                    <span className="cc-attention__tone" data-health={severityTone(item.severity)}><AlertTriangle size={16} /></span>
                     <span>
-                      <strong>{item.title}</strong>
+                      <strong>
+                        {item.title}
+                        {/* The queue is already in server-ranked order; the chip
+                            says how far apart two adjacent rows actually are,
+                            which the ordering alone cannot. */}
+                        <em className="cc-attention__severity" data-health={severityTone(item.severity)}>{item.severity}</em>
+                      </strong>
                       <small>{item.description}</small>
                     </span>
                     <ArrowRight size={16} />
@@ -645,6 +768,40 @@ export default function CommandCenter({ tenantId, organizationName, organization
         </section>
 
         <aside className="cc-side-stack">
+          {/*
+            WHERE THE ORGANIZATION IS LOPSIDED.
+
+            The attention queue above is the server's, and it is about records:
+            people without a unit, unresolved signals, decisions waiting. This is
+            about SHAPE, and it is derived here because the structure payload is
+            already on screen for the org chart — no second request, and nothing
+            claimed that the reader cannot check against the table below.
+
+            It renders only when there is something to say. A well-balanced
+            organization gets no panel rather than a panel saying it is fine.
+          */}
+          {structureFindings.length > 0 && (
+            <section className="cc-panel cc-concentration" aria-labelledby="cc-concentration">
+              <div className="cc-section-head">
+                <div>
+                  <span className="cc-kicker">Structure</span>
+                  <h2 id="cc-concentration">How the workforce sits</h2>
+                </div>
+              </div>
+              <ul className="cc-concentration__list">
+                {structureFindings.map((finding) => (
+                  <li key={finding.title} data-tone={finding.tone}>
+                    <strong>{finding.title}</strong>
+                    <small>{finding.detail}</small>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="eb-link-btn cc-concentration__more" onClick={() => onNavigate('departments')}>
+                Open Department Performance
+              </button>
+            </section>
+          )}
+
           <section className="cc-panel cc-org-details">
             <div className="cc-section-head">
               <div>
@@ -659,26 +816,38 @@ export default function CommandCenter({ tenantId, organizationName, organization
               <p className="cc-empty">No organization record is selected.</p>
             ) : editingProfile && profileForm ? (
               <form className="cc-profile-editor" onSubmit={(event) => { event.preventDefault(); void saveProfile(); }}>
-                <label>Name<input required value={profileForm.name} onChange={(event) => setProfileForm({ ...profileForm, name: event.target.value })} /></label>
-                <label>Organization code<input value={profileForm.orgCode} onChange={(event) => setProfileForm({ ...profileForm, orgCode: event.target.value })} /></label>
-                <label>Industry<input value={profileForm.industry || ''} onChange={(event) => setProfileForm({ ...profileForm, industry: event.target.value || null })} /></label>
-                <p className="cc-profile-editor__note">Legal name, logo, country, timezone, currency and status are owned by the connected source system and are read-only here.</p>
+                {supportedOrganizationFields(organization).map((spec) => (
+                  <label key={spec.key} className={spec.wide ? 'cc-profile-editor__wide' : undefined}>
+                    {spec.label}
+                    <input
+                      type={spec.inputType ?? 'text'}
+                      required={spec.required}
+                      value={profileForm[spec.key] ?? ''}
+                      onChange={(event) => setProfileForm({ ...profileForm, [spec.key]: event.target.value })}
+                    />
+                  </label>
+                ))}
+                <p className="cc-profile-editor__note">
+                  These are the organization fields this tenant&rsquo;s connected system of record can hold.
+                  Anything it does not keep a column for is not shown, rather than offered and then discarded.
+                </p>
                 {profileError && <p className="cc-record__error">{profileError}</p>}
                 <div className="cc-profile-editor__actions">
                   <button type="submit" disabled={profileSaving}>{profileSaving ? 'Saving…' : 'Save changes'}</button>
                   <button type="button" className="eb-pill-btn" disabled={profileSaving} onClick={() => { setEditingProfile(false); setProfileError(null); }}>Cancel</button>
                 </div>
               </form>
-            ) : (
+            ) : recordedDetails.length > 0 ? (
               <dl className="cc-detail-list">
-                <div><dt>Legal name</dt><dd>{organization.legalName || 'Not recorded'}</dd></div>
-                <div><dt>Organization code</dt><dd>{organization.orgCode || 'Not recorded'}</dd></div>
-                <div><dt>Industry</dt><dd>{organization.industry || 'Not recorded'}</dd></div>
-                <div><dt>Country</dt><dd>{organization.country || 'Not recorded'}</dd></div>
-                <div><dt>Timezone</dt><dd>{organization.timezone || 'Not recorded'}</dd></div>
-                <div><dt>Currency</dt><dd>{organization.currency || 'Not recorded'}</dd></div>
-                <div><dt>Last updated</dt><dd>{formatDate(organization.updatedDate) || 'Not recorded'}</dd></div>
+                {recordedDetails.map((row) => (
+                  <div key={row.label}>
+                    <dt>{row.label}</dt>
+                    <dd>{row.value}</dd>
+                  </div>
+                ))}
               </dl>
+            ) : (
+              <p className="cc-empty">This source record has no additional profile fields mapped yet.</p>
             )}
           </section>
 
@@ -855,10 +1024,164 @@ export default function CommandCenter({ tenantId, organizationName, organization
   );
 }
 
+/** The three server severities, mapped onto the product's three status tones. */
+function severityTone(severity: string): 'crit' | 'warn' | 'state' {
+  return severity === 'high' ? 'crit' : severity === 'medium' ? 'warn' : 'state';
+}
+
+/**
+ * What the department headcounts say about the organization's shape.
+ *
+ * THREE FINDINGS, EACH WITH THE ARITHMETIC IN THE SENTENCE. Concentration,
+ * emptiness and imbalance are the three things a distribution of people across
+ * units can be wrong about, and each is stated with the numbers that produced
+ * it so a reader can disagree with the conclusion rather than only with the
+ * tone.
+ *
+ * Derived from the structure payload the org chart already needed. Returns an
+ * empty list when the organization is unremarkable, which is the correct output
+ * and not a failure — the panel above renders nothing in that case rather than
+ * congratulating anyone.
+ */
+function departmentConcentration(structure: any, memberNoun: string): Array<{ title: string; detail: string; tone: 'warn' | 'crit' | 'state' }> {
+  const departments = asArray(structure?.departments);
+  const perDepartment = structure?.peopleByDepartment ?? {};
+
+  if (departments.length < 2) return [];
+
+  const sized = departments
+    .map((d: any) => ({ name: String(d?.name ?? 'Unnamed unit'), people: Number(perDepartment?.[d?.id] ?? 0) }))
+    .filter((d) => Number.isFinite(d.people));
+
+  const total = sized.reduce((sum, d) => sum + d.people, 0);
+  if (total === 0) return [];
+
+  const staffed = sized.filter((d) => d.people > 0).sort((a, b) => b.people - a.people);
+  const empty = sized.length - staffed.length;
+  const findings: Array<{ title: string; detail: string; tone: 'warn' | 'crit' | 'state' }> = [];
+
+  const largest = staffed[0];
+  if (largest && largest.people / total >= 0.4) {
+    const share = Math.round((largest.people / total) * 100);
+    findings.push({
+      title: `${share}% of ${memberNoun} sit in one unit`,
+      detail: `${largest.name} holds ${largest.people.toLocaleString()} of ${total.toLocaleString()}. Concentration at this level is where a single departure or absence has organization-wide reach.`,
+      tone: share >= 60 ? 'crit' : 'warn',
+    });
+  }
+
+  if (empty > 0) {
+    findings.push({
+      title: `${empty} ${empty === 1 ? 'unit holds' : 'units hold'} nobody`,
+      detail: `${empty} of ${sized.length} recorded units have no one assigned in the source system. Either the unit is dormant or the assignments were never made — both are worth resolving before the structure is used for anything.`,
+      tone: 'warn',
+    });
+  }
+
+  const smallest = staffed[staffed.length - 1];
+  if (staffed.length >= 3 && largest && smallest && smallest.people > 0 && largest.people >= smallest.people * 8) {
+    findings.push({
+      title: 'Units differ enormously in size',
+      detail: `${largest.name} holds ${largest.people.toLocaleString()} and ${smallest.name} holds ${smallest.people.toLocaleString()} — a spread of ${Math.round(largest.people / smallest.people)}×. Comparing their metrics directly will mislead.`,
+      tone: 'state',
+    });
+  }
+
+  return findings;
+}
+
 function asArray(value: unknown): any[] {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return Object.values(value);
   return [];
+}
+
+/**
+ * The record fields this organization's source system can actually hold, in
+ * reading order.
+ *
+ * `name` is kept unconditionally: it is the one field every organization
+ * register in existence has, it is how the row is identified everywhere else in
+ * the product, and a form that cannot rename an organization is not an edit
+ * form. Everything else has to be claimed by the server.
+ */
+function supportedOrganizationFields(organization: Organization): OrganizationFieldSpec[] {
+  // Defensive against a payload that predates the capability lists — a cached
+  // response, a fixture, a server mid-deploy. `name` alone is a poorer screen
+  // than the old one, so an organization that claims nothing falls back to the
+  // three fields every register has always had.
+  const claimed = [
+    ...(Array.isArray(organization.identityFields) ? organization.identityFields : []),
+    ...(Array.isArray(organization.profileFields) ? organization.profileFields : []),
+  ];
+  const supported = new Set<string>(
+    claimed.length > 0 ? [...claimed, 'name'] : ['name', 'orgCode', 'industry', 'legalName'],
+  );
+
+  return ORGANIZATION_FIELDS.filter((spec) => supported.has(spec.key));
+}
+
+function profileDraftFromOrganization(organization: Organization): OrganizationProfileDraft {
+  const draft: OrganizationProfileDraft = {};
+
+  for (const spec of ORGANIZATION_FIELDS) {
+    draft[spec.key] = (organization[spec.key] ?? null) as string | null;
+  }
+
+  return draft;
+}
+
+/**
+ * 'mon-sat' is how the ERP stores it and not how anyone reads it.
+ *
+ * Deliberately conservative: a value it does not recognise is returned as
+ * written rather than guessed at, because a working week is a fact about the
+ * organization and inventing one is worse than showing the raw token.
+ */
+function describeWorkWeek(value: string): string {
+  const days: Record<string, string> = {
+    mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
+    fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
+  };
+  const parts = value.toLowerCase().split(/[-–—to\s]+/).filter(Boolean);
+
+  if (parts.length === 2 && days[parts[0]] && days[parts[1]]) {
+    return `${days[parts[0]]} to ${days[parts[1]]}`;
+  }
+
+  return value;
+}
+
+function meaningfulValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const text = String(value).trim();
+  return text === '' || text === '-' || text === '--' || text === '---' || text.toLowerCase() === 'not recorded'
+    ? ''
+    : text;
+}
+
+/**
+ * The rows worth printing: a supported field that has a value.
+ *
+ * TWO FILTERS, AND THEY MEAN DIFFERENT THINGS. A field the tenant cannot hold
+ * never appears — there is nothing to say about it. A supported field that is
+ * simply empty also does not appear here, because a list of "Not recorded" is
+ * noise; the way to fill one in is the Edit button above, which DOES show it.
+ */
+function organizationDetailRows(organization: Organization): Array<{ label: string; value: string }> {
+  const rows = supportedOrganizationFields(organization)
+    // The name is the panel's heading two elements up; repeating it as a row is
+    // the kind of duplication that makes a record panel look padded.
+    .filter((spec) => spec.key !== 'name' && spec.key !== 'logo')
+    .map((spec) => {
+      const value = meaningfulValue(organization[spec.key]);
+      return { label: spec.label, value: value === '' ? '' : (spec.display?.(value) ?? value) };
+    })
+    .filter((row) => row.value !== '');
+
+  const updated = meaningfulValue(formatDate(organization.updatedDate));
+
+  return updated === '' ? rows : [...rows, { label: 'Last updated', value: updated }];
 }
 
 function StructurePanel({ data }: { data: any }) {

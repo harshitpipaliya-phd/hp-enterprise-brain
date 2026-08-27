@@ -117,7 +117,8 @@ export default function AcademicSectionView({ organization, hrDepartmentCount, o
     <div className="dept-intel">
       <header className="dept-intel__header">
         <div>
-          <h1>Departments</h1>
+          <span className="eb-page-kicker">Foundation</span>
+          <h1>Department Performance</h1>
           <p>
             {organization.name} records no departments in its HR system. Its {totals.students.toLocaleString()}{' '}
             students are grouped below into the school&apos;s teaching sections, by the standard each child

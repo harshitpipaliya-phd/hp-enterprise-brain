@@ -67,7 +67,7 @@ export default function CapabilityApp({ organization, onBack }: { organization: 
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
-          <h1>Capabilities</h1>
+          <span className="eb-page-kicker">Foundation</span><h1>Capability Coverage</h1>
           <p>What {organization.name} needs its people to be able to do, and who is currently assigned to each.</p>
         </div>
         {view === 'list' && <button onClick={() => navigate('create')}>+ New Capability</button>}

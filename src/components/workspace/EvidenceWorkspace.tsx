@@ -505,7 +505,8 @@ export default function EvidenceWorkspace({ tenantId, onNavigate }: { tenantId: 
   return (
     <div className="evidence-intel">
       <header className="evidence-intel__header">
-        <h1>Evidence</h1>
+        <span className="eb-page-kicker">Intelligence Loop</span>
+        <h1>Evidence &amp; Provenance</h1>
         <p>What supports each signal this organization has raised — where it came from, when it was observed, and how firmly it is held.</p>
         <div className="evidence-intel__actions">
           <button onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ Add evidence'}</button>

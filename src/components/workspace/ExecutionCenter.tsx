@@ -214,7 +214,7 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
       <header className="intel-header">
         <div>
           <span className="intel-eyebrow"><PlayCircle size={14} /> Intelligence Loop</span>
-          <h1>Execution Center</h1>
+          <span className="eb-page-kicker">Intelligence Loop</span><h1>Execution & Outcomes</h1>
           <p>What has actually been done about the decisions this organization approved, and what the result was.</p>
           <div className="intel-meta">
             <div className="intel-meta-card">

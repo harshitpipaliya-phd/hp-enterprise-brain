@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect } from 'react';
 import type { Organization } from '../../App';
+import { API_BASE } from '../../api/client';
 import { getAccessToken } from '../../utils/authTokens';
 
 interface Props {
@@ -41,7 +42,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
     setAuditLoading(true);
     setAuditError(null);
     const token = getAccessToken();
-    fetch('/api/v1/organizations/' + organization.tenantId + '/' + organization.id + '/audit', {
+    fetch(`${API_BASE}/organizations/${organization.tenantId}/${organization.id}/audit`, {
       headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
     })
       .then((r) => r.json())
@@ -55,7 +56,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
     setStructureLoading(true);
     setStructureError(null);
     const token = getAccessToken();
-    fetch('/api/v1/organizations/' + organization.tenantId + '/' + organization.id + '/structure', {
+    fetch(`${API_BASE}/organizations/${organization.tenantId}/${organization.id}/structure`, {
       headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
     })
       .then((r) => { if (!r.ok) throw new Error('Failed to load structure'); return r.json(); })
@@ -69,7 +70,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
     setQualityLoading(true);
     setQualityError(null);
     const token = getAccessToken();
-    fetch('/api/v1/organizations/' + organization.tenantId + '/' + organization.id + '/data-quality', {
+    fetch(`${API_BASE}/organizations/${organization.tenantId}/${organization.id}/data-quality`, {
       headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
     })
       .then((r) => { if (!r.ok) throw new Error('Failed to load data quality'); return r.json(); })

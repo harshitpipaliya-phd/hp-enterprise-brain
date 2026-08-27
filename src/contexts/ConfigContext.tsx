@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_BASE } from '../api/client';
+import { getAccessToken } from '../utils/authTokens';
 
 interface ConfigContextValue {
   terminology: Record<string, string>;
@@ -24,9 +26,11 @@ export const ConfigProvider: React.FC<{ children: ReactNode; tenantId: string; i
   useEffect(() => {
     if (!tenantId || !industryCode || !roleKey) return;
 
+    const headers = { Accept: 'application/json', Authorization: `Bearer ${getAccessToken()}` };
+
     Promise.all([
-      fetch(`/api/v1/terminology/${tenantId}?industry_code=${encodeURIComponent(industryCode)}`).then(r => r.json()),
-      fetch(`/api/v1/navigation/${tenantId}?industry_code=${encodeURIComponent(industryCode)}&role_key=${encodeURIComponent(roleKey)}`).then(r => r.json()),
+      fetch(`${API_BASE}/terminology/${tenantId}?industry_code=${encodeURIComponent(industryCode)}`, { headers }).then(r => r.json()),
+      fetch(`${API_BASE}/navigation/${tenantId}?industry_code=${encodeURIComponent(industryCode)}&role_key=${encodeURIComponent(roleKey)}`, { headers }).then(r => r.json()),
     ])
       .then(([termData, navData]) => {
         const termMap: Record<string, string> = {};

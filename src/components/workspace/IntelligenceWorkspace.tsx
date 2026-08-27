@@ -116,7 +116,7 @@ export default function IntelligenceWorkspace({ tenantId, onNavigate }: { tenant
       <header className="intel-header">
         <div>
           <span className="intel-eyebrow"><Brain size={14} /> Intelligence Loop</span>
-          <h1>Intelligence Workspace</h1>
+          <span className="eb-page-kicker">Intelligence Loop</span><h1>Organization Intelligence</h1>
           <p>
             What {data.organization?.name || 'this organization'} currently knows about itself: what is happening,
             what supports it, what is recommended, and what is waiting on a decision.

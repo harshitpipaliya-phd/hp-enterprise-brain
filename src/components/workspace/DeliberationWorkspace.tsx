@@ -144,7 +144,7 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
       <header className="intel-header intel-deliberation-header">
         <div>
           <span className="intel-eyebrow"><Scale size={14} /> Intelligence Loop</span>
-          <h1>Deliberation Workspace</h1>
+          <span className="eb-page-kicker">Intelligence Loop</span><h1>Cases & Deliberation</h1>
           <p>Open investigations, the evidence behind each one, what could explain it, and the decision waiting on you.</p>
           <div className="intel-meta">
             <div className="intel-meta-card">

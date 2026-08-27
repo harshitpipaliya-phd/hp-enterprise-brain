@@ -1,6 +1,33 @@
 import { getAuthTenantId } from '../utils/tenant.js';
 import { request } from './client.js';
 
+/**
+ * Every organization field the product knows how to show and edit.
+ *
+ * WHICH OF THEM A GIVEN TENANT ACTUALLY HAS is not a property of this type — it
+ * is `profileFields` / `identityFields` below, computed per tenant by the server
+ * from the entity mapping and the physical schema of the source table. A field
+ * absent from those lists is one this organization's system of record has no
+ * column for, and the screens omit it rather than printing "Not recorded"
+ * against something that can never be recorded.
+ */
+export type OrganizationField =
+  | 'name'
+  | 'orgCode'
+  | 'industry'
+  | 'legalName'
+  | 'registrationNumber'
+  | 'taxId'
+  | 'country'
+  | 'address'
+  | 'email'
+  | 'phone'
+  | 'website'
+  | 'contactPerson'
+  | 'employeeCount'
+  | 'workWeek'
+  | 'logo';
+
 export interface OrganizationRow {
   id: string;
   tenantId: string;
@@ -11,11 +38,37 @@ export interface OrganizationRow {
   country: string | null;
   timezone: string | null;
   currency: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  address: string | null;
+  registrationNumber: string | null;
+  /** Company/tax registration the ERP keeps beside the legal name (GSTIN, VAT…). */
+  taxId: string | null;
+  /** The named human the source system records as the point of contact. */
+  contactPerson: string | null;
+  /**
+   * A BAND, NOT A COUNT. Source systems record this as the range an onboarding
+   * form asked for ('51-200'), so it is a string and must never be summed,
+   * compared numerically, or rendered beside a real headcount as if the two
+   * measured the same thing.
+   */
+  employeeCount: string | null;
+  /** e.g. 'mon-fri', 'mon-sat' — what "a working week" means for this tenant. */
+  workWeek: string | null;
   logo: string | null;
   status: string;
   createdBy: string;
   createdDate: string;
   updatedDate: string;
+  /**
+   * The profile fields this tenant's source system can hold, server-computed.
+   * Empty when the server is older than this client, which the screens read as
+   * "assume the classic three" rather than "this organization has nothing".
+   */
+  profileFields: OrganizationField[];
+  /** The identity fields (name / code / industry) the register itself carries. */
+  identityFields: OrganizationField[];
 }
 
 /** One table in a deletion plan, as the preview endpoint reports it. */
@@ -43,6 +96,13 @@ export interface DeletionPreview {
     sourceSystem: number;
   };
   tables: DeletionPreviewTable[];
+  /**
+   * Rows in tables this organization does NOT own directly, reached through a
+   * foreign key into one it does — a junction table with no tenant column of
+   * its own. Reported apart from `tables` because they are a different kind of
+   * thing, and counted in `totals.rows` because they are destroyed too.
+   */
+  dependents?: Array<{ table: string; column: string; via: string; tier: DeletionPreviewTable['tier']; rows: number }>;
   /** Expected tables discovery did not find — a migration or config warning. */
   missingReferences: string[];
 }
@@ -69,12 +129,45 @@ function normalize(row: any, _listedUnder: string): OrganizationRow {
     country: row.country ?? null,
     timezone: row.timezone ?? null,
     currency: row.currency ?? null,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    website: row.website ?? null,
+    address: row.address ?? null,
+    registrationNumber: row.registration_number ?? row.registrationNumber ?? null,
+    taxId: row.tax_id ?? row.taxId ?? null,
+    contactPerson: row.contact_person ?? row.contactPerson ?? null,
+    employeeCount: emptyToNull(row.employee_count ?? row.employeeCount),
+    workWeek: emptyToNull(row.work_week ?? row.workWeek),
     logo: row.logo ?? null,
     status: row.status ?? 'active',
     createdBy: String(row.created_by ?? row.createdBy ?? ''),
     createdDate: row.created_date ?? row.createdDate ?? '',
     updatedDate: row.updated_date ?? row.updatedDate ?? '',
+    profileFields: fieldList(row.profile_fields ?? row.profileFields),
+    identityFields: fieldList(row.identity_fields ?? row.identityFields, DEFAULT_IDENTITY_FIELDS),
   };
+}
+
+/**
+ * A server older than this client publishes no capability list. Falling back to
+ * the three fields every organization register has ever had keeps the edit form
+ * usable instead of empty, and is the smallest claim that can be made safely.
+ */
+const DEFAULT_IDENTITY_FIELDS: OrganizationField[] = ['name', 'orgCode', 'industry'];
+
+function fieldList(value: unknown, fallback: OrganizationField[] = []): OrganizationField[] {
+  if (!Array.isArray(value) || value.length === 0) return fallback;
+  return value.map((entry) => (entry === 'code' ? 'orgCode' : String(entry))) as OrganizationField[];
+}
+
+/**
+ * '' and '0' are what an ERP writes into an optional text column nobody filled
+ * in. Carrying them through would put an empty row on the screen, which is the
+ * "meaningless 0" the profile panel exists to avoid.
+ */
+function emptyToNull(value: unknown): string | null {
+  const text = String(value ?? '').trim();
+  return text === '' || text === '0' ? null : text;
 }
 
 function scopedTenant(fallback: string): string {

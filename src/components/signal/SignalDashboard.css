@@ -541,3 +541,185 @@
   color: var(--content-secondary);
   line-height: 1.6;
 }
+
+/* =============================================================================
+   SIGNAL INTELLIGENCE — the answers a row could not give
+
+   The queue used to state what was noticed and stop there. These are the
+   columns and the drawer that answer the reader's next four questions: how
+   often, which way is it going, what do the occurrences share, and is this the
+   one to open first.
+   ============================================================================= */
+
+/* The title doubles as the disclosure control — see the note at its call site. */
+.signal-intel__disclose {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  text-align: left;
+}
+
+/*
+  The bare <button> in theme.css paints a filled control on hover and focus.
+  That is right for a control and wrong for a heading, and on the open row it
+  drew a gold block around the signal's title. Cleared in every state; the
+  focus ring is restored explicitly so the row is still keyboard-navigable.
+*/
+.signal-intel__disclose:hover,
+.signal-intel__disclose:focus,
+.signal-intel__disclose:focus-visible,
+.signal-intel__disclose:active {
+  background: none;
+  box-shadow: none;
+  color: inherit;
+}
+
+.signal-intel__disclose:focus-visible {
+  outline: 2px solid var(--accent-intelligence);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+.signal-intel__disclose:hover .signal-intel__title { text-decoration: underline; }
+
+.signal-intel__chevron {
+  flex: 0 0 auto;
+  color: var(--content-tertiary);
+  transition: transform 120ms ease;
+}
+
+tr[data-open='true'] .signal-intel__chevron { transform: rotate(90deg); }
+
+/*
+  THE RANKING CHIP. Three levels, not five: a reader triaging a queue is
+  deciding between "open this now", "get to it this week" and "leave it", and a
+  scale with more steps than the decision has options is decoration.
+*/
+.signal-intel__attention {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.signal-intel__attention[data-level='now'] {
+  color: var(--status-crit);
+  background: color-mix(in srgb, var(--status-crit) 14%, transparent);
+}
+.signal-intel__attention[data-level='soon'] {
+  color: var(--status-warn);
+  background: color-mix(in srgb, var(--status-warn) 16%, transparent);
+}
+.signal-intel__attention[data-level='watch'] {
+  color: var(--content-tertiary);
+  background: var(--surface-inset);
+}
+
+.signal-intel__recurrence strong {
+  display: block;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.signal-intel__recurrence small {
+  display: block;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Rising is not automatically bad and easing is not automatically good — the
+   arrow carries the direction and the colour stays quiet, so the severity
+   column keeps its job. */
+.signal-intel__recurrence small[data-direction='up']   { color: var(--status-warn); }
+.signal-intel__recurrence small[data-direction='down'] { color: var(--status-good); }
+.signal-intel__recurrence small[data-direction='flat'] { color: var(--content-tertiary); }
+
+.signal-intel__detail-row > td {
+  padding: 0;
+  background: var(--surface-inset);
+}
+
+.signal-intel__detail {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.signal-intel__detail dl {
+  display: grid;
+  /* auto-fit, so the six facts sit three across on a monitor and one across in
+     a narrow window without either being squeezed below a readable width. */
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0 0 var(--space-3);
+}
+
+.signal-intel__detail dt {
+  margin-bottom: 2px;
+  color: var(--content-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+.signal-intel__detail dd {
+  margin: 0;
+  color: var(--content-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.signal-intel__why {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2-5) var(--space-3-5);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--content-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.signal-intel__why[data-level='now']   { border-left-color: var(--status-crit); }
+.signal-intel__why[data-level='soon']  { border-left-color: var(--status-warn); }
+.signal-intel__why[data-level='watch'] { border-left-color: var(--accent-intelligence); }
+
+.signal-intel__why strong { color: var(--content-primary); }
+
+/* Signal → Evidence → Case → Decision, as one line the reader can walk. */
+.signal-intel__chain {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--content-tertiary);
+  font-size: 12px;
+}
+
+.signal-intel__chain button {
+  padding: 4px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  box-shadow: none;
+  color: var(--content-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.signal-intel__chain button:hover {
+  border-color: var(--border-strong);
+  color: var(--content-primary);
+}
+
+.signal-intel__chain svg { color: var(--content-tertiary); }

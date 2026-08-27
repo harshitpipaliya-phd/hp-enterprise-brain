@@ -301,8 +301,12 @@ export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string 
               {(openCategory
                 ? quadrant.points.filter((p) => p.category === openCategory)
                 : visibleCategories.map((c) => quadrant.points.find((p) => p.category === c.category)).filter(Boolean)
-              ).slice(0, 5).map((p) => p && (
-                <CategoryDetail key={p.category} point={p} accuracyMode={decisions.accuracy.measurable} />
+              /* Index-suffixed: `category` is a LABEL, and two accuracy points
+                 for the same category are a legitimate shape of this data —
+                 keying on it alone made React warn and, worse, reuse the wrong
+                 row's state when the filter changed. */
+              ).slice(0, 5).map((p, index) => p && (
+                <CategoryDetail key={`${p.category}-${index}`} point={p} accuracyMode={decisions.accuracy.measurable} />
               ))}
               {quadrant.provenance && <ProvenanceDetails provenance={quadrant.provenance} />}
             </div>

@@ -156,7 +156,10 @@ describe('CommandCenter organization overview', () => {
 
     await waitFor(() => expect(getHomeMetrics).toHaveBeenCalledWith('1000000'));
     expect(listCapabilities).toHaveBeenCalledWith('1000000', '1000000');
-    expect(listDepartments).toHaveBeenCalledWith('1000000', '1000000');
+    // Departments are NOT fetched from the department list endpoint here. The
+    // overview reads them out of the structure response, which is the same
+    // payload it already needs for the org chart, so asking for them twice
+    // would be a second round trip for rows it is holding.
     expect(getStructure).toHaveBeenCalledWith('1000000', '1000000');
     expect(listSources).toHaveBeenCalledWith('1000000');
   });

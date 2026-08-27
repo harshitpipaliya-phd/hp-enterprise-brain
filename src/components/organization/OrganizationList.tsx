@@ -29,6 +29,48 @@ interface Props {
  * product.
  */
 export default function OrganizationList({ organizations, loading, onSelect, onEdit, onArchive }: Props) {
+  /*
+    A COLUMN THAT CAN NEVER HAVE A VALUE IS NOT A COLUMN.
+
+    Country, industry and code exist only where the connected source system
+    keeps them, and each organization publishes which of them it can hold. A
+    tenant whose ERP has no country column got a Country column of "Not
+    recorded" on every row — a full column of the table saying nothing, which is
+    worse than not asking.
+
+    `some` rather than `every`: with two organizations from different source
+    systems, a column one of them can fill is still worth showing. The other
+    row then reads "Not recorded", which in that context is a real fact about
+    that organization rather than about the product.
+  */
+  const holds = (field: 'orgCode' | 'industry' | 'country'): boolean =>
+    organizations.some((org) => {
+      const universal = field === 'orgCode' ? 'orgCode' : field;
+      return [...(org.identityFields ?? []), ...(org.profileFields ?? [])].includes(universal as never)
+        || Boolean(org[field]);
+    });
+
+  const optional: Array<Column<Organization>> = [
+    holds('orgCode') ? {
+      key: 'orgCode',
+      header: 'Code',
+      secondary: true,
+      render: (org: Organization) => org.orgCode || <span className="u-muted">Not set</span>,
+    } : null,
+    holds('industry') ? {
+      key: 'industry',
+      header: 'Industry',
+      secondary: true,
+      render: (org: Organization) => org.industry || <span className="u-muted">Not recorded</span>,
+    } : null,
+    holds('country') ? {
+      key: 'country',
+      header: 'Country',
+      secondary: true,
+      render: (org: Organization) => org.country || <span className="u-muted">Not recorded</span>,
+    } : null,
+  ].filter(Boolean) as Array<Column<Organization>>;
+
   const columns: Array<Column<Organization>> = [
     {
       key: 'name',
@@ -37,24 +79,7 @@ export default function OrganizationList({ organizations, loading, onSelect, onE
         <button type="button" className="eb-link-btn" onClick={() => onSelect(org)}>{org.name}</button>
       ),
     },
-    {
-      key: 'orgCode',
-      header: 'Code',
-      secondary: true,
-      render: (org) => org.orgCode || <span className="u-muted">Not set</span>,
-    },
-    {
-      key: 'industry',
-      header: 'Industry',
-      secondary: true,
-      render: (org) => org.industry || <span className="u-muted">Not recorded</span>,
-    },
-    {
-      key: 'country',
-      header: 'Country',
-      secondary: true,
-      render: (org) => org.country || <span className="u-muted">Not recorded</span>,
-    },
+    ...optional,
     {
       key: 'status',
       header: 'Status',

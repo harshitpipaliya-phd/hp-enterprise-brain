@@ -393,8 +393,9 @@ export default function DepartmentList({ organization, departments, loading, onS
     <div className="dept-intel">
       <header className="dept-intel__header">
         <div>
-          <h1>Departments</h1>
-          <p>How {organization.name} is structured: each unit, who leads it, and how many {memberPlural} are in it.</p>
+          <span className="eb-page-kicker">Foundation</span>
+          <h1>Department Performance</h1>
+          <p>How {organization.name} is structured: each unit, who leads it, how many {memberPlural} are in it, and which units need attention.</p>
         </div>
         <div className="dept-intel__actions">
           <button className="dept-intel__ghost" onClick={onBack}>Back to Organization</button>

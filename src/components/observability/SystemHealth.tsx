@@ -34,7 +34,7 @@ export default function SystemHealth() {
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 800, margin: '0 auto', padding: 24 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1>System Health</h1>
+        <span className="eb-page-kicker">Automation</span><h1>System Health</h1>
         <button onClick={load}>Refresh</button>
       </header>
 

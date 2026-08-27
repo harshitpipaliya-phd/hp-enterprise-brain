@@ -9,9 +9,10 @@
  */
 
 .cc-page {
-  max-width: 1440px;
+  width: min(100%, 1480px);
+  max-width: none;
   margin: 0 auto;
-  padding: var(--space-6);
+  padding: clamp(18px, 2vw, var(--space-6));
   color: var(--content-primary);
 }
 
@@ -28,8 +29,8 @@
 /* ---------------------------------------------------------------- hero --- */
 
 .cc-org-hero {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
   gap: var(--space-5);
   padding: var(--space-5) 0 var(--space-6);
@@ -111,6 +112,7 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+  max-width: 560px;
 }
 
 .cc-danger-outline {
@@ -121,9 +123,20 @@
 
 /* ----------------------------------------------------------------- kpis --- */
 
+/*
+  THE FLOOR IS SET SO THE WHOLE STRIP FITS ON ONE ROW.
+
+  At 198px the six tiles needed 1248px and the content column offers about
+  1140 on a laptop, so five wrapped and the sixth sat alone beside a third of a
+  row of empty page — the "oversized empty area" this pass exists to remove.
+  MEASURED, NOT ESTIMATED: the content column is 1116px on a 1440px window and
+  the grid gap is 16px, so six columns need a floor of at most
+  (1116 - 5x16) / 6 = 172px. 168px clears it and still lets the strip drop to
+  three and then two as the window narrows.
+*/
 .cc-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
   gap: var(--space-3);
   margin-bottom: var(--space-5);
 }
@@ -194,13 +207,32 @@
   color: var(--content-secondary);
 }
 
+/*
+  A KPI VALUE IS USUALLY A NUMBER AND SOMETIMES A WORD.
+
+  "Unavailable" is a legitimate value — it is what the tile says when a count
+  genuinely could not be obtained — and at 30px it broke as "Unavaila / ble",
+  mid-word, because the default `overflow-wrap: break-word` inherited from the
+  content column applies to a token wider than its box.
+
+  Two rules fix it and neither touches the numbers: words break at word
+  boundaries only, and a value long enough to need it is set in a smaller size
+  that fits. `ch` units, so the threshold follows the font rather than a pixel
+  guess.
+*/
 .cc-overview-kpi strong {
   display: block;
   margin-top: 9px;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
   font-family: var(--mono);
-  font-size: 30px;
-  line-height: 1;
+  font-size: clamp(19px, 2.4cqw, 30px);
+  line-height: 1.05;
 }
+
+/* Container queries need a containment context; the tile is the natural one. */
+.cc-overview-kpi { container-type: inline-size; }
 
 .cc-overview-kpi small {
   display: block;
@@ -304,7 +336,7 @@
 
 .cc-main-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
   gap: var(--space-5);
   margin-bottom: var(--space-5);
   align-items: start;
@@ -367,6 +399,40 @@
 
 .cc-attention__tone[data-health='crit'] { color: var(--color-red-700); }
 .cc-attention__tone[data-health='warn'] { color: var(--color-amber-700); }
+.cc-attention__tone[data-health='state'] { color: var(--content-tertiary); }
+
+/*
+  THE SEVERITY, SAID RATHER THAN IMPLIED.
+
+  The queue arrives ranked, so position already carries some of this — but two
+  adjacent rows can be a whole band apart, and a reader deciding what to open
+  first is entitled to see which. Inline with the title rather than on its own
+  line, so a row stays one line tall.
+*/
+.cc-attention__severity {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.cc-attention__severity[data-health='crit'] {
+  color: var(--color-red-700);
+  background: color-mix(in srgb, var(--color-red-700) 12%, transparent);
+}
+.cc-attention__severity[data-health='warn'] {
+  color: var(--color-amber-700);
+  background: color-mix(in srgb, var(--color-amber-700) 15%, transparent);
+}
+.cc-attention__severity[data-health='state'] {
+  color: var(--content-tertiary);
+  background: var(--surface-inset);
+}
 
 .cc-healthy {
   min-height: 300px;
@@ -548,7 +614,8 @@
 }
 
 .cc-profile-editor__note,
-.cc-profile-editor__actions { grid-column: 1 / -1; }
+.cc-profile-editor__actions,
+.cc-profile-editor__wide { grid-column: 1 / -1; }
 .cc-profile-editor__note { margin: 0; font-size: 12px; color: var(--content-tertiary); line-height: 1.55; }
 .cc-profile-editor__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -836,4 +903,52 @@
   .cc-spin {
     animation: none;
   }
+}
+
+/* =============================================================================
+   HOW THE WORKFORCE SITS
+
+   Findings about the SHAPE of the organization, beside the attention queue's
+   findings about its records. Same left-rule treatment as the department
+   findings list, so the two read as the same kind of statement wherever the
+   reader meets them.
+   ============================================================================= */
+.cc-concentration__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2-5);
+  margin: 0;
+  padding: var(--space-4) var(--space-5) var(--space-2);
+  list-style: none;
+}
+
+.cc-concentration__list li {
+  padding: var(--space-2-5) var(--space-3-5);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+}
+
+.cc-concentration__list li[data-tone='crit']  { border-left-color: var(--status-crit); }
+.cc-concentration__list li[data-tone='warn']  { border-left-color: var(--status-warn); }
+.cc-concentration__list li[data-tone='state'] { border-left-color: var(--accent-intelligence); }
+
+.cc-concentration__list strong {
+  display: block;
+  color: var(--content-primary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.cc-concentration__list small {
+  display: block;
+  margin-top: 4px;
+  color: var(--content-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.cc-concentration__more {
+  margin: 0 var(--space-5) var(--space-4);
 }

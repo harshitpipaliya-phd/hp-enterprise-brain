@@ -96,7 +96,9 @@ describe('People population switcher', () => {
 
     await waitFor(() => expect(screen.getByTestId('staff-list')).toBeTruthy());
     expect(screen.queryByRole('tab')).toBeNull();
-    expect(screen.getByRole('heading', { name: 'People' })).toBeTruthy();
+    // No switcher means no staff/student distinction to draw, so the screen
+    // is about the whole workforce rather than one half of it.
+    expect(screen.getByRole('heading', { name: 'Workforce Intelligence' })).toBeTruthy();
   });
 
   it('shows no switcher for an organization with only students', async () => {

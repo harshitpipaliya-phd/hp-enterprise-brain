@@ -151,6 +151,10 @@ function resolveGlobalLoaderMode(options: ApiRequestOptions): GlobalLoaderMode {
   return 'mutation';
 }
 
+export function clearRequestCache(): void {
+  getCache.clear();
+}
+
 export async function request(path: string, options: ApiRequestOptions = {}, _isRetry = false): Promise<any> {
   const loaderMode = resolveGlobalLoaderMode(options);
   globalLoading.requestStarted(loaderMode);

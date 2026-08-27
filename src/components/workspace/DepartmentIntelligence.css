@@ -1,0 +1,432 @@
+/* =============================================================================
+   DEPARTMENT INTELLIGENCE — the pieces the Departments list does not already
+   have a class for.
+
+   IT DELIBERATELY BORROWS THE LIST'S VOCABULARY. `.dept-intel__header`,
+   `__kpi`, `__card`, `__bars`, `__badge` and the rest come from
+   department/DepartmentList.css, which this file loads beside. A department and
+   the list of departments are the same screen at two zoom levels, and giving
+   the detail page a second set of panels — its own card radius, its own KPI
+   tile, its own heading size — is exactly the inconsistency the refinement
+   layer exists to remove.
+
+   What is genuinely new here is the health breakdown, the findings list, the
+   benchmark table, the paginated roster and the timeline. Nothing below
+   introduces a colour, a radius or a shadow that is not already a token.
+   ============================================================================= */
+
+/* ------------------------------------------------------------------ layout */
+
+/*
+  minmax(0, …) on BOTH tracks. Without it a long capability name or an
+  un-breakable event type widens its column past the grid and the whole page
+  scrolls sideways — the single most common cause of horizontal overflow on a
+  two-column dashboard.
+*/
+.di-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 0.9fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.di-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/*
+  ONE BREAKPOINT, AND IT IS ABOUT THE CONTENT. Below roughly a 13" laptop the
+  side column can no longer hold a benchmark row and its explanation on one
+  line, so the two columns stack rather than both being squeezed.
+*/
+@media (max-width: 1080px) {
+  .di-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ------------------------------------------------------------------- notes */
+
+.di-note {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  color: var(--content-tertiary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.di-note--empty {
+  color: var(--content-secondary);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ health */
+
+.di-health__body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+  padding: var(--space-5) var(--space-5) 0;
+}
+
+@media (max-width: 720px) {
+  .di-health__body { grid-template-columns: minmax(0, 1fr); }
+}
+
+/*
+  THE SCORE IS A NUMBER, NOT A DIAL. A gauge implies a measured range with
+  meaningful endpoints; this is the average of however many signals happened to
+  be measurable, and printing it plainly beside the components that produced it
+  is a more honest presentation than a needle.
+*/
+.di-score {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-width: 148px;
+  padding: var(--space-5) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-inset);
+  text-align: center;
+}
+
+.di-score strong {
+  font-family: var(--display);
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.di-score span {
+  color: var(--content-tertiary);
+  font-size: 11px;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+.di-score em {
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.di-score[data-tone='good'] strong { color: var(--status-good); }
+.di-score[data-tone='warn'] strong { color: var(--status-warn); }
+.di-score[data-tone='crit'] strong { color: var(--status-crit); }
+
+.di-score[data-tone='good'] em { color: var(--status-good); background: color-mix(in srgb, var(--status-good) 14%, transparent); }
+.di-score[data-tone='warn'] em { color: var(--status-warn); background: color-mix(in srgb, var(--status-warn) 16%, transparent); }
+.di-score[data-tone='crit'] em { color: var(--status-crit); background: color-mix(in srgb, var(--status-crit) 14%, transparent); }
+
+.di-health__components {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.di-component {
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+}
+
+/* A component with no data is present but visibly not counted — the reader can
+   see WHICH signal is missing, which is the point of listing it at all. */
+.di-component[data-available='false'] {
+  border-style: dashed;
+  background: none;
+}
+
+.di-component__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: 6px;
+}
+
+.di-component__head span {
+  color: var(--content-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.di-component__head strong {
+  color: var(--content-secondary);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.di-component[data-available='false'] .di-component__head strong {
+  color: var(--content-tertiary);
+  font-weight: 600;
+}
+
+.di-component__track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-inset);
+}
+
+.di-component__track i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.di-component__track i[data-tone='good'] { background: var(--status-good); }
+.di-component__track i[data-tone='warn'] { background: var(--status-warn); }
+.di-component__track i[data-tone='crit'] { background: var(--status-crit); }
+
+.di-component p {
+  margin: 7px 0 0;
+  color: var(--content-tertiary);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+/* ---------------------------------------------------------------- findings */
+
+.di-findings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2-5);
+  margin: 0;
+  padding: var(--space-5);
+  list-style: none;
+}
+
+/* The tone lives on a left rule rather than a tinted card: a page of coloured
+   blocks reads as an alarm panel, and most of these findings are observations
+   rather than problems. */
+.di-findings li {
+  padding: var(--space-3) var(--space-3-5);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+}
+
+.di-findings li[data-tone='good'] { border-left-color: var(--status-good); }
+.di-findings li[data-tone='warn'] { border-left-color: var(--status-warn); }
+.di-findings li[data-tone='crit'] { border-left-color: var(--status-crit); }
+.di-findings li[data-tone='state'] { border-left-color: var(--accent-intelligence); }
+
+.di-findings strong {
+  display: block;
+  color: var(--content-primary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.di-findings p {
+  margin: 5px 0 0;
+  color: var(--content-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------------- benchmark */
+
+.di-benchmark {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2-5);
+  margin: 0;
+  padding: var(--space-5);
+}
+
+.di-benchmark > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding-bottom: var(--space-2-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.di-benchmark > div:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.di-benchmark dt {
+  color: var(--content-secondary);
+  font-size: 12.5px;
+}
+
+.di-benchmark dd {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  margin: 0;
+  text-align: right;
+}
+
+.di-benchmark dd strong {
+  color: var(--content-primary);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.di-benchmark dd small {
+  color: var(--content-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* ------------------------------------------------------------------ people */
+
+.di-people__search { max-width: 260px; }
+
+.di-people {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--space-3) var(--space-5) var(--space-4);
+  list-style: none;
+}
+
+.di-people li + li { border-top: 1px solid var(--border-subtle); }
+
+.di-people button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-2-5) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  text-align: left;
+}
+
+.di-people button:hover:not(:disabled) { background: var(--surface-inset); }
+.di-people button:disabled { cursor: default; opacity: 1; }
+
+.di-people__avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-inset);
+  color: var(--content-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.di-people__identity { min-width: 0; }
+
+.di-people__identity strong {
+  display: block;
+  overflow: hidden;
+  color: var(--content-primary);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.di-people__identity small {
+  display: block;
+  overflow: hidden;
+  color: var(--content-tertiary);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.di-people__arrow { color: var(--content-tertiary); }
+
+.di-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.di-pager span {
+  color: var(--content-tertiary);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.di-pager button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  box-shadow: none;
+  color: var(--content-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.di-pager button:disabled { opacity: .45; }
+
+/* ---------------------------------------------------------------- timeline */
+
+.di-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-5);
+  list-style: none;
+}
+
+.di-timeline li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.di-timeline__dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--accent-intelligence);
+}
+
+.di-timeline strong {
+  display: block;
+  color: var(--content-primary);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.di-timeline small {
+  display: block;
+  margin-top: 2px;
+  color: var(--content-tertiary);
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------------ header */
+
+/* The picker sits with the buttons and must not stretch to their height. */
+.dept-intel__actions select { align-self: center; }

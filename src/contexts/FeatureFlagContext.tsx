@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_BASE } from '../api/client';
+import { getAccessToken } from '../utils/authTokens';
 
 interface FeatureFlagContextValue {
   flags: Record<string, boolean>;
@@ -14,7 +16,9 @@ export const FeatureFlagProvider: React.FC<{ children: ReactNode; tenantId: stri
   useEffect(() => {
     if (!tenantId) return;
 
-    fetch(`/api/v1/feature-flags/${tenantId}`)
+    fetch(`${API_BASE}/feature-flags/${tenantId}`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${getAccessToken()}` },
+    })
       .then(r => r.json())
       .then((data: any[]) => {
         const map: Record<string, boolean> = {};

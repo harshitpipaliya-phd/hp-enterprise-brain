@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   CartesianGrid,
   Cell,
@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Activity, AlertTriangle, Clock3, FileSearch, RefreshCw, Share2, Signal as SignalIcon } from 'lucide-react';
+import { Activity, AlertTriangle, ChevronRight, Clock3, FileSearch, RefreshCw, Share2, Signal as SignalIcon } from 'lucide-react';
 import { api } from '../../api/signal';
 import type { View } from '../../App';
 import './SignalDashboard.css';
@@ -121,6 +121,137 @@ function signalOrigin(signal: Signal): { label: string; detail: string } {
 function affectedCount(signal: Signal): number | null {
   const value = Number(signal.metadata?.affectedCount);
   return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/**
+ * WHAT A SIGNAL MEANS, as opposed to what a signal says.
+ *
+ * A row in this table already carried what was noticed, how severe it is and
+ * who raised it. What it could not answer is the set of questions a reader
+ * actually has next — is this one occurrence or a hundred, is it getting worse,
+ * what do the occurrences have in common, and how sure is the system.
+ *
+ * EVERY FIELD BELOW IS DERIVED FROM THE SIGNAL SET ALREADY IN HAND. Nothing is
+ * fetched, nothing is inferred by a model, and nothing is stated that the rows
+ * do not support: `cause` is the attribute the recurrences literally share, and
+ * it is null when they share nothing. That distinction is the whole point — a
+ * confident-sounding root cause invented from one occurrence would be worse
+ * than no root cause at all.
+ */
+interface SignalIntelligence {
+  /** Occurrences of the same finding in the loaded window, this one included. */
+  frequency: number;
+  /** Recurrences in the last 7 days against the 7 before them. */
+  trend: { recent: number; previous: number; direction: 'up' | 'down' | 'flat'; changePercent: number | null };
+  /** The attribute every recurrence shares, or null when they share none. */
+  cause: { label: string; value: string; share: number } | null;
+  /** As the detector recorded it, 0–1. Null on an imported row that carries none. */
+  confidence: number | null;
+  /** Source rows this finding covers, where the detector counted them. */
+  affected: number | null;
+  /** Why this one is worth opening before the others. */
+  attention: { level: 'now' | 'soon' | 'watch'; reason: string };
+}
+
+/** The identity two occurrences of the same finding share. */
+function signalKind(signal: Signal): string {
+  const rule = signal.ruleKey ?? (typeof signal.metadata?.rule === 'string' ? signal.metadata.rule : null);
+  return String(rule ?? signal.classification ?? signal.source ?? 'unknown').toLowerCase();
+}
+
+/**
+ * The attribute a group of recurrences has in common.
+ *
+ * Checked in the order a reader finds useful — the unit first, because "every
+ * one of these is in Field Operations" is the most actionable shape a recurring
+ * signal takes, then the named owner, then the category. A candidate qualifies
+ * only when it covers a clear majority AND the group is big enough for a
+ * majority to mean anything; two signals sharing an owner is a coincidence, not
+ * a cause.
+ */
+function sharedAttribute(group: Signal[]): SignalIntelligence['cause'] {
+  if (group.length < 3) return null;
+
+  const candidates: Array<[label: string, read: (s: Signal) => string]> = [
+    ['Department', (x) => String(x.metadata?.department ?? x.metadata?.unit ?? '')],
+    ['Owner', (x) => String(x.metadata?.owner ?? '')],
+    ['Area', (x) => String(x.metadata?.area ?? x.metadata?.zone ?? '')],
+    ['Category', (x) => String(x.metadata?.category ?? x.classification ?? '')],
+    ['Entity type', (x) => String(x.relatedEntityType ?? '')],
+  ];
+
+  for (const [label, read] of candidates) {
+    const counts = new Map<string, number>();
+
+    for (const item of group) {
+      const value = read(item).trim();
+      if (value === '' || value.toLowerCase() === 'undetermined') continue;
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+
+    let best: [string, number] | null = null;
+    for (const entry of counts) if (!best || entry[1] > best[1]) best = entry;
+
+    if (best && best[1] / group.length >= 0.6) {
+      return { label, value: best[0], share: best[1] / group.length };
+    }
+  }
+
+  return null;
+}
+
+function analyseSignal(signal: Signal, byKind: Map<string, Signal[]>): SignalIntelligence {
+  const group = byKind.get(signalKind(signal)) ?? [signal];
+  const now = Date.now();
+  const week = 7 * 24 * 60 * 60 * 1000;
+
+  let recent = 0;
+  let previous = 0;
+
+  for (const item of group) {
+    const at = parseDate(item.createdDate)?.getTime();
+    if (at === undefined) continue;
+    const age = now - at;
+    if (age <= week) recent += 1;
+    else if (age <= week * 2) previous += 1;
+  }
+
+  const direction = recent > previous ? 'up' : recent < previous ? 'down' : 'flat';
+  const changePercent = previous > 0 ? ((recent - previous) / previous) * 100 : null;
+
+  const severity = normalizeKey(signal.severity, 'unknown');
+  const affected = affectedCount(signal);
+  const confidence = typeof signal.confidence === 'number' ? signal.confidence : null;
+
+  /*
+    THE RANKING, and it is deliberately made of three things a reader can check
+    rather than one opaque number. Severity says how bad one occurrence is,
+    frequency says how many there are, and the trend says whether waiting makes
+    it worse. Anything that is severe AND rising is "now" whatever else is true.
+  */
+  const attention: SignalIntelligence['attention'] =
+    (severity === 'critical' || severity === 'high') && direction === 'up'
+      ? { level: 'now', reason: `${displayLabel(severity)} severity and rising — ${recent} in the last 7 days against ${previous} the week before.` }
+      : severity === 'critical'
+        ? { level: 'now', reason: 'Critical severity. One occurrence is enough to act on.' }
+        : group.length >= 10
+          ? { level: 'soon', reason: `Recurs often — ${group.length} occurrences of this same finding in the loaded window.` }
+          : severity === 'high'
+            ? { level: 'soon', reason: 'High severity, and not currently rising.' }
+            : direction === 'up' && group.length >= 3
+              ? { level: 'soon', reason: `Rising: ${recent} in the last 7 days against ${previous} the week before.` }
+              : { level: 'watch', reason: group.length > 1
+                ? `${displayLabel(severity)} severity, ${group.length} occurrences, not rising.`
+                : `${displayLabel(severity)} severity, a single occurrence.` };
+
+  return {
+    frequency: group.length,
+    trend: { recent, previous, direction, changePercent },
+    cause: sharedAttribute(group),
+    confidence,
+    affected,
+    attention,
+  };
 }
 
 function parseDate(value: string | null | undefined): Date | null {
@@ -264,6 +395,9 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
   const [classificationFilter, setClassificationFilter] = useState('');
   const [dateWindow, setDateWindow] = useState<DateWindow>('90');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  /* Which row has its intelligence open. One at a time: the panel is tall, and
+     two of them open at once pushes the second off screen anyway. */
+  const [openSignalId, setOpenSignalId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -374,13 +508,34 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
   };
 
   const windowLabel = dateWindow === 'all' ? 'all time' : `the last ${dateWindow} days`;
+  /*
+    Occurrences grouped by what they ARE, computed once for the whole loaded
+    set rather than per row.
+
+    Grouped over `signals`, not `filteredSignals`, deliberately: "this finding
+    has occurred 34 times" is a fact about the organization, and it must not
+    change because the reader ticked a severity filter. The filters decide what
+    is listed; they do not get to rewrite what the listed rows mean.
+  */
+  const signalsByKind = useMemo(() => {
+    const map = new Map<string, Signal[]>();
+    for (const signal of signals) {
+      const key = signalKind(signal);
+      const bucket = map.get(key);
+      if (bucket) bucket.push(signal);
+      else map.set(key, [signal]);
+    }
+    return map;
+  }, [signals]);
+
   const visible = filteredSignals.slice(0, visibleCount);
 
   return (
     <div className="signal-intel">
       <header className="signal-intel__header">
         <div>
-          <h1>Signals</h1>
+          <span className="eb-page-kicker">Intelligence Loop</span>
+          <h1>Operational Signals</h1>
           <p>Everything this organization&apos;s data has flagged: what was noticed, what raised it, and who it concerns.</p>
         </div>
         <div className="signal-intel__actions">
@@ -479,8 +634,9 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
                   <tr>
                     <th>What was noticed</th>
                     <th>Severity</th>
+                    <th>Attention</th>
+                    <th>Recurrence</th>
                     <th>Status</th>
-                    <th>Raised by</th>
                     <th>Concerns</th>
                     <th>When</th>
                     <th>Actions</th>
@@ -493,10 +649,25 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
                     const origin = signalOrigin(signal);
                     const subject = signalSubject(signal);
                     const affected = affectedCount(signal);
+                    const intel = analyseSignal(signal, signalsByKind);
+                    const isOpen = openSignalId === String(signal.id);
                     return (
-                      <tr key={signal.id}>
+                      <Fragment key={signal.id}>
+                      <tr data-open={isOpen}>
                         <td>
-                          <strong className="signal-intel__title">{signalTitle(signal)}</strong>
+                          {/* The title is the disclosure control: the row already
+                              has four buttons, and a fifth labelled "expand"
+                              beside a heading nobody can click reads as an
+                              oversight rather than as a design. */}
+                          <button
+                            type="button"
+                            className="signal-intel__disclose"
+                            aria-expanded={isOpen}
+                            onClick={() => setOpenSignalId(isOpen ? null : String(signal.id))}
+                          >
+                            <ChevronRight size={13} className="signal-intel__chevron" />
+                            <strong className="signal-intel__title">{signalTitle(signal)}</strong>
+                          </button>
                           <small>
                             {displayLabel(normalizeKey(signal.classification, 'uncategorised'))}
                             {affected !== null ? ` · ${affected.toLocaleString()} records affected` : ''}
@@ -514,13 +685,20 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
                           </span>
                         </td>
                         <td>
+                          <span className="signal-intel__attention" data-level={intel.attention.level}>
+                            {intel.attention.level === 'now' ? 'Act now' : intel.attention.level === 'soon' ? 'Soon' : 'Watch'}
+                          </span>
+                        </td>
+                        <td className="signal-intel__recurrence">
+                          <strong>{intel.frequency > 1 ? `${intel.frequency.toLocaleString()}×` : 'Once'}</strong>
+                          <small data-direction={intel.trend.direction}>
+                            {intel.trend.direction === 'up' ? '▲ rising' : intel.trend.direction === 'down' ? '▼ easing' : '— steady'}
+                          </small>
+                        </td>
+                        <td>
                           <span className="signal-intel__pill" style={{ color: STATUS_COLORS[status] ?? 'var(--content-secondary)', backgroundColor: `${STATUS_COLORS[status] ?? 'var(--content-tertiary)'}1f` }}>
                             {displayLabel(status)}
                           </span>
-                        </td>
-                        <td>
-                          <strong className="signal-intel__origin">{origin.label}</strong>
-                          <small>{origin.detail}</small>
                         </td>
                         <td>{subject ?? <span className="signal-intel__muted">Not recorded</span>}</td>
                         <td className="signal-intel__when">{formatWhen(signal.createdDate)}</td>
@@ -547,10 +725,91 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
                           </div>
                         </td>
                       </tr>
+                      {isOpen && (
+                        <tr className="signal-intel__detail-row">
+                          <td colSpan={8}>
+                            <div className="signal-intel__detail">
+                              <dl>
+                                <div>
+                                  <dt>How often</dt>
+                                  <dd>
+                                    {intel.frequency === 1
+                                      ? 'A single occurrence in the loaded window.'
+                                      : `${intel.frequency.toLocaleString()} occurrences of this same finding in the loaded window.`}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Direction</dt>
+                                  <dd>
+                                    {intel.trend.previous === 0 && intel.trend.recent === 0
+                                      ? 'Nothing in the last fortnight — this is an older finding.'
+                                      : `${intel.trend.recent} in the last 7 days against ${intel.trend.previous} the week before` +
+                                        (intel.trend.changePercent === null
+                                          ? '.'
+                                          : ` — ${intel.trend.changePercent >= 0 ? 'up' : 'down'} ${Math.abs(Math.round(intel.trend.changePercent))}%.`)}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>What the occurrences share</dt>
+                                  <dd>
+                                    {/* NOT A ROOT CAUSE, AND IT DOES NOT CLAIM TO BE.
+                                        It is the attribute the recurrences literally have
+                                        in common, with the proportion stated so a reader
+                                        can judge it. Where they share nothing, that is
+                                        said plainly rather than dressed up. */}
+                                    {intel.cause
+                                      ? `${intel.cause.label}: ${intel.cause.value} — ${Math.round(intel.cause.share * 100)}% of occurrences. Worth checking first.`
+                                      : intel.frequency < 3
+                                        ? 'Too few occurrences to look for a pattern.'
+                                        : 'No department, owner, area or category is common to most of these.'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Raised by</dt>
+                                  <dd>{origin.label} — {origin.detail.toLowerCase()}</dd>
+                                </div>
+                                <div>
+                                  <dt>Confidence</dt>
+                                  <dd>
+                                    {intel.confidence === null
+                                      ? 'The source recorded none for this signal.'
+                                      : `${Math.round(intel.confidence * 100)}% as recorded by the detector.`}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Scale</dt>
+                                  <dd>
+                                    {intel.affected === null
+                                      ? 'The detector did not record how many rows this covers.'
+                                      : `${intel.affected.toLocaleString()} source records are covered by this finding.`}
+                                  </dd>
+                                </div>
+                              </dl>
+                              <p className="signal-intel__why" data-level={intel.attention.level}>
+                                <strong>
+                                  {intel.attention.level === 'now' ? 'Act now' : intel.attention.level === 'soon' ? 'Look at this soon' : 'Worth watching'}
+                                </strong>
+                                {' — '}{intel.attention.reason}
+                              </p>
+                              {onNavigate && (
+                                <div className="signal-intel__chain">
+                                  <span>Follow it through:</span>
+                                  <button type="button" onClick={() => onNavigate('evidence')}>Evidence</button>
+                                  <ChevronRight size={12} />
+                                  <button type="button" onClick={() => onNavigate('deliberation')}>Case</button>
+                                  <ChevronRight size={12} />
+                                  <button type="button" onClick={() => onNavigate('decisionintel')}>Decision</button>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                   {visible.length === 0 && (
-                    <tr><td colSpan={7}><div className="signal-intel__empty">No signals match the current filters.</div></td></tr>
+                    <tr><td colSpan={8}><div className="signal-intel__empty">No signals match the current filters.</div></td></tr>
                   )}
                 </tbody>
               </table>

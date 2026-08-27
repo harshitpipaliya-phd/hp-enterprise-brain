@@ -265,7 +265,8 @@ export default function PersonApp({ organization, onBack, onExploreInGraph }: { 
         <header className="people-app-header">
           <div>
             <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
-            <h1>People</h1>
+            <span className="eb-page-kicker">Foundation</span>
+            <h1>Workforce Intelligence</h1>
           </div>
         </header>
         <div className="people-empty">Loading {organization.name}&apos;s people…</div>
@@ -289,7 +290,8 @@ export default function PersonApp({ organization, onBack, onExploreInGraph }: { 
         <header className="people-app-header">
           <div>
             <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
-            <h1>Students</h1>
+            <span className="eb-page-kicker">Foundation</span>
+            <h1>Student Intelligence</h1>
             <p>
               The students {organization.name} has records for — their class, section and, where this
               organization has them, their results and fee history.
@@ -317,7 +319,18 @@ export default function PersonApp({ organization, onBack, onExploreInGraph }: { 
       <header className="people-app-header">
         <div>
           <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
-          <h1>{showSwitcher ? 'Staff' : 'People'}</h1>
+          {/*
+            THE TITLE NAMES THE SUBJECT, THE KICKER NAMES THE PLACE.
+
+            "Staff Intelligence" rather than "Staff" because this screen is not
+            a roster — it carries coverage, gaps and per-person indicators, and
+            a one-word title sold it as a table. The staff/people split stays:
+            on a school the switcher above makes "staff" a real distinction from
+            the students beside them, and on every other organization it is not
+            a distinction at all.
+          */}
+          <span className="eb-page-kicker">Foundation</span>
+          <h1>{showSwitcher ? 'Staff Intelligence' : 'Workforce Intelligence'}</h1>
           <p>
             {showSwitcher
               ? `The staff ${organization.name} employs — teachers, administrators and support staff, as its HR system records them. Open someone to see their profile, department and recorded activity.`

@@ -48,7 +48,7 @@ export default function AgentMonitor({ tenantId }: { tenantId: string }) {
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <h1>Multi-Agent Monitor</h1>
+        <span className="eb-page-kicker">Automation</span><h1>Agent Activity</h1>
         <button onClick={load}>Refresh</button>
       </header>
       <p style={{ color: theme.textMuted, marginBottom: 24, fontSize: 13 }}>

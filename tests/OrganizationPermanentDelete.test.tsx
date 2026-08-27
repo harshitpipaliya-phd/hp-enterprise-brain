@@ -101,9 +101,13 @@ async function openDeleteDialog() {
     />,
   );
 
-  await screen.findByText(ORG_NAME);
+  // Explicit timeouts: the overview fires five independent requests on mount
+  // and this file renders it twelve times, so under a loaded parallel run the
+  // default one-second budget is occasionally the thing that fails rather than
+  // the behaviour being tested.
+  await screen.findByText(ORG_NAME, {}, { timeout: 5000 });
   fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }));
-  await screen.findByRole('dialog');
+  await screen.findByRole('dialog', {}, { timeout: 5000 });
 }
 
 /** The confirm button, by its new label. */

@@ -229,6 +229,7 @@
 }
 
 /* ---- eyebrow / kicker: eight screens had eight sizes, 9.5px to 11px ---- */
+.eb-page-kicker,
 .intel-eyebrow,
 .cc-kicker,
 .kx-kicker,
@@ -250,6 +251,24 @@
   letter-spacing: var(--ls-eyebrow);
   text-transform: uppercase;
   color: var(--content-tertiary);
+}
+
+/*
+  THE PAGE KICKER, and why every screen now opens with one.
+
+  A page title on its own answers "what am I looking at" and nothing else. The
+  kicker above it answers "where am I", which is the question a reader arriving
+  from the sidebar actually has, and it is what lets the title itself be the
+  specific thing — a department's name, an organization's name — rather than a
+  category label repeated from the menu.
+
+  Block, so it sits on its own line above the title rather than beside it, with
+  a small gap the title's own margin does not provide.
+*/
+.eb-page-kicker {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--accent-intelligence-deep);
 }
 
 /* ---- numbers read as data, and columns of them line up ---- */
@@ -744,18 +763,82 @@
   .intel-header { grid-template-columns: minmax(0, 1fr); }
 }
 
+/*
+  METRIC STRIPS FOLLOW THE SPACE, NOT A COUNT.
+
+  Seven screens fix their tile count in the grid template — `repeat(7, …)` on
+  the Evidence provenance strip, `repeat(6, …)` on the People directory,
+  `repeat(5, …)` and `repeat(4, …)` elsewhere. Each is right at the width it was
+  designed on and wrong everywhere else: seven tiles across a 1000px content
+  column are 130px wide, which is narrower than the numbers inside them, and the
+  labels either clip or wrap to three lines.
+
+  Restated as auto-fit with a floor, so the same strip is seven across on a wide
+  monitor and three across on a laptop without any screen needing its own
+  breakpoint. The floor is the width at which a label and a five-digit value
+  still read; below it the strip wraps instead of shrinking further.
+
+  Scoped to a named list rather than every grid on the page, because a grid with
+  a deliberately fixed shape — a two-column form, a label/track/value bar row —
+  must keep it.
+*/
+@media (max-width: 1280px) {
+  .people-kpi-grid,
+  .signal-intel__metric-strip,
+  .evidence-intel__kpis,
+  .evidence-intel__proof-strip,
+  .evidence-intel__summary,
+  .cc-kpi-grid,
+  .dept-intel__kpis,
+  .u-state-card__grid {
+    grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)) !important;
+  }
+}
+
 @media (max-width: 900px) {
   .dept-intel__header,
   .signal-intel__header,
   .evidence-intel__header,
   .people-app-header,
-  .cc-org-hero,
   .oi-head,
   .kx-head,
   .gx-head {
     flex-direction: column;
     align-items: stretch;
     gap: var(--eb-space-4);
+  }
+
+  /*
+    THE ORGANIZATION HERO IS A GRID, NOT A FLEX ROW, and it was listed above
+    with the flex headers — where `flex-direction: column` is inert. It kept its
+    two tracks all the way down, so on a narrow window the action buttons and
+    the organization's name competed for the same line and the row pushed the
+    page sideways.
+  */
+  .cc-org-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--eb-space-4);
+  }
+
+  .cc-org-hero__actions {
+    max-width: none;
+    justify-content: flex-start;
+  }
+}
+
+/*
+  A TABLE IS THE ONE THING THAT CANNOT BE MADE NARROWER.
+
+  Its columns are content, and a five-column table in a 380px window is either
+  scrolled or unreadable. Every table in the product therefore scrolls INSIDE
+  its own wrapper rather than widening the page — section 5 gives the wrappers
+  that behaviour, and this is the backstop for a table that was never given one.
+*/
+@media (max-width: 720px) {
+  .s-content-inner table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
   }
 }
 

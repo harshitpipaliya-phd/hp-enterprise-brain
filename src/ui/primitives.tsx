@@ -380,12 +380,21 @@ export function EmptyState({
   );
 }
 
-export function ErrorState({ message, onRetry }: { message?: string; onRetry?: () => void }) {
+/**
+ * `title` says WHAT failed, `message` says what the server said about it.
+ *
+ * They are separate props because a caller that has both has two different
+ * facts, and the wrapper that used to collapse them into one — passing
+ * `message || title` — printed the same sentence as heading and body whenever
+ * only the default was available, and silently threw away a custom title
+ * whenever both were given.
+ */
+export function ErrorState({ title = 'Something went wrong', message, onRetry }: { title?: string; message?: string; onRetry?: () => void }) {
   return (
     <div className="u-state u-state-danger" role="alert">
       <div className="u-state-icon"><AlertTriangle size={22} aria-hidden="true" /></div>
-      <h3 className="u-state-title">Something went wrong</h3>
-      {message && <p className="u-state-desc">{message}</p>}
+      <h3 className="u-state-title">{title}</h3>
+      {message && message !== title && <p className="u-state-desc">{message}</p>}
       {onRetry && (
         <Button variant="secondary" onClick={onRetry} icon={<RefreshCw size={15} aria-hidden="true" />}>
           Try again

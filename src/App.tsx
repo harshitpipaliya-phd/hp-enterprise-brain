@@ -1,47 +1,35 @@
 
-import { useState, useEffect, useRef } from 'react';
-import OrganizationList from './components/organization/OrganizationList';
-import OrganizationCreate from './components/organization/OrganizationCreate';
-import OrganizationArchiveConfirm from './components/organization/OrganizationArchiveConfirm';
-import DepartmentApp from './components/department/DepartmentApp';
-import PersonApp from './components/person/PersonApp';
-import CapabilityApp from './components/capability/CapabilityApp';
-import SignalDashboard from './components/signal/SignalDashboard';
-import IntelligenceWorkspace from './components/workspace/IntelligenceWorkspace';
-import DecisionAnalyticsPanel from './components/workspace/DecisionAnalyticsPanel';
-import ExecutiveDashboard from './components/workspace/ExecutiveDashboard';
-import GraphExplorer from './components/workspace/GraphExplorer';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { GraphFocus } from './components/graph/graphTypes';
-import AgentMonitor from './components/workspace/AgentMonitor';
-import EvidenceWorkspace from './components/workspace/EvidenceWorkspace';
-/*
-  Kept lazy, but no longer for the original reason — which was that this was the
-  only screen importing recharts, and recharts plus its exclusive dependencies
-  measured ~999 kB that every user downloaded to reach the login screen.
-
-  Decision Intelligence now draws on the hand-built SVG charts in ui/charts.tsx,
-  so its chunk is ~15 kB and recharts is no longer in its dependency graph. (It
-  is still in the bundle: SignalDashboard, EvidenceWorkspace and DepartmentList
-  import it, and moving those is a separate piece of work.)
-
-  The split stays because it still defers the whole intelligence surface —
-  screen, chart kit and shared primitives — off the login path, and because
-  removing it would be a change with no upside.
-*/
+// Keep the authenticated shell small: each major screen loads only when that
+// view is opened, while the sidebar/header remain mounted during chunk fetches.
+const ORGANIZATION_LIST = () => import('./components/organization/OrganizationList');
+const ORGANIZATION_CREATE = () => import('./components/organization/OrganizationCreate');
+const ORGANIZATION_ARCHIVE_CONFIRM = () => import('./components/organization/OrganizationArchiveConfirm');
+const COMMAND_CENTER = () => import('./components/workspace/CommandCenter');
+const DEPARTMENT_APP = () => import('./components/department/DepartmentApp');
+const PERSON_APP = () => import('./components/person/PersonApp');
+const CAPABILITY_APP = () => import('./components/capability/CapabilityApp');
+const SIGNAL_DASHBOARD = () => import('./components/signal/SignalDashboard');
+const INTELLIGENCE_WORKSPACE = () => import('./components/workspace/IntelligenceWorkspace');
+const DECISION_ANALYTICS_PANEL = () => import('./components/workspace/DecisionAnalyticsPanel');
+const EXECUTIVE_DASHBOARD = () => import('./components/workspace/ExecutiveDashboard');
+const GRAPH_EXPLORER = () => import('./components/workspace/GraphExplorer');
+const AGENT_MONITOR = () => import('./components/workspace/AgentMonitor');
+const EVIDENCE_WORKSPACE = () => import('./components/workspace/EvidenceWorkspace');
 const DECISION_INTELLIGENCE = () => import('./components/workspace/DecisionIntelligence');
-import TaskMonitor from './components/workspace/TaskMonitor';
-import DeliberationWorkspace from './components/workspace/DeliberationWorkspace';
-import Settings from './components/workspace/Settings';
-import PolicyManagement from './components/workspace/PolicyManagement';
-import MentalModelBrowser from './components/workspace/MentalModelBrowser';
-import ExecutionCenter from './components/workspace/ExecutionCenter';
-import AIAssistant from './components/workspace/AIAssistant';
-import KnowledgeLibrary from './components/workspace/KnowledgeLibrary';
-import IngestionWorkspace from './components/workspace/IngestionWorkspace';
-import MemoryScreen from './components/workspace/MemoryScreen';
-import EsoLibraryScreen from './components/workspace/EsoLibraryScreen';
-import CommandCenter from './components/workspace/CommandCenter';
-import KasbaExplorer from './components/workspace/KasbaExplorer';
+const TASK_MONITOR = () => import('./components/workspace/TaskMonitor');
+const DELIBERATION_WORKSPACE = () => import('./components/workspace/DeliberationWorkspace');
+const SETTINGS = () => import('./components/workspace/Settings');
+const POLICY_MANAGEMENT = () => import('./components/workspace/PolicyManagement');
+const MENTAL_MODEL_BROWSER = () => import('./components/workspace/MentalModelBrowser');
+const EXECUTION_CENTER = () => import('./components/workspace/ExecutionCenter');
+const AI_ASSISTANT = () => import('./components/workspace/AIAssistant');
+const KNOWLEDGE_LIBRARY = () => import('./components/workspace/KnowledgeLibrary');
+const INGESTION_WORKSPACE = () => import('./components/workspace/IngestionWorkspace');
+const MEMORY_SCREEN = () => import('./components/workspace/MemoryScreen');
+const ESO_LIBRARY_SCREEN = () => import('./components/workspace/EsoLibraryScreen');
+const KASBA_EXPLORER = () => import('./components/workspace/KasbaExplorer');
 // OrganizationIntelligenceHome previously rendered the 'home' view. Home is now
 // Command Center, so the component is no longer mounted anywhere. The file is
 // left in place rather than deleted — it is a complete screen, and nothing here
@@ -55,7 +43,7 @@ import { NotificationBell } from './components/NotificationBell';
 import { ToastProvider, useToast } from './components/Toast';
 import { api } from './api/organization';
 import type { OrganizationRow, DeletionResult } from './api/organization';
-import { onSessionExpired } from './api/client';
+import { ApiError, clearRequestCache, onSessionExpired } from './api/client';
 import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
 import { loadSession, saveSession, clearSession } from './utils/session';
 import { clearAuthTokens, clearLegacyPersistentTokens, getAccessToken, getRefreshToken } from './utils/authTokens';
@@ -93,6 +81,30 @@ function initialAuthState(): boolean {
  */
 const HOME_VIEW: View = 'home';
 
+/**
+ * Whether an organization may be shown under the CURRENT authenticated tenant.
+ *
+ * The question this guards is a leak: a session persisted under one tenant must
+ * never be restored into a workspace authenticated as another, because every
+ * screen below takes the organization on trust and would render one customer's
+ * departments and people under another customer's login.
+ *
+ * AN UNKNOWN TENANT IS NOT A MISMATCH. `getAuthTenantId()` reads a claim out of
+ * the access token and answers '' whenever it cannot — an opaque token, a
+ * differently-named claim, a token this build cannot parse. Treating that as
+ * "belongs to someone else" discards every restored session and boots the user
+ * into an empty workspace holding valid credentials, which is a far more common
+ * outcome than the leak and is indistinguishable from the application being
+ * broken. With no tenant to contradict it, the session is left alone; the
+ * server still scopes every request it goes on to make.
+ */
+function organizationBelongsToTenant(org: Organization | null | undefined, tenantId: string): org is Organization {
+  if (!org) return false;
+  if (tenantId === '') return true;
+
+  return String(org.tenantId) === tenantId || String(org.id) === tenantId;
+}
+
 function AuthenticatedApp() {
   const hasActiveAuthSessionRef = useRef<boolean | null>(null);
   if (hasActiveAuthSessionRef.current === null) {
@@ -104,7 +116,11 @@ function AuthenticatedApp() {
   // every view — is wrong for as long as it is unknown, and "wrong" here means
   // a stripped-down menu and an empty page rather than a spinner.
   const hasActiveAuthSession = hasActiveAuthSessionRef.current;
-  const restored = hasActiveAuthSession ? loadSession() : null;
+  const authTenantId = hasActiveAuthSession ? getAuthTenantId() : '';
+  const restoredRaw = hasActiveAuthSession ? loadSession() : null;
+  const restored = restoredRaw && organizationBelongsToTenant(restoredRaw.organization, authTenantId)
+    ? restoredRaw
+    : null;
 
   const [authenticated, setAuthenticated] = useState(hasActiveAuthSession);
   // Which of the two auth screens is showing while unauthenticated. Local state
@@ -120,7 +136,7 @@ function AuthenticatedApp() {
   const [view, setView] = useState<View>(
     restored?.view === 'edit' ? 'details' : ((restored?.view as View) || HOME_VIEW),
   );
-  const [tenantId, setTenantId] = useState(getAuthTenantId());
+  const [tenantId, setTenantId] = useState(authTenantId);
   const [selected, setSelected] = useState<Organization | null>(restored?.organization ?? null);
   /*
     THE NODE GRAPH EXPLORER SHOULD OPEN ON, when a screen sent the user there.
@@ -140,11 +156,19 @@ function AuthenticatedApp() {
   const [userName, setUserName] = useState<string | null>(restored?.userName ?? null);
   const { showToast } = useToast();
   const navigationFinishTimer = useRef<number | null>(null);
+  const skipNextOrganizationRefresh = useRef(false);
+  const prefetchedScreens = useRef(false);
+  const selectedRef = useRef<Organization | null>(selected);
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
 
   useEffect(() => {
     onSessionExpired(() => {
       clearSelectedOrgId();
       clearSession();
+      clearRequestCache();
       setSelected(null);
       setOrganizations([]);
       setUserRole(null);
@@ -153,51 +177,125 @@ function AuthenticatedApp() {
     });
   }, []);
 
-  const load = async () => {
-    setLoading(true);
+  const load = useCallback(async (mode: 'initial' | 'background' = 'initial') => {
+    if (mode === 'initial') setLoading(true);
     setError(null);
     try {
-      const data = await api.listOrganizations(tenantId);
+      const authTenant = getAuthTenantId();
+      const effectiveTenant = authTenant || tenantId;
+
+      if (authTenant && tenantId !== authTenant) {
+        setTenantId(authTenant);
+      }
+
+      const data = await api.listOrganizations(effectiveTenant);
       setOrganizations(data);
 
+      if (data.length === 0) {
+        clearSelectedOrgId();
+        clearSession();
+        setSelected(null);
+        setUserRole(null);
+        setUserName(null);
+        return;
+      }
+
       const remembered = getSelectedOrgId();
+      const validRemembered = remembered === effectiveTenant ? remembered : '';
+      const rememberedSelected = selectedRef.current;
+      const currentSelected = organizationBelongsToTenant(rememberedSelected, effectiveTenant) ? rememberedSelected : null;
 
       // Resolved OUTSIDE the state updater on purpose. Writing to localStorage
       // from inside one would run twice per render under StrictMode, which
       // double-invokes updaters to surface exactly this kind of hidden side
       // effect. A state updater has to be a pure function of its argument.
       const next =
+        data.find((o) => organizationBelongsToTenant(o, effectiveTenant)) ??
         // Prefer the freshly-fetched row over the one restored from storage:
         // same organization, but with any rename or new logo picked up.
-        data.find((o) => o.id === remembered) ??
-        data.find((o) => o.id === selected?.id) ??
+        data.find((o) => o.id === validRemembered) ??
+        data.find((o) => o.id === currentSelected?.id) ??
         // A single organization needs no choosing. Leaving it unselected just
         // renders an empty shell behind a menu the user cannot use.
         (data.length === 1 ? data[0] : null) ??
-        selected ??
+        currentSelected ??
         null;
 
-      if (next) {
+      if (organizationBelongsToTenant(next, effectiveTenant)) {
         setSelected(next);
-        setSelectedOrgId(next.id);
+        setSelectedOrgId(effectiveTenant);
         saveSession({ organization: next });
+      } else {
+        clearSelectedOrgId();
+        clearSession();
+        setSelected(null);
       }
     } catch (e: any) {
       setError(e.message);
       setOrganizations([]);
+      if (e instanceof ApiError && [401, 403, 404].includes(e.status)) {
+        clearAuthTokens();
+        clearSelectedOrgId();
+        clearSession();
+        clearRequestCache();
+        setSelected(null);
+        setUserRole(null);
+        setUserName(null);
+        setAuthenticated(false);
+        return;
+      }
       // `selected` is deliberately NOT cleared here. It was restored from a
       // previous good session, and a failed refresh of the organization list —
       // which this deployment sees regularly on a flaky remote database — is
       // not evidence that the organization stopped existing. Clearing it would
       // blank every screen because a background list request timed out.
     } finally {
-      setLoading(false);
+      if (mode === 'initial') setLoading(false);
     }
-  };
+  }, [tenantId]);
 
   useEffect(() => {
-    if (authenticated) load();
-  }, [authenticated, tenantId]);
+    if (!authenticated) return;
+
+    if (skipNextOrganizationRefresh.current) {
+      skipNextOrganizationRefresh.current = false;
+      window.setTimeout(() => { void load('background'); }, 1_000);
+      return;
+    }
+
+    void load();
+  }, [authenticated, tenantId, load]);
+
+  useEffect(() => {
+    if (!authenticated || !selected || prefetchedScreens.current) return;
+    prefetchedScreens.current = true;
+
+    const preload = () => {
+      [
+        COMMAND_CENTER,
+        DEPARTMENT_APP,
+        PERSON_APP,
+        CAPABILITY_APP,
+        SIGNAL_DASHBOARD,
+        INTELLIGENCE_WORKSPACE,
+        DECISION_ANALYTICS_PANEL,
+        EXECUTIVE_DASHBOARD,
+        GRAPH_EXPLORER,
+        EVIDENCE_WORKSPACE,
+        DELIBERATION_WORKSPACE,
+        INGESTION_WORKSPACE,
+      ].forEach((loader) => { void loader().catch(() => {}); });
+    };
+
+    const scheduleIdle = window.requestIdleCallback
+      ? window.requestIdleCallback(preload, { timeout: 4_000 })
+      : window.setTimeout(preload, 1_500);
+
+    return () => {
+      if (typeof scheduleIdle === 'number') window.clearTimeout(scheduleIdle);
+      else window.cancelIdleCallback?.(scheduleIdle);
+    };
+  }, [authenticated, selected]);
 
   if (!authenticated) {
     // ONE WAY INTO THE WORKSPACE: a completed login. Signup ends at its own
@@ -210,6 +308,10 @@ function AuthenticatedApp() {
         return;
       }
 
+      clearSelectedOrgId();
+      clearSession();
+      clearRequestCache();
+
       const org: Organization = {
         id: session.organizationId,
         tenantId: session.organizationId,
@@ -220,11 +322,26 @@ function AuthenticatedApp() {
         country: null,
         timezone: null,
         currency: null,
+        email: null,
+        phone: null,
+        website: null,
+        address: null,
+        registrationNumber: null,
+        taxId: null,
+        contactPerson: null,
+        employeeCount: null,
+        workWeek: null,
         logo: session.organizationLogo ?? null,
         status: 'active',
         createdBy: '',
         createdDate: '',
         updatedDate: '',
+        // A LOGIN KNOWS THE ORGANIZATION'S NAME, NOT ITS SHAPE. The capability
+        // lists arrive with the first real list response a moment later; until
+        // then this placeholder claims nothing, which is what keeps the record
+        // panel from flashing a form of fields the tenant may not have.
+        profileFields: [],
+        identityFields: [],
       };
 
       setSelectedOrgId(session.organizationId);
@@ -233,6 +350,7 @@ function AuthenticatedApp() {
       setUserRole(session.role || null);
       setUserName(session.name || null);
       setView(HOME_VIEW);
+      skipNextOrganizationRefresh.current = true;
       setAuthenticated(true);
 
       // Written here, not in the auth screens, because this is where the app
@@ -282,8 +400,12 @@ function AuthenticatedApp() {
     // organization unless a new one is named is what makes the menu usable.
     const nextOrg = org ?? selected;
 
-    if (nextOrg) setSelectedOrgId(nextOrg.id);
-    setSelected(nextOrg);
+    const authTenant = getAuthTenantId();
+    const scopedNextOrg = organizationBelongsToTenant(nextOrg, authTenant) ? nextOrg : null;
+
+    if (scopedNextOrg) setSelectedOrgId(authTenant);
+    else clearSelectedOrgId();
+    setSelected(scopedNextOrg);
     setView(v);
 
     // Only a navigation that NAMES a node carries one. Any other route to the
@@ -291,7 +413,7 @@ function AuthenticatedApp() {
     // organization.
     setGraphFocus(v === 'graph' ? (focus ?? null) : null);
 
-    saveSession({ organization: nextOrg, view: v });
+    saveSession({ organization: scopedNextOrg, view: v });
   };
 
   /**
@@ -337,6 +459,7 @@ function AuthenticatedApp() {
     // unticks the box, which is the control that should own it.
     clearSelectedOrgId();
     clearSession();
+    clearRequestCache();
     setSelected(null);
     setOrganizations([]);
     setUserRole(null);
@@ -457,15 +580,20 @@ function AuthenticatedApp() {
             {/* Home IS Command Center. Both names render it so a view
                 persisted by an earlier build still resolves. */}
             {(view === 'home' || view === 'commandcenter') && selected && (
-              <CommandCenter
-                tenantId={selected.tenantId}
-                organizationName={selected.name}
-                organization={selected}
-                onNavigate={(v) => navigate(v, selected)}
-                onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
-                onArchive={() => navigate('archive', selected)}
-                onDeleted={handleOrganizationDeleted}
-                onExploreInGraph={exploreInGraph}
+              <LazyView
+                label="Command Center"
+                loader={COMMAND_CENTER}
+                props={{
+                  tenantId: selected.tenantId,
+                  organizationName: selected.name,
+                  organization: selected,
+                  userRole,
+                  onNavigate: (v: View) => navigate(v, selected),
+                  onUpdated: (org: Organization) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); },
+                  onArchive: () => navigate('archive', selected),
+                  onDeleted: handleOrganizationDeleted,
+                  onExploreInGraph: exploreInGraph,
+                }}
               />
             )}
             {view === 'list' && (
@@ -474,85 +602,107 @@ function AuthenticatedApp() {
               </div>
             )}
             {view === 'list' && (
-              <OrganizationList
-                organizations={organizations}
-                loading={loading}
-                onSelect={(org) => navigate('details', org)}
-                /* Not 'edit'. Editing moved inline onto the organization page and
-                   the standalone edit screen went with it, so navigating there
-                   rendered an empty content pane. */
-                onEdit={(org) => navigate('details', org)}
-                onArchive={(org) => navigate('archive', org)}
+              <LazyView
+                label="Organizations"
+                loader={ORGANIZATION_LIST}
+                props={{
+                  organizations,
+                  loading,
+                  onSelect: (org: Organization) => navigate('details', org),
+                  // Not 'edit'. Editing moved inline onto the organization page.
+                  onEdit: (org: Organization) => navigate('details', org),
+                  onArchive: (org: Organization) => navigate('archive', org),
+                }}
               />
             )}
             {view === 'create' && (
-              <OrganizationCreate
-                tenantId={tenantId}
-                onCreated={(org) => { navigate('list'); reloadAfter(`Organization "${org.name}" created`); }}
-                onCancel={() => navigate('list')}
+              <LazyView
+                label="Create Organization"
+                loader={ORGANIZATION_CREATE}
+                props={{
+                  tenantId,
+                  onCreated: (org: Organization) => { navigate('list'); reloadAfter(`Organization "${org.name}" created`); },
+                  onCancel: () => navigate('list'),
+                }}
               />
             )}
             {view === 'details' && selected && (
-              <CommandCenter
-                tenantId={selected.tenantId}
-                organizationName={selected.name}
-                organization={selected}
-                onNavigate={(v) => navigate(v, selected)}
-                onUpdated={(org) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); }}
-                onArchive={() => navigate('archive', selected)}
-                onDeleted={handleOrganizationDeleted}
-                onExploreInGraph={exploreInGraph}
+              <LazyView
+                label="Command Center"
+                loader={COMMAND_CENTER}
+                props={{
+                  tenantId: selected.tenantId,
+                  organizationName: selected.name,
+                  organization: selected,
+                  userRole,
+                  onNavigate: (v: View) => navigate(v, selected),
+                  onUpdated: (org: Organization) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); },
+                  onArchive: () => navigate('archive', selected),
+                  onDeleted: handleOrganizationDeleted,
+                  onExploreInGraph: exploreInGraph,
+                }}
               />
             )}
             {view === 'departments' && selected && (
-              <DepartmentApp
-                organization={selected}
-                onBack={() => navigate('details', selected)}
-                onExploreInGraph={exploreInGraph}
+              <LazyView
+                label="Departments"
+                loader={DEPARTMENT_APP}
+                props={{ organization: selected, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph }}
               />
             )}
             {view === 'people' && selected && (
-              <PersonApp
-                organization={selected}
-                onBack={() => navigate('details', selected)}
-                onExploreInGraph={exploreInGraph}
+              <LazyView
+                label="People"
+                loader={PERSON_APP}
+                props={{ organization: selected, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph }}
               />
             )}
             {view === 'capabilities' && selected && (
-              <CapabilityApp organization={selected} onBack={() => navigate('details', selected)} />
+              <LazyView
+                label="Capabilities"
+                loader={CAPABILITY_APP}
+                props={{ organization: selected, onBack: () => navigate('details', selected) }}
+              />
             )}
             {view === 'signals' && selected && (
-              <SignalDashboard
-                tenantId={selected.tenantId}
-                onNavigate={(v) => navigate(v, selected)}
-                onExploreInGraph={exploreInGraph}
+              <LazyView
+                label="Signals"
+                loader={SIGNAL_DASHBOARD}
+                props={{ tenantId: selected.tenantId, onNavigate: (v: View) => navigate(v, selected), onExploreInGraph: exploreInGraph }}
               />
             )}
             {view === 'workspace' && selected && (
-              <IntelligenceWorkspace tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
+              <LazyView
+                label="Intelligence Workspace"
+                loader={INTELLIGENCE_WORKSPACE}
+                props={{ tenantId: selected.tenantId, onNavigate: (v: View) => navigate(v, selected) }}
+              />
             )}
             {view === 'analytics' && selected && (
-              <DecisionAnalyticsPanel tenantId={selected.tenantId} />
+              <LazyView label="Analytics" loader={DECISION_ANALYTICS_PANEL} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'executive' && selected && (
-              <ExecutiveDashboard tenantId={selected.tenantId} />
+              <LazyView label="Executive Dashboard" loader={EXECUTIVE_DASHBOARD} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'graph' && selected && (
-              <GraphExplorer
-                tenantId={selected.tenantId}
-                organizationName={selected.name}
-                focus={graphFocus}
-                onNavigate={(v) => navigate(v, selected)}
+              <LazyView
+                label="Graph Explorer"
+                loader={GRAPH_EXPLORER}
+                props={{ tenantId: selected.tenantId, organizationName: selected.name, focus: graphFocus, onNavigate: (v: View) => navigate(v, selected) }}
               />
             )}
             {view === 'agents' && selected && (
-              <AgentMonitor tenantId={selected.tenantId} />
+              <LazyView label="Agent Monitor" loader={AGENT_MONITOR} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'evidence' && selected && (
-              <EvidenceWorkspace tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
+              <LazyView
+                label="Evidence"
+                loader={EVIDENCE_WORKSPACE}
+                props={{ tenantId: selected.tenantId, onNavigate: (v: View) => navigate(v, selected) }}
+              />
             )}
             {(view === 'aiassistant' || view === 'search' || view === 'copilot' || view === 'aiworkspace') && selected && (
-              <AIAssistant tenantId={selected.tenantId} />
+              <LazyView label="AI Assistant" loader={AI_ASSISTANT} props={{ tenantId: selected.tenantId }} />
             )}
             {/* Suspense sits INSIDE the content region, so the sidebar and
                 header stay mounted and interactive while the chunk downloads —
@@ -566,50 +716,58 @@ function AuthenticatedApp() {
               />
             )}
             {view === 'tasks' && selected && (
-              <TaskMonitor tenantId={selected.tenantId} />
+              <LazyView label="Tasks" loader={TASK_MONITOR} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'deliberation' && selected && (
-              <DeliberationWorkspace tenantId={selected.tenantId} />
+              <LazyView label="Deliberation" loader={DELIBERATION_WORKSPACE} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'settings' && selected && (
-              <Settings
-                tenantId={selected.tenantId}
-                organizationName={selected.name}
-                orgStatus={selected.status}
+              <LazyView
+                label="Settings"
+                loader={SETTINGS}
+                props={{ tenantId: selected.tenantId, organizationName: selected.name, orgStatus: selected.status }}
               />
             )}
             {view === 'policies' && selected && (
-              <PolicyManagement tenantId={selected.tenantId} />
+              <LazyView label="Policies" loader={POLICY_MANAGEMENT} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'mentalmodels' && selected && (
-              <MentalModelBrowser tenantId={selected.tenantId} />
+              <LazyView label="Mental Models" loader={MENTAL_MODEL_BROWSER} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'executions' && selected && (
-              <ExecutionCenter tenantId={selected.tenantId} />
+              <LazyView label="Executions" loader={EXECUTION_CENTER} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'knowledgelibrary' && selected && (
-              <KnowledgeLibrary tenantId={selected.tenantId} />
+              <LazyView label="Knowledge Library" loader={KNOWLEDGE_LIBRARY} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'ingestion' && selected && (
-              <IngestionWorkspace tenantId={selected.tenantId} onNavigate={(v) => navigate(v, selected)} />
+              <LazyView
+                label="Ingestion"
+                loader={INGESTION_WORKSPACE}
+                props={{ tenantId: selected.tenantId, onNavigate: (v: View) => navigate(v, selected) }}
+              />
             )}
             {view === 'memory' && selected && (
-              <MemoryScreen tenantId={selected.tenantId} />
+              <LazyView label="Memory" loader={MEMORY_SCREEN} props={{ tenantId: selected.tenantId }} />
             )}
             {/* Now takes a tenant: the catalogue it renders is per-organization,
                 where before it rendered the same two hardcoded definitions for
                 everyone. */}
             {view === 'esolibrary' && selected && (
-              <EsoLibraryScreen tenantId={selected.tenantId} />
+              <LazyView label="ESO Library" loader={ESO_LIBRARY_SCREEN} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'kasbaexplorer' && selected && (
-              <KasbaExplorer tenantId={selected.tenantId} organizationName={selected.name} />
+              <LazyView label="KASBA" loader={KASBA_EXPLORER} props={{ tenantId: selected.tenantId, organizationName: selected.name }} />
             )}
             {view === 'archive' && selected && (
-              <OrganizationArchiveConfirm
-                organization={selected}
-                onArchived={(org) => { setSelected(null); setView('list'); reloadAfter(`Organization "${org.name}" archived`, 'warning'); }}
-                onCancel={() => navigate('details', selected)}
+              <LazyView
+                label="Archive Organization"
+                loader={ORGANIZATION_ARCHIVE_CONFIRM}
+                props={{
+                  organization: selected,
+                  onArchived: (org: Organization) => { setSelected(null); setView('list'); reloadAfter(`Organization "${org.name}" archived`, 'warning'); },
+                  onCancel: () => navigate('details', selected),
+                }}
               />
             )}
       </ErrorBoundary>

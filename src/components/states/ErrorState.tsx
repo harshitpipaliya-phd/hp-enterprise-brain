@@ -10,7 +10,7 @@ interface ErrorStateProps {
 export const ErrorState: React.FC<ErrorStateProps> = ({ title = 'Something went wrong', message, onRetry }) => {
   return (
     <div className="u-state-shell">
-      <UiErrorState message={message || title} onRetry={onRetry} />
+      <UiErrorState title={title} message={message} onRetry={onRetry} />
       {!onRetry && message && (
         <Button variant="secondary" onClick={() => window.location.reload()}>
           Refresh page

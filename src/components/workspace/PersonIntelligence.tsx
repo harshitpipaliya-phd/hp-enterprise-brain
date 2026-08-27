@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api as personApi } from '../../api/person';
+import { api as departmentApi } from '../../api/department';
 import { LoadingState, ErrorState } from '../shared/States';
 import './PersonProfile.css';
 import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
@@ -141,6 +142,16 @@ interface Academic {
   sectionsOnRecord?: number;
 }
 
+/**
+ * The imported datasets that make an organization's people STUDENTS.
+ *
+ * A set rather than a substring test: 'school_fee' is the dataset the academic
+ * panel is actually built from today, and listing the others explicitly is what
+ * keeps a future 'school_transport' or an unrelated 'schedule' from silently
+ * turning the section on for a tenant that has no roster.
+ */
+const ACADEMIC_DATASETS = new Set(['school_fee', 'school_exam', 'school_attendance', 'student_roster']);
+
 interface CapabilityScore {
   capabilityId: string;
   capabilityName: string;
@@ -190,6 +201,15 @@ interface TimelineEvent {
 interface Profile {
   person: Identity;
   organization: { id: string; name: string | null; code: string | null; industry: string | null } | null;
+  /**
+   * The operational datasets this ORGANIZATION has imported — not this person's.
+   *
+   * It is how the page tells "this person has no academic record" apart from
+   * "this organization has never held academic data", which are the same empty
+   * panel and opposite findings. Optional so a server that predates it degrades
+   * to the older behaviour rather than hiding a section that should be there.
+   */
+  datasets?: Array<{ dataset: string; label: string; records: number }>;
   linkage: { available: boolean; rules: LinkRule[]; matched: LinkRule[]; records: number; datasets: DatasetSummary[] };
   academic: Academic | null;
   contacts: { guardians: Guardian[] };
@@ -386,6 +406,22 @@ export default function PersonIntelligence({
   const name = person.displayName ?? `Person ${person.id}`;
   const currency = finance?.currency ?? null;
 
+  /*
+    WHETHER THIS ORGANIZATION KEEPS ACADEMIC DATA AT ALL.
+
+    A telecoms or healthcare tenant has no student roster and never will, so an
+    "Academic record — none for this person" panel on every one of its engineers
+    is a permanent empty section that says nothing. A school with an imported
+    roster is the opposite case: there the same empty panel is a real finding
+    about that student, and it stays.
+
+    Derived from what the tenant has actually imported rather than from its
+    industry label, because the industry field is free text an administrator
+    typed and the datasets are what the product can see.
+  */
+  const academicDatasets = (profile.datasets ?? []).filter((d) => ACADEMIC_DATASETS.has(d.dataset) && d.records > 0);
+  const showsAcademicSection = academic !== null || academicDatasets.length > 0;
+
   return (
     <div className="pp eb-fade-in">
       <div className="pp-actions">
@@ -435,6 +471,7 @@ export default function PersonIntelligence({
       {tab === 'overview' && (
         <>
           <Highlights profile={profile} />
+          <Standing profile={profile} tenantId={tenantId} />
 
           <div className="pp-grid">
             <Panel title="Profile">
@@ -460,7 +497,7 @@ export default function PersonIntelligence({
               </p>
             </Panel>
 
-            {academic ? (
+            {!showsAcademicSection ? null : academic ? (
               <Panel title="Academic record">
                 <Fields
                   rows={[
@@ -493,7 +530,7 @@ export default function PersonIntelligence({
               <Panel title="Academic record">
                 <Empty
                   headline="No academic record for this person."
-                  explain="Class, section and academic year come from imported student records. None of the imported records for this organization reference this person."
+                  explain={`Class, section and academic year come from this organization's imported student records — ${academicDatasets.reduce((sum, d) => sum + d.records, 0).toLocaleString()} of them. None reference this person.`}
                 />
               </Panel>
             )}
@@ -825,6 +862,206 @@ export default function PersonIntelligence({
  * have never been written to in this installation. A tile with nothing in it is
  * not a neutral piece of furniture; it reads as a measured zero.
  */
+/**
+ * WHERE THIS PERSON STANDS — the part of a profile a database record cannot be.
+ *
+ * The rest of this screen reports facts about one person: their row, their
+ * attached records, their invoices. None of it answers the two questions a
+ * manager opening a profile actually has — what is this person good at, and
+ * what needs attention — because neither is visible without something to
+ * compare against.
+ *
+ * THE COMPARISON IS THE DEPARTMENT'S OWN AVERAGES, fetched from the same twin
+ * the Departments screen reads, so the two screens can never disagree about
+ * what a unit's average is. Where the department has no assessments the panel
+ * still works: a strength then means "strongest of this person's own assessed
+ * capabilities" and says so, rather than silently comparing against nothing.
+ *
+ * NOTHING IS SCORED THAT WAS NOT MEASURED. A person with no capability
+ * assessment gets no strengths and no gaps — not empty ones — and the panel
+ * says which import would produce them.
+ */
+/** A payload field that should be a list, treated as one whatever arrives. */
+function asArray(value: unknown): any[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function Standing({ profile, tenantId }: { profile: Profile; tenantId: string }) {
+  const { intelligence, person } = profile;
+  const [departmentAverages, setDepartmentAverages] = useState<Record<string, number> | null>(null);
+  const [departmentName, setDepartmentName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const unit = person.departmentId;
+    if (!unit) { setDepartmentAverages(null); return; }
+
+    departmentApi.getTwin(tenantId, String(unit))
+      .then((twin: any) => {
+        if (cancelled) return;
+        const averages: Record<string, number> = {};
+        for (const cell of asArray(twin?.capabilityHeatmap)) {
+          const level = Number(cell?.averageLevel);
+          if (cell?.capabilityId && Number.isFinite(level)) averages[String(cell.capabilityId)] = level;
+        }
+        setDepartmentAverages(averages);
+        setDepartmentName(twin?.department?.name ? String(twin.department.name) : null);
+      })
+      // A failed peer lookup degrades the panel to "own capabilities only".
+      // It must never blank a profile that is otherwise complete.
+      .catch(() => { if (!cancelled) setDepartmentAverages(null); });
+
+    return () => { cancelled = true; };
+  }, [tenantId, person.departmentId]);
+
+  const scored = intelligence.capabilities
+    .map((capability) => {
+      const values = Object.values(capability.scores).filter((v): v is number => typeof v === 'number');
+      const level = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+      const peer = departmentAverages?.[capability.capabilityId] ?? null;
+      return { capability, level, peer, delta: level !== null && peer !== null ? level - peer : null };
+    })
+    .filter((row) => row.level !== null);
+
+  if (scored.length === 0 && intelligence.signals.length === 0) {
+    return null;
+  }
+
+  const ranked = [...scored].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+  // "Strong" is relative to the unit where there is a unit to be relative to,
+  // and relative to this person's own spread where there is not.
+  const strengths = ranked.filter((r) => (r.delta !== null ? r.delta >= 0.5 : (r.level ?? 0) >= 3.5)).slice(0, 3);
+  const weak = [...ranked].reverse()
+    .filter((r) => (r.delta !== null ? r.delta <= -0.5 : (r.level ?? 0) < 2.5))
+    .slice(0, 3);
+
+  const gaps = intelligence.capabilities
+    .flatMap((c) => c.gaps.map((g) => ({ ...g, capabilityName: c.capabilityName })))
+    .filter((g) => g.gap > 0)
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 3);
+
+  const openSignals = intelligence.signals.filter(
+    (sig) => !['resolved', 'closed', 'dismissed'].includes(String(sig.status ?? '').toLowerCase()),
+  );
+
+  const ownAverage = scored.length > 0
+    ? scored.reduce((sum, r) => sum + (r.level ?? 0), 0) / scored.length
+    : null;
+  const peerAverage = scored.filter((r) => r.peer !== null).length > 0
+    ? scored.filter((r) => r.peer !== null).reduce((sum, r) => sum + (r.peer as number), 0)
+      / scored.filter((r) => r.peer !== null).length
+    : null;
+
+  return (
+    <Panel title="Where this person stands">
+      <div className="pp-standing">
+        <div>
+          <h4>Strengths</h4>
+          {strengths.length === 0 ? (
+            <p className="pp-note">
+              {scored.length === 0
+                ? 'No capability has been assessed for this person, so nothing can be called a strength yet.'
+                : 'Nothing assessed stands clearly above the rest.'}
+            </p>
+          ) : (
+            <ul>
+              {strengths.map((row) => (
+                <li key={row.capability.capabilityId}>
+                  <strong>{row.capability.capabilityName}</strong>
+                  <small>
+                    {(row.level as number).toFixed(1)} of 5
+                    {row.delta !== null && ` — ${row.delta.toFixed(1)} above the ${departmentName ?? 'department'} average`}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <h4>Attention areas</h4>
+          {weak.length === 0 && gaps.length === 0 && openSignals.length === 0 ? (
+            <p className="pp-note">
+              Nothing assessed falls behind, and no unresolved signal names this person.
+            </p>
+          ) : (
+            <ul>
+              {weak.map((row) => (
+                <li key={row.capability.capabilityId}>
+                  <strong>{row.capability.capabilityName}</strong>
+                  <small>
+                    {(row.level as number).toFixed(1)} of 5
+                    {row.delta !== null && ` — ${Math.abs(row.delta).toFixed(1)} below the ${departmentName ?? 'department'} average`}
+                  </small>
+                </li>
+              ))}
+              {gaps.map((gap) => (
+                <li key={`${gap.capabilityName}-${gap.dimension}`}>
+                  <strong>{gap.capabilityName} · {gap.dimension}</strong>
+                  <small>
+                    At {gap.currentLevel ?? 0} against a target of {gap.targetLevel} — a gap of {gap.gap}.
+                  </small>
+                </li>
+              ))}
+              {openSignals.length > 0 && (
+                <li>
+                  <strong>{openSignals.length} unresolved {openSignals.length === 1 ? 'signal' : 'signals'}</strong>
+                  <small>{openSignals.slice(0, 2).map((sig) => sig.title || sig.ruleKey || 'Untitled').join(' · ')}</small>
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <h4>Compared with</h4>
+          {ownAverage === null ? (
+            <p className="pp-note">A comparison needs at least one assessed capability.</p>
+          ) : (
+            <dl className="pp-compare">
+              <div>
+                <dt>This person</dt>
+                <dd>{ownAverage.toFixed(1)} / 5</dd>
+              </div>
+              {peerAverage !== null && (
+                <div>
+                  <dt>{departmentName ?? 'Their department'}</dt>
+                  <dd>{peerAverage.toFixed(1)} / 5</dd>
+                </div>
+              )}
+              <div>
+                <dt>Assessed capabilities</dt>
+                <dd>{scored.length}</dd>
+              </div>
+            </dl>
+          )}
+          {/*
+            THE SCORE, WITH ITS ARITHMETIC SHOWN.
+
+            The profile score used to appear as a bare number in a tile, which
+            is exactly the "unexplained number" this screen is not allowed to
+            print. Its own breakdown is published beside it, so listing the
+            parts costs nothing and makes the total checkable.
+          */}
+          {intelligence.score.score !== null && (
+            <div className="pp-score-breakdown">
+              <h5>Profile score {intelligence.score.score}</h5>
+              <ul>
+                {Object.entries(intelligence.score.breakdown)
+                  .filter(([, value]) => value !== null)
+                  .map(([label, value]) => (
+                    <li key={label}><span>{label.replace(/[._]/g, ' ')}</span><strong>{value}</strong></li>
+                  ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 function Highlights({ profile }: { profile: Profile }) {
   const { finance, academic, activity, intelligence, person } = profile;
   const currency = finance?.currency ?? null;

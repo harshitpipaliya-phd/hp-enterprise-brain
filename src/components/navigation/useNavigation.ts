@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { API_BASE } from '../../api/client';
+import { getAccessToken } from '../../utils/authTokens';
 
 interface UseNavigationOptions {
   tenantId: string;
@@ -18,7 +20,9 @@ export function useNavigation({ tenantId, industryCode, roleKey, enabledModules 
     setLoading(true);
     setError(null);
 
-    fetch(`/api/v1/navigation/${tenantId}?industry_code=${encodeURIComponent(industryCode)}&role_key=${encodeURIComponent(roleKey)}`)
+    fetch(`${API_BASE}/navigation/${tenantId}?industry_code=${encodeURIComponent(industryCode)}&role_key=${encodeURIComponent(roleKey)}`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${getAccessToken()}` },
+    })
       .then(r => {
         if (!r.ok) throw new Error('Failed to fetch navigation');
         return r.json();

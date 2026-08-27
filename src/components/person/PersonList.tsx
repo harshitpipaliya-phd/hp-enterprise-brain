@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AlertTriangle, Archive, Building2, BriefcaseBusiness, IdCard, Mail, MailX, Search, Sparkles, UserMinus, UsersRound } from 'lucide-react';
 import type { Person, PersonDepartment } from './PersonApp';
+import { api as signalApi } from '../../api/signal';
 
 interface Props {
   people: Person[];
@@ -64,7 +65,7 @@ function formatDate(value: string | null | undefined): string {
  * showing, so it is still here. It is now reported as what it is: a count of
  * records missing a named field, per field, with no score on top.
  */
-export default function PersonList({ people, departments, loading, onSelect, onEdit, onArchive, onRefresh }: Props) {
+export default function PersonList({ people, departments, loading, tenantId, onSelect, onEdit, onArchive, onRefresh }: Props) {
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('all');
   const [role, setRole] = useState('all');
@@ -74,6 +75,45 @@ export default function PersonList({ people, departments, loading, onSelect, onE
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  /*
+    OPEN SIGNALS PER PERSON, IN ONE REQUEST.
+
+    A workforce list that cannot say who the organization has raised something
+    about is a phone book. The obvious implementation — a per-person lookup —
+    is a request per row and is exactly the N+1 this codebase forbids, so the
+    tenant's signals are fetched once and grouped by the person they name.
+
+    Failure is silent and the column simply does not appear: signals are
+    additional intelligence about the roster, and a roster that loads fine must
+    not be blanked because a secondary endpoint was unavailable.
+  */
+  const [signalsByPerson, setSignalsByPerson] = useState<Map<string, number> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    signalApi.listSignals(tenantId)
+      .then((rows: any) => {
+        if (cancelled) return;
+        const map = new Map<string, number>();
+        for (const row of Array.isArray(rows) ? rows : []) {
+          if (String(row?.relatedEntityType ?? '').toLowerCase() !== 'person') continue;
+          const status = String(row?.status ?? '').toLowerCase();
+          if (['resolved', 'closed', 'dismissed'].includes(status)) continue;
+          const id = String(row?.relatedEntityId ?? '');
+          if (id === '') continue;
+          map.set(id, (map.get(id) ?? 0) + 1);
+        }
+        setSignalsByPerson(map);
+      })
+      .catch(() => { if (!cancelled) setSignalsByPerson(null); });
+
+    return () => { cancelled = true; };
+  }, [tenantId]);
+
+  // The column earns its width only where at least one person has something
+  // against them. On a clean roster it is a column of dashes.
+  const showsSignals = (signalsByPerson?.size ?? 0) > 0;
 
   const departmentNames = useMemo(() => {
     const map = new Map<string, string>();
@@ -308,6 +348,7 @@ export default function PersonList({ people, departments, loading, onSelect, onE
                 <Sortable label="Role" sortKey="role" active={sortKey} dir={sortDir} onSort={updateSort} />
                 <Sortable label="Status" sortKey="status" active={sortKey} dir={sortDir} onSort={updateSort} />
                 <th>Contact</th>
+                {showsSignals && <th>Open signals</th>}
                 <Sortable label="Added" sortKey="created" active={sortKey} dir={sortDir} onSort={updateSort} />
                 <th>Actions</th>
               </tr>
@@ -340,6 +381,20 @@ export default function PersonList({ people, departments, loading, onSelect, onE
                       ? <span className="people-contact"><Mail size={14} />{row.person.email}</span>
                       : <span className="people-missing">No email</span>}
                   </td>
+                  {showsSignals && (
+                    <td>
+                      {(() => {
+                        const count = signalsByPerson?.get(String(row.person.id)) ?? 0;
+                        return count === 0
+                          ? <span className="people-missing">None</span>
+                          : (
+                            <span className="people-signal-flag" data-level={count > 2 ? 'high' : 'low'}>
+                              {count} open
+                            </span>
+                          );
+                      })()}
+                    </td>
+                  )}
                   <td className="people-date">{formatDate(row.person.createdDate)}</td>
                   <td>
                     <div className="people-row-actions">

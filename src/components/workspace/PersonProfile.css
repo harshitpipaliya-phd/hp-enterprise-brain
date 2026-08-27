@@ -323,3 +323,134 @@
   .pp-timeline .eb-timeline-item { flex-wrap: wrap; }
   .pp-timeline .pp-timeline-source { max-width: none; margin-inline-start: 22px; text-align: left; }
 }
+
+/* =============================================================================
+   WHERE THIS PERSON STANDS
+
+   Three columns because they are three different questions — what is good,
+   what is not, and against what — and reading them side by side is the point.
+   They stack in order below a laptop width; the comparison last, because it is
+   the one that means least on its own.
+   ============================================================================= */
+.pp-standing {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-5);
+}
+
+.pp-standing h4 {
+  margin: 0 0 var(--space-2-5);
+  color: var(--content-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+.pp-standing ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pp-standing li {
+  padding: var(--space-2-5) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+}
+
+.pp-standing li strong {
+  display: block;
+  color: var(--content-primary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.pp-standing li small {
+  display: block;
+  margin-top: 3px;
+  color: var(--content-tertiary);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.pp-compare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+
+.pp-compare > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.pp-compare > div:last-child { padding-bottom: 0; border-bottom: none; }
+
+.pp-compare dt { color: var(--content-secondary); font-size: 12.5px; }
+
+.pp-compare dd {
+  margin: 0;
+  color: var(--content-primary);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* The number and the parts that make it, together — see the note at the call
+   site for why a bare score is not allowed on this screen. */
+.pp-score-breakdown {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+}
+
+.pp-score-breakdown h5 {
+  margin: 0 0 var(--space-2);
+  color: var(--content-primary);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.pp-score-breakdown ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pp-score-breakdown li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.pp-score-breakdown li span {
+  color: var(--content-tertiary);
+  font-size: 11.5px;
+  text-transform: capitalize;
+}
+
+.pp-score-breakdown li strong {
+  color: var(--content-secondary);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 800;
+}

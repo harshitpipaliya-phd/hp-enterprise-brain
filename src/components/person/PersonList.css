@@ -446,3 +446,31 @@
   background: color-mix(in srgb, var(--action-content) 22%, transparent);
   color: var(--action-content);
 }
+
+/*
+  OPEN SIGNALS AGAINST ONE PERSON.
+
+  Deliberately a count and not a score: the roster knows how many unresolved
+  signals name someone, and it does not know how serious they are — the person's
+  own profile does. Two tones, because the only decision this column supports is
+  "is there something here worth opening".
+*/
+.people-signal-flag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.people-signal-flag[data-level='low'] {
+  color: var(--status-warn);
+  background: color-mix(in srgb, var(--status-warn) 16%, transparent);
+}
+
+.people-signal-flag[data-level='high'] {
+  color: var(--status-crit);
+  background: color-mix(in srgb, var(--status-crit) 14%, transparent);
+}

@@ -259,7 +259,7 @@ export default function IngestionWorkspace({ tenantId, onNavigate }: { tenantId:
     <div className="ingestion-page">
       <section className="ingestion-hero">
         <div>
-          <h1>Ingestion Engine</h1>
+          <span className="eb-page-kicker">Foundation</span><h1>Data Ingestion</h1>
           <p>
             Bring this organization&apos;s data in from a file. Every row you import becomes a Signal with its
             Evidence attached, which is what the rest of the workspace reasons over. Nothing is written until
