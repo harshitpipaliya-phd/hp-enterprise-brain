@@ -139,4 +139,116 @@ export const api = {
 
   /** GET /api/v1/departments/{tenantId}/{id}/twin */
   getTwin: (tenantId: string, id: string) => request(`/departments/${scopedTenant(tenantId)}/${id}/twin`),
+
+  /** GET /api/v1/departments/{tenantId}/{id}/profile — the detail screen's whole payload. */
+  getProfile: (tenantId: string, id: string): Promise<DepartmentProfile> =>
+    request(`/departments/${scopedTenant(tenantId)}/${id}/profile`) as Promise<DepartmentProfile>,
 };
+
+/* ========================================================================== */
+/*  DEPARTMENT PROFILE                                                        */
+/*                                                                            */
+/*  The detail screen's whole payload, composed server-side. Every derived     */
+/*  figure — score, ranks, narrative, next action — arrives computed, because  */
+/*  they are derived from TENANT-WIDE aggregates a browser would need every    */
+/*  department's metrics to reproduce.                                        */
+/* ========================================================================== */
+
+export interface ProfileDimension {
+  key: string;
+  label: string;
+  weight: number;
+  /** null means the organization cannot record this — never a zero. */
+  score: number | null;
+  status: 'healthy' | 'good' | 'watch' | 'critical' | null;
+  basis: string;
+}
+
+export interface ProfilePulse {
+  key: string;
+  label: string;
+  value: number | null;
+  format: 'count' | 'rate' | 'decimal' | 'score';
+  reason: string | null;
+}
+
+export interface WorkloadSegment {
+  key: string;
+  label: string;
+  count: number;
+  share: number;
+}
+
+export interface DepartmentProfile {
+  departmentId: string;
+  score: number | null;
+  status: string;
+  statusLabel: string;
+  measuredCount: number;
+  dimensionCount: number;
+  confidence: 'high' | 'medium' | 'low' | 'none';
+  dimensions: ProfileDimension[];
+  pulse: ProfilePulse[];
+  performance: {
+    supported: boolean;
+    records: number | null;
+    completed: number | null;
+    cancelled: number | null;
+    backlog: number | null;
+    classified: number | null;
+    completionRate: number | null;
+    cancellationRate: number | null;
+    turnaroundHours: number | null;
+    turnaroundMeasured: number;
+    perPerson: number | null;
+    momentum: { changePercent: number | null } | null;
+    reason: string | null;
+  };
+  workload: {
+    supported: boolean;
+    total: number | null;
+    active: number;
+    segments: WorkloadSegment[];
+    perPerson: number | null;
+    reason: string | null;
+  };
+  people: {
+    total: number;
+    fields: Array<{ label: string; have: number; missing: number; share: number | null }>;
+    assessed: number;
+    perPerson: number | null;
+    individualReason: string;
+  };
+  trend: {
+    supported: boolean;
+    series: Array<{ period: string; records: number }>;
+    momentum: { changePercent: number | null } | null;
+    reason: string | null;
+  };
+  contribution: {
+    records: number | null;
+    recordShare: number | null;
+    organizationRecords: number;
+    people: number;
+    peopleShare: number | null;
+    organizationPeople: number;
+    activityRank: number | null;
+    activityOf: number | null;
+    scoreDifference: number | null;
+  };
+  position: {
+    size: { rank: number | null; of: number; value: number | null };
+    activity: { rank: number | null; of: number; value: number | null };
+    score: { rank: number | null; of: number; value: number | null };
+    organizationAverage: number | null;
+    difference: number | null;
+  };
+  work: { primaryDataset: string | null; breakdown: unknown[]; datasets: number | null };
+  signals: { supported: boolean; organizationTotal: number; total: number; open: number; openHigh: number; resolved: number; reason: string | null };
+  evidence: { supported: boolean; organizationTotal: number; total: number; reason: string | null };
+  cases: { supported: boolean; organizationTotal: number; total: number; open: number; reason: string | null };
+  health: { status: string; label: string; lines: string[] };
+  narrative: Array<{ kind: 'observation' | 'risk' | 'opportunity' | 'trend'; text: string }>;
+  nextAction: { title: string; detail: string; target: string };
+  unclaimedWork: { unitId: string; label: string; records: number; completed: number; backlog: number } | null;
+}

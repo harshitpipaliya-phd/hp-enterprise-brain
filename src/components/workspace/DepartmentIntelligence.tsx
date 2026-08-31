@@ -14,13 +14,16 @@ import { LoadingState, ErrorState } from '../shared/States';
 import { HeaderActions, PageHeader } from '../../ui';
 import {
   EMPTY_METRICS, NO_SUPPORT, DEFAULT_THRESHOLDS,
-  departmentScore, departmentInsights, departmentPosition, scoreStatus,
+  departmentScore,
   type DepartmentMetrics, type DepartmentSupport,
 } from '../department/departmentScore';
-import { DepartmentScoreRing, DepartmentMeter, DepartmentStat } from '../department/DepartmentScoreRing';
+import { DepartmentScoreRing, DepartmentStat } from '../department/DepartmentScoreRing';
+import { DepartmentProfileView } from '../department/DepartmentProfileView';
+import type { DepartmentProfile } from '../../api/department';
 import '../department/DepartmentList.css';
 import './DepartmentIntelligence.css';
 import '../department/department.css';
+import '../department/departmentProfile.css';
 
 interface Department {
   id: string;
@@ -116,6 +119,7 @@ export default function DepartmentIntelligence({
   const [twin, setTwin] = useState<DepartmentTwin | null>(null);
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [listLoading, setListLoading] = useState(true);
+  const [profile, setProfile] = useState<DepartmentProfile | null>(null);
   const [twinLoading, setTwinLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -268,6 +272,28 @@ export default function DepartmentIntelligence({
     setPage(0);
     setPersonSearch('');
     loadDepartment(selectedId);
+
+    /*
+      THE PROFILE IS ONE REQUEST, AND IT IS THE PAGE.
+
+      Composed server-side from aggregates already cached for the tenant, so it
+      costs about what the list costs. Failure is silent and the panels below
+      simply do not render: the twin's own sections still work, and a screen
+      that blanked because a secondary endpoint was unavailable is the failure
+      this codebase keeps rediscovering.
+    */
+    setProfile(null);
+
+    if (selectedId) {
+      // Called through Promise.resolve so a SYNCHRONOUS throw — an api surface
+      // without this method, which is what a stale bundle or an older mock
+      // looks like — lands in the same catch as a failed request rather than
+      // taking the render down with it.
+      Promise.resolve()
+        .then(() => deptApi.getProfile(tenantId, selectedId))
+        .then((p) => setProfile(p))
+        .catch(() => setProfile(null));
+    }
   }, [tenantId, selectedId]);
 
   /*
@@ -282,10 +308,6 @@ export default function DepartmentIntelligence({
 
   /* ------------------------------------------------------------------ model */
 
-  const model = useMemo(
-    () => buildDepartmentIntelligenceModel({ twin, departments, summary, people }),
-    [twin, departments, summary, people],
-  );
 
   /*
     THE DEPARTMENT'S OWN SCORE, and the peer set it is ranked against, from the
@@ -306,23 +328,7 @@ export default function DepartmentIntelligence({
     [ownMetrics, support],
   );
 
-  const insights = useMemo(
-    () => departmentInsights(ownMetrics, support, scored, DEFAULT_THRESHOLDS),
-    [ownMetrics, support, scored],
-  );
 
-  const position = useMemo(() => {
-    const scores = new Map<string, number | null>();
-
-    for (const dept of departments) {
-      const row = metrics[String(dept.id)];
-      if (!row) continue;
-      const headcount = Number(summary?.peoplePerDepartment?.[String(dept.id)] ?? row.people ?? 0) || 0;
-      scores.set(String(dept.id), departmentScore({ ...row, people: headcount }, support).score);
-    }
-
-    return departmentPosition(scores, String(selectedId));
-  }, [departments, metrics, summary, support, selectedId]);
 
   // The rows for this page ARE the page: filtering and slicing happen in SQL.
   const pageCount = peoplePages;
@@ -493,354 +499,144 @@ export default function DepartmentIntelligence({
             )}
           </section>
 
-          <div className="di-grid">
-            <div className="di-column">
-              <section className="dept-intel__card di-health" aria-label="Department intelligence">
-                <div className="dept-intel__card-head">
-                  <h2>Department intelligence</h2>
-                  <span>{`${scored.measured.length} of ${scored.dimensions.length} dimensions measured`}</span>
-                </div>
+          {/*
+            THE PROFILE IS THE PAGE NOW.
 
-                {scored.score === null ? (
-                  /*
-                    NO NUMBER, AND THE REASON IN WORDS.
+            The old two-column grid rendered the score, its dimension meters and
+            a handful of counts, and every other question the screen claims to
+            answer — how busy, how fast, how it compares, what to do — had no
+            panel at all. This renders the composed profile instead: the same
+            score, plus the performance, workload, trend, contribution, ranking,
+            narrative and next action derived from it.
 
-                    The old page published 50/100 here for any unit with nobody
-                    in it — the mean of "nothing is here" and "nothing is wrong
-                    here". A sentence naming what is missing is a better answer
-                    than a midpoint, and it is the only one that tells the
-                    organization what to do next.
-                  */
-                  <p className="di-note di-note--empty">{scored.unscoredReason}</p>
-                ) : (
-                  <div className="di-health__body">
-                    <DepartmentScoreRing
-                      score={scored.score}
-                      status={scored.status}
-                      label={scored.label}
-                      size={104}
-                    />
-                    <div className="di-health__components">
-                      {scored.dimensions.map((dimension) => (
-                        <DepartmentMeter
-                          key={dimension.key}
-                          label={dimension.label}
-                          score={dimension.score}
-                          status={dimension.score === null ? null : scoreStatusFor(dimension.score)}
-                          basis={dimension.basis}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
+            Rendered only when the profile arrived. There is no half-page: the
+            older sections above (people, capabilities, raw detail) are
+            independent of this request and keep working on their own.
+          */}
+          {profile && (
+            <DepartmentProfileView
+              profile={profile}
+            />
+          )}
 
-                <p className="di-note">
-                  The score is the weighted mean of the dimensions this organization can actually measure. A dimension
-                  it does not record is left out and its weight redistributed — never counted as zero — so a department
-                  is never marked down for data the source system has never held.
+          {/*
+            THE ROSTER AND THE CAPABILITY REGISTER.
+
+            Kept below the intelligence panels rather than beside them: the
+            profile answers "how is this unit doing", and this answers "who is
+            in it", which is the question a reader asks second. Paging and
+            search are SERVER-SIDE — `pageRows` is the page, not a slice of a
+            downloaded roster.
+          */}
+          <div className="dp-grid dp-grid--2">
+            <section className="dp-card" aria-label="People in this department">
+              <div className="dp-card__head">
+                <h2>People</h2>
+                <span className="dp-chip">{peopleTotal.toLocaleString()} recorded</span>
+              </div>
+
+              <label className="dp-search">
+                <Search size={14} aria-hidden="true" />
+                <input
+                  type="search"
+                  value={personSearch}
+                  placeholder="Search this department…"
+                  onChange={(e) => { setPersonSearch(e.target.value); setPage(0); }}
+                  aria-label="Search people in this department"
+                />
+              </label>
+
+              {peopleLoading && pageRows.length === 0 ? (
+                <p className="dp-note">Loading…</p>
+              ) : pageRows.length === 0 ? (
+                <p className="dp-empty">
+                  {personSearch
+                    ? 'Nobody in this department matches that search.'
+                    : 'No one is assigned to this unit in the source system.'}
                 </p>
-              </section>
-
-              {/*
-                WHAT THIS DEPARTMENT TELLS US.
-
-                Every line is derived from the counts above; nothing here is a
-                template with a name dropped into it, which is why a department
-                can legitimately produce no insight at all.
-              */}
-              <section className="dept-intel__card" aria-label="What this department tells us">
-                <div className="dept-intel__card-head">
-                  <h2>What this department tells us</h2>
-                  <span>
-                    {insights.strengths.length + insights.risks.length + insights.focus.length}
-                    {' '}
-                    {insights.strengths.length + insights.risks.length + insights.focus.length === 1 ? 'observation' : 'observations'}
-                  </span>
-                </div>
-
-                {insights.empty ? (
-                  <p className="di-note di-note--empty">
-                    Not enough evidence to generate a reliable department insight. Insights appear as people are
-                    assigned, capabilities assessed, and signals or decisions recorded against this unit.
-                  </p>
-                ) : (
-                  <div className="di-insights">
-                    <InsightGroup title="Strengths" tone="good" items={insights.strengths} />
-                    <InsightGroup title="Risks" tone="crit" items={insights.risks} />
-                    <InsightGroup title="Focus areas" tone="warn" items={insights.focus} />
-                  </div>
-                )}
-              </section>
-
-              {/*
-                CAPABILITIES, WITH A USEFUL ABSENCE.
-
-                "Capabilities: 0" told a reader nothing they could act on. The
-                three states below are genuinely different and each says what to
-                do: this organization does not assess capability at all; it does,
-                and this unit has not been assessed; or here is what it holds.
-              */}
-              <section className="dept-intel__card" aria-label="Capabilities">
-                <div className="dept-intel__card-head">
-                  <h2>Capabilities</h2>
-                  {model.capability && <span>{model.capability.cells.length} assessed</span>}
-                </div>
-
-                {!support.capability ? (
-                  <p className="di-note di-note--empty">
-                    No capability has been assigned anywhere in this organization yet. Assign capabilities to this
-                    department to measure capability coverage and identify skill gaps.
-                  </p>
-                ) : !model.capability ? (
-                  <p className="di-note di-note--empty">
-                    No capability assigned to this department has been assessed, although other departments have
-                    assessments recorded. Assess the people here to compare its strengths and gaps with theirs.
-                  </p>
-                ) : (
-                  <div className="dept-intel__bars">
-                    {model.capability.cells.map((cell) => (
-                      <div key={cell.capabilityId} className="dept-intel__bar-row">
-                        <span>{capabilityNames[cell.capabilityId] ?? cell.capabilityId}</span>
-                        <div>
-                          <i
-                            style={{
-                              width: `${Math.min(100, (cell.averageLevel / 5) * 100)}%`,
-                              background: cell.averageLevel >= 3.5
-                                ? 'var(--status-good)'
-                                : cell.averageLevel >= 2.5 ? 'var(--status-warn)' : 'var(--status-crit)',
-                            }}
-                          />
-                        </div>
-                        <strong>{cell.averageLevel.toFixed(1)}</strong>
-                      </div>
-                    ))}
-                    <p className="di-note">
-                      {`${ownMetrics.capabilityAssessedPeople.toLocaleString()} of ${ownMetrics.people.toLocaleString()} `}
-                      {ownMetrics.people === 1 ? 'person has' : 'people have'} been assessed, averaging out of 5.
-                    </p>
-                  </div>
-                )}
-              </section>
-
-              <section className="dept-intel__directory" aria-label="People in this department">
-                <div className="dept-intel__table-head">
-                  <div>
-                    <h2>People</h2>
-                    <p>
-                      {peopleTotal === 0
-                        ? 'Nobody in the source system is assigned to this unit.'
-                        : `${peopleTotal.toLocaleString()} ${peopleTotal === 1 ? 'person' : 'people'} — select one to open their profile.`}
-                    </p>
-                  </div>
-                  {/*
-                    The search box stays available whenever the unit has anyone,
-                    because it now queries the SERVER: it can find someone on
-                    page 40 without that page ever having been loaded, which the
-                    old client-side filter over one page could not.
-                  */}
-                  {peopleTotal > 0 && (
-                    <label className="dept-intel__search di-people__search">
-                      <Search size={15} />
-                      <input
-                        value={personSearch}
-                        onChange={(e) => { setPersonSearch(e.target.value); setPage(0); }}
-                        placeholder="Search people…"
-                        aria-label="Search people in this department"
-                      />
-                    </label>
-                  )}
-                </div>
-
-                {pageRows.length === 0 ? (
-                  <p className="di-note di-note--empty">
-                    {peopleLoading
-                      ? 'Loading people…'
-                      : personSearch.trim()
-                        ? `No one in this department matches “${personSearch.trim()}”.`
-                        : 'No people in the source system are assigned to this unit.'}
-                  </p>
-                ) : (
-                  <>
-                    <ul className="di-people" data-loading={peopleLoading || undefined}>
-                      {pageRows.map((person) => (
-                        <li key={person.id}>
-                          <button type="button" onClick={() => onSelectPerson?.(person.id)} disabled={!onSelectPerson}>
-                            <span className="di-people__avatar" aria-hidden="true">{initials(person)}</span>
-                            <span className="di-people__identity">
-                              <strong>{personLabel(person)}</strong>
-                              <small>{person.designation || person.jobTitle || 'Role not recorded in the source system'}</small>
-                            </span>
-                            {onSelectPerson && <ChevronRight size={16} className="di-people__arrow" />}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-
-                    {/*
-                      PAGINATED IN SQL, NOT SCROLLED. A department of 768 people
-                      rendered as one column is a page nobody reaches the bottom
-                      of, and it pushes every panel below it off screen. The page
-                      numbers are windowed so a 77-page department does not draw
-                      77 buttons.
-                    */}
-                    {pageCount > 1 && (
-                      <nav className="di-pager" aria-label="People pages">
-                        <button type="button" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={safePage === 0}>
-                          <ChevronLeft size={15} /> Previous
-                        </button>
-
-                        <span className="di-pager__pages">
-                          {pageWindow(safePage, pageCount).map((entry, index) => (
-                            entry === null ? (
-                              <span key={`gap-${index}`} className="di-pager__gap" aria-hidden="true">…</span>
-                            ) : (
-                              <button
-                                key={entry}
-                                type="button"
-                                className="di-pager__page"
-                                aria-current={entry === safePage ? 'page' : undefined}
-                                onClick={() => setPage(entry)}
-                              >
-                                {entry + 1}
-                              </button>
-                            )
-                          ))}
-                        </span>
-
+              ) : (
+                <>
+                  <ul className="dp-people">
+                    {pageRows.map((person) => (
+                      <li key={person.id}>
                         <button
                           type="button"
-                          onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                          disabled={safePage >= pageCount - 1}
+                          className="dp-person"
+                          onClick={() => onSelectPerson?.(person.id)}
+                          disabled={!onSelectPerson}
                         >
-                          Next <ChevronRight size={15} />
+                          <span className="dp-person__avatar" aria-hidden="true">{initials(person)}</span>
+                          <span className="dp-person__body">
+                            <span className="dp-person__name">{person.firstName} {person.lastName}</span>
+                            <span className="dp-person__meta">
+                              {person.designation || person.jobTitle || person.email || 'No role recorded'}
+                            </span>
+                          </span>
                         </button>
-                      </nav>
-                    )}
-
-                    <p className="di-note">
-                      {`Showing ${(safePage * PAGE_SIZE + 1).toLocaleString()}–${Math.min(peopleTotal, safePage * PAGE_SIZE + pageRows.length).toLocaleString()} of ${peopleTotal.toLocaleString()}.`}
-                    </p>
-                  </>
-                )}
-              </section>
-            </div>
-
-            <div className="di-column">
-              {/*
-                DEPARTMENT POSITION.
-
-                Computed from the scores actually published, never from the
-                department list: a unit that could not be scored is excluded
-                from the average rather than entering it as a zero, because six
-                unscored units would drag the organization average to a figure
-                no department recognises and "#2 of 13" would be a ranking
-                against units that were never in the race.
-              */}
-              <section className="dept-intel__card" aria-label="Department position">
-                <div className="dept-intel__card-head">
-                  <h2>Department position</h2>
-                  <span>{position.scoredPeers} scored</span>
-                </div>
-
-                {position.rank === null || position.organizationAverage === null ? (
-                  <p className="di-note di-note--empty">
-                    {scored.score === null
-                      ? 'This department is not scored, so it cannot be ranked against the others.'
-                      : `A ranking needs at least two scored departments to compare against; this organization has ${position.scoredPeers}.`}
-                  </p>
-                ) : (
-                  <dl className="di-benchmark">
-                    <div>
-                      <dt>Organization average</dt>
-                      <dd>
-                        <strong>{position.organizationAverage}%</strong>
-                        <small>Across {position.scoredPeers} scored {position.scoredPeers === 1 ? 'department' : 'departments'}</small>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>This department</dt>
-                      <dd>
-                        <strong>{scored.score}%</strong>
-                        <small>{scored.label}</small>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Position</dt>
-                      <dd>
-                        <strong>#{position.rank} of {position.scoredPeers}</strong>
-                        <small>
-                          {position.unscored > 0
-                            ? `${position.unscored} further ${position.unscored === 1 ? 'unit is' : 'units are'} not scored and excluded`
-                            : 'Every recorded unit is scored'}
-                        </small>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Difference</dt>
-                      <dd>
-                        <strong>{(position.delta ?? 0) >= 0 ? '+' : ''}{position.delta} pts</strong>
-                        <small>Against the organization average</small>
-                      </dd>
-                    </div>
-                  </dl>
-                )}
-              </section>
-
-              <section className="dept-intel__card" aria-label="Size against other departments">
-                <div className="dept-intel__card-head">
-                  {/* SIZE IS REPORTED, NEVER SCORED. Being large is not being
-                      healthy — the old model scored headcount against the median
-                      and graded the biggest unit "Excellent" for it. These are
-                      the same facts, stated rather than graded. */}
-                  <h2>Size and share</h2>
-                  <span>{model.peerCount} {model.peerCount === 1 ? 'peer' : 'peers'}</span>
-                </div>
-                {model.benchmarks.length === 0 ? (
-                  <p className="di-note di-note--empty">
-                    A benchmark needs other departments to compare against. This organization has only one unit
-                    recorded.
-                  </p>
-                ) : (
-                  <dl className="di-benchmark">
-                    {model.benchmarks.map((row) => (
-                      <div key={row.label}>
-                        <dt>{row.label}</dt>
-                        <dd>
-                          <strong>{row.value}</strong>
-                          <small>{row.detail}</small>
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-              </section>
-
-              <section className="dept-intel__card" aria-label="Activity">
-                <div className="dept-intel__card-head">
-                  <h2>Activity</h2>
-                  <span>{twin.timeline.length} recorded</span>
-                </div>
-                {twin.timeline.length === 0 ? (
-                  <p className="di-note di-note--empty">
-                    Nothing has been recorded against this department yet. Activity appears as its people are
-                    assessed, and as signals and decisions reference the unit.
-                  </p>
-                ) : (
-                  <ol className="di-timeline">
-                    {twin.timeline.slice(0, 12).map((event, index) => (
-                      <li key={`${event.type}-${event.createdAt}-${index}`}>
-                        <span className="di-timeline__dot" aria-hidden="true" />
-                        <div>
-                          <strong>{eventLabel(event.type)}</strong>
-                          <small>{formatWhen(event.createdAt)}</small>
-                        </div>
                       </li>
                     ))}
-                  </ol>
-                )}
-              </section>
-            </div>
+                  </ul>
+
+                  {/* The range and the total, so a reader knows the page is a
+                      page and what it is a page OF. */}
+                  <p className="dp-note">
+                    Showing {(safePage * PAGE_SIZE) + 1}–{Math.min((safePage + 1) * PAGE_SIZE, peopleTotal)} of {peopleTotal.toLocaleString()}
+                  </p>
+
+                  {pageCount > 1 && (
+                    <div className="dp-pager">
+                      <button type="button" onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0} aria-label="Previous page">
+                        <ChevronLeft size={14} />
+                      </button>
+                      {pageWindow(safePage, pageCount).map((n, idx) => (
+                        n === null
+                          ? <span key={`gap-${idx}`} className="dp-pager__gap">…</span>
+                          : <button
+                              key={n}
+                              type="button"
+                              onClick={() => setPage(n)}
+                              aria-current={n === safePage ? 'page' : undefined}
+                              className={n === safePage ? 'is-current' : undefined}
+                            >{n + 1}</button>
+                      ))}
+                      <button type="button" onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))} disabled={safePage >= pageCount - 1} aria-label="Next page">
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+
+            <section className="dp-card" aria-label="Capabilities">
+              <h2>Capabilities</h2>
+              {(twin?.capabilityHeatmap ?? []).length === 0 ? (
+                <p className="dp-empty">
+                  No capability has been assigned to this department. Assigning one is what makes capability coverage
+                  measurable — it is one of the dimensions the score above reports as unmeasurable.
+                </p>
+              ) : (
+                <div className="dp-fields">
+                  {(twin?.capabilityHeatmap ?? []).map((c) => (
+                    <div key={c.capabilityId} className="dp-field">
+                      <div className="dp-dim__head">
+                        <span className="dp-dim__label">{capabilityNames[c.capabilityId] ?? 'Capability'}</span>
+                        {/* averageLevel is a 0-5 proficiency, shown as the share
+                            of the scale it reaches rather than as a percentage
+                            of nothing. */}
+                        <span className="dp-dim__value">{c.averageLevel.toFixed(1)} / 5</span>
+                      </div>
+                      <div className="dp-bar dp-bar--sm">
+                        <i style={{ width: `${Math.max(2, (c.averageLevel / 5) * 100)}%` }} />
+                      </div>
+                      <p className="dp-dim__basis">Assessed across {c.assessedCount.toLocaleString()} people.</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
+
         </>
       )}
     </div>
@@ -1228,61 +1024,10 @@ function initials(person: PersonRow): string {
   return (letters || personLabel(person)[0] || '?').toUpperCase();
 }
 
-function eventLabel(type: string): string {
-  return type.replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatWhen(value: string): string {
-  const at = Date.parse(value);
-  if (!Number.isFinite(at)) return value;
-
-  const days = Math.floor((Date.now() - at) / (24 * 60 * 60 * 1000));
-  const absolute = new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-
-  if (days <= 0) return `Today · ${absolute}`;
-  if (days === 1) return `Yesterday · ${absolute}`;
-  if (days < 30) return `${days} days ago · ${absolute}`;
-  return absolute;
-}
 
 
-/**
- * A dimension's own band, so a meter is coloured by its own value rather than
- * by the department's composite. A unit scoring 88 overall with capability at
- * 40 must show that meter in the attention colour, not the healthy one.
- */
-function scoreStatusFor(score: number) {
-  return scoreStatus(score, DEFAULT_THRESHOLDS);
-}
 
-/**
- * One group of insights, rendered only when it has something to say.
- *
- * An empty "Strengths" heading over nothing is the kind of hollow furniture
- * this pass exists to remove, so the group returns null rather than a heading
- * with an empty list under it.
- */
-function InsightGroup({ title, tone, items }: {
-  title: string;
-  tone: 'good' | 'warn' | 'crit';
-  items: { title: string; detail: string }[];
-}) {
-  if (items.length === 0) return null;
 
-  return (
-    <div className="di-insight-group" data-tone={tone}>
-      <h3>{title}</h3>
-      <ul>
-        {items.map((item) => (
-          <li key={item.title}>
-            <strong>{item.title}</strong>
-            <p>{item.detail}</p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 /**
  * The page numbers to draw: first, last, and a window around the current one.

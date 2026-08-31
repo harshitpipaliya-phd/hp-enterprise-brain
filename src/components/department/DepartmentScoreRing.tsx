@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import type { ScoreStatus } from './departmentScore';
+import type { ScoreStatus, DepartmentScore, ScoreDerivation } from './departmentScore';
+import { departmentDerivation } from './departmentScore';
 
 /**
  * THE SCORE, AS ONE OBJECT — used by the directory card and the detail header
@@ -158,5 +159,106 @@ export function DepartmentStat({
       </strong>
       <span className="dept-stat__hint">{empty ? emptyHint : hint}</span>
     </article>
+  );
+}
+
+/**
+ * HOW THE SCORE WAS REACHED — one sentence, then the arithmetic.
+ *
+ * The first version of this was a four-column table. On a department where one
+ * dimension of seven survives, a table of one row with a "weight x score"
+ * column is heavier than the fact it carries: the reader has to parse a grid to
+ * learn that 33 divided by 1 is 33.
+ *
+ * So the arithmetic leads as a single line, and the table only appears when
+ * there is genuinely something to compare — two or more measured dimensions.
+ * Below it, what is NOT counted, ordered by the weight it would add, because on
+ * a young organization that ranking is the actual advice.
+ */
+export function DepartmentScoreDerivation({ scored }: { scored: DepartmentScore }) {
+  const d = departmentDerivation(scored);
+
+  if (d.contributions.length === 0) {
+    return (
+      <section className="dept-intel__card di-derivation" aria-label="How this score is derived">
+        <div className="dept-intel__card-head">
+          <h2>How this score is derived</h2>
+        </div>
+        <p className="di-note di-note--empty">
+          No dimension could be measured, so there is no score to derive. The list below is what this organization
+          would need to record.
+        </p>
+        <DerivationGaps derivation={d} />
+      </section>
+    );
+  }
+
+  const only = d.contributions.length === 1 ? d.contributions[0] : null;
+
+  return (
+    <section className="dept-intel__card di-derivation" aria-label="How this score is derived">
+      <div className="dept-intel__card-head">
+        <h2>How this score is derived</h2>
+        <span>{Math.round(d.coverage * 100)}% of the model measurable</span>
+      </div>
+
+      {/* The whole calculation, in the form a reader can check at a glance. */}
+      <p className="di-derivation__headline">
+        <strong>{d.score}%</strong>
+        {only
+          ? <> is {only.label.toLowerCase()} ({only.score}%) — the only one of {d.contributions.length + d.exclusions.length} dimensions this organization can measure.</>
+          : <> is the weighted average of the {d.contributions.length} dimensions this organization can measure.</>}
+      </p>
+
+      {d.contributions.length > 1 && (
+        <ul className="di-derivation__terms">
+          {d.contributions.map((c) => (
+            <li key={c.key}>
+              <span>{c.label}</span>
+              <strong>{c.score}%</strong>
+              <small>{Math.round(c.share * 100)}% of the score</small>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="di-derivation__note">
+        The {d.exclusions.length} unmeasured {d.exclusions.length === 1 ? 'dimension is' : 'dimensions are'} left out
+        rather than counted as zero, so this unit is not marked down for data the source system has never held.
+      </p>
+
+      <DerivationGaps derivation={d} />
+    </section>
+  );
+}
+
+/**
+ * What is not counted, and what would turn it on — heaviest first.
+ *
+ * Ordered by weight because that ordering IS the recommendation: recording the
+ * dimension that carries 1.5 changes the score more than the one that carries
+ * 0.75, and a reader deciding where to start is owed that ranking rather than
+ * the order the model happens to define them in.
+ */
+function DerivationGaps({ derivation }: { derivation: ScoreDerivation }) {
+  if (derivation.exclusions.length === 0) return null;
+
+  const ranked = [...derivation.exclusions].sort((a, b) => b.weight - a.weight);
+
+  return (
+    <div className="di-derivation__missing">
+      <h3>What would raise it</h3>
+      <ol>
+        {ranked.map((x) => (
+          <li key={x.key}>
+            <span className="di-derivation__missing-name">
+              {x.label}
+              <small>+{x.weight} weight</small>
+            </span>
+            <span className="di-derivation__missing-fix">{x.remedy}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

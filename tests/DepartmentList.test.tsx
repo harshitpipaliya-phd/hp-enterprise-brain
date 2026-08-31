@@ -113,8 +113,16 @@ describe('the 50/100 defect', () => {
     expect(document.body.textContent).not.toContain('50 / 100');
     expect(within(card).queryByText('Watch')).toBeNull();
 
-    // And it says WHY, which is the part a reader can act on.
-    expect(within(card).getByText(/no people are assigned/i)).toBeTruthy();
+    /*
+      And it says WHY, which is the part a reader can act on.
+
+      The card carries the SHORT form — thirteen cards each naming every
+      unmeasured dimension is a wall of identical text — and keeps the full
+      sentence on the element's title, where the detail page also prints it.
+    */
+    const reason = within(card).getByText(/no people, and no recorded work/i);
+    expect(reason).toBeTruthy();
+    expect(reason.getAttribute('title')).toMatch(/no people are assigned/i);
   });
 
   it('shows a real zero headcount as a fact rather than as broken data', async () => {

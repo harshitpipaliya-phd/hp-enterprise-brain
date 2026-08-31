@@ -785,7 +785,7 @@ export default function DepartmentList({ organization, departments, loading, onS
 
                         <span className="dept-card__foot">
                           {scored.score === null ? (
-                            <span className="dept-card__reason">{scored.unscoredReason}</span>
+                            <span className="dept-card__reason" title={scored.unscoredReason ?? undefined}>{scored.unscoredSummary ?? scored.unscoredReason}</span>
                           ) : (
                             <>
                               <span className="dept-card__status">{scored.label}</span>

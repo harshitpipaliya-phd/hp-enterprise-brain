@@ -127,6 +127,20 @@ export interface DepartmentMetrics {
     could not be read at all.
   */
   operationalRecords: number | null;
+  /**
+   * Another unit on the same register carrying the work this one has none of.
+   *
+   * Populated only where the source system holds two rows for one real unit —
+   * the workforce on one, the imported work booked against the other. Reported,
+   * never merged: the server leaves attribution exactly as the source states it.
+   */
+  unclaimedWork: {
+    unitId: string;
+    label: string;
+    records: number;
+    completed: number;
+    backlog: number;
+  } | null;
   operationalCompleted: number | null;
   operationalCancelled: number | null;
   operationalBacklog: number | null;
@@ -176,6 +190,7 @@ export const EMPTY_METRICS: DepartmentMetrics = {
   activityTotal: 0,
   activityRecent: 0,
   operationalRecords: null,
+  unclaimedWork: null,
   operationalCompleted: null,
   operationalCancelled: null,
   operationalBacklog: null,
@@ -297,6 +312,15 @@ export interface DepartmentScore {
   label: string | null;
   /** Present only when `score` is null: what is missing, in one sentence. */
   unscoredReason: string | null;
+  /**
+   * The same finding in a few words, for the directory card.
+   *
+   * A card is one of thirteen in a grid, and `unscoredReason` names every
+   * unmeasured dimension — set thirteen times over, it becomes a wall of
+   * identical text that buries the one thing that differs between the cards.
+   * The full sentence still runs on the detail page, where there is one of it.
+   */
+  unscoredSummary: string | null;
   /** Every dimension, including the ones that could not be measured. */
   dimensions: Dimension[];
   /** The dimensions that carried the composite. */
@@ -530,8 +554,8 @@ export function departmentScore(
   const dimensions = departmentDimensions(metrics, support);
   const measured = dimensions.filter((d) => d.score !== null);
 
-  const unscored = (reason: string): DepartmentScore => ({
-    score: null, status: null, label: null, unscoredReason: reason, dimensions, measured,
+  const unscored = (reason: string, summary: string): DepartmentScore => ({
+    score: null, status: null, label: null, unscoredReason: reason, unscoredSummary: summary, dimensions, measured,
   });
 
   /*
@@ -556,7 +580,10 @@ export function departmentScore(
   const hasRecordedWork = (metrics.operationalRecords ?? 0) > 0;
 
   if (metrics.people <= 0 && !hasRecordedWork) {
-    return unscored('No people are assigned to this unit and no imported record names it, so there is nothing to measure.');
+    return unscored(
+      'No people are assigned to this unit and no imported record names it, so there is nothing to measure.',
+      'No people, and no recorded work',
+    );
   }
 
   /*
@@ -573,6 +600,7 @@ export function departmentScore(
 
     return unscored(
       `Nothing about this unit can be measured yet — ${missing.join(', ')} ${plural(missing.length, 'is', 'are')} not recorded for this organization.`,
+      `Not measurable yet — ${missing.length} ${plural(missing.length, 'dimension')} unrecorded`,
     );
   }
 
@@ -593,6 +621,7 @@ export function departmentScore(
     status,
     label: statusLabel(status),
     unscoredReason: null,
+    unscoredSummary: null,
     dimensions,
     measured,
   };
@@ -613,6 +642,111 @@ export interface DepartmentInsights {
   focus: Insight[];
   /** True when nothing could be said honestly; the UI shows one line instead. */
   empty: boolean;
+}
+
+
+/* ========================================================================== */
+/*  HOW THE NUMBER WAS REACHED                                                */
+/* ========================================================================== */
+
+/**
+ * What to record to make a dimension measurable, per dimension.
+ *
+ * Kept beside the model rather than in the view, because the answer is a
+ * property of what the dimension reads: only this file knows that capability
+ * coverage needs assessments rather than, say, more people. A reader looking at
+ * six greyed-out rows is owed the sentence that turns them on.
+ */
+const DIMENSION_REMEDY: Record<string, string> = {
+  completeness: 'Fill in the roster fields the source system already has columns for — role, contact and reference — for the people in this unit.',
+  capability: 'Assess at least one capability against someone in this unit. Coverage is measured as the share of the team assessed, so the first assessment is what turns this on.',
+  signal: 'Raise signals against the department they concern. Signals recorded without a department cannot be attributed to any unit and are invisible here.',
+  evidence: 'Attach evidence to the signals raised against this unit. Evidence is what makes a signal something other than an assertion.',
+  decision: 'Record decisions and their outcome. A decision with no recorded status cannot be scored for quality.',
+  execution: 'Import operational records that name this unit as their owning department, so the work it completes can be measured.',
+  backlog: 'Import operational records with a status, so open work can be told apart from closed and a backlog figure becomes meaningful.',
+};
+
+/** One dimension's contribution to the published composite. */
+export interface ScoreContribution {
+  key: string;
+  label: string;
+  weight: number;
+  score: number;
+  /** This dimension's share of the SURVIVING weight, 0–1. */
+  share: number;
+  /** `weight * score` — this row's term in the numerator. */
+  weighted: number;
+}
+
+/** One dimension that could not be measured, and what would fix that. */
+export interface ScoreExclusion {
+  key: string;
+  label: string;
+  weight: number;
+  basis: string;
+  remedy: string;
+}
+
+export interface ScoreDerivation {
+  contributions: ScoreContribution[];
+  exclusions: ScoreExclusion[];
+  /** The divisor actually used: the weight of the dimensions that survived. */
+  survivingWeight: number;
+  /** The weight of every dimension the model defines, measured or not. */
+  totalWeight: number;
+  /** The numerator: sum of `weight * score` over the survivors. */
+  weightedSum: number;
+  /** The published figure, or null when nothing was measurable. */
+  score: number | null;
+  /** Share of the model's total weight that could be measured at all, 0–1. */
+  coverage: number;
+}
+
+/**
+ * The arithmetic behind the published score, as data the screen can print.
+ *
+ * WHY THIS IS A FUNCTION AND NOT A PARAGRAPH IN THE VIEW. The screen already
+ * carried a sentence saying the score is "the weighted mean of the dimensions
+ * this organization can actually measure", which is true and, on a department
+ * where six of seven rows read "Not measured", tells the reader nothing they
+ * can check. A reader looking at 33% deserves to see the two numbers it came
+ * from and the division between them.
+ *
+ * Everything here is derived from the same `DepartmentScore` the ring renders,
+ * so the explanation cannot drift from the figure it explains — there is no
+ * second calculation to keep in step.
+ */
+export function departmentDerivation(scored: DepartmentScore): ScoreDerivation {
+  const measured = scored.dimensions.filter((d) => d.score !== null);
+  const survivingWeight = measured.reduce((sum, d) => sum + d.weight, 0);
+  const totalWeight = scored.dimensions.reduce((sum, d) => sum + d.weight, 0);
+  const weightedSum = measured.reduce((sum, d) => sum + d.weight * (d.score as number), 0);
+
+  return {
+    contributions: measured.map((d) => ({
+      key: d.key,
+      label: d.label,
+      weight: d.weight,
+      score: d.score as number,
+      share: survivingWeight > 0 ? d.weight / survivingWeight : 0,
+      weighted: d.weight * (d.score as number),
+    })),
+    exclusions: scored.dimensions
+      .filter((d) => d.score === null)
+      .map((d) => ({
+        key: d.key,
+        label: d.label,
+        weight: d.weight,
+        basis: d.basis,
+        remedy: DIMENSION_REMEDY[d.key] ?? 'Record data of this kind against this unit.',
+      })),
+    survivingWeight,
+    totalWeight,
+    weightedSum,
+    score: scored.score,
+    coverage: totalWeight > 0 ? survivingWeight / totalWeight : 0,
+  };
 }
 
 /**

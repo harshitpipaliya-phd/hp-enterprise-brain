@@ -7,6 +7,7 @@ import {
   departmentDimensions,
   departmentInsights,
   departmentPosition,
+  departmentDerivation,
   scoreStatus,
   statusLabel,
   type DepartmentMetrics,
@@ -357,5 +358,53 @@ describe('position among peers', () => {
     const scores = new Map<string, number | null>([['a', 95], ['b', 75], ['c', 70]]);
     expect(departmentPosition(scores, 'a').delta).toBe(15);
     expect(departmentPosition(scores, 'c').delta).toBe(-10);
+  });
+});
+
+describe('the published score can be checked by hand', () => {
+  it('divides by the weight that survived, not the model total', () => {
+    // Fiber Valley's shape: a staffed unit on an organization that records
+    // nothing else, so record completeness (weight 1) is the lone survivor.
+    const scored = departmentScore(
+      metrics({ people: 24, peopleWithRole: 0, peopleWithContact: 24, peopleWithReference: 0 }),
+      NO_SUPPORT,
+    );
+    const d = departmentDerivation(scored);
+
+    expect(d.contributions).toHaveLength(1);
+    expect(d.contributions[0].key).toBe('completeness');
+    expect(d.survivingWeight).toBe(1);
+
+    // The whole point of redistribution: the six absent dimensions are NOT in
+    // the divisor, so they cannot drag the result toward zero.
+    expect(d.totalWeight).toBeGreaterThan(d.survivingWeight);
+    expect(Math.round(d.weightedSum / d.survivingWeight)).toBe(scored.score);
+  });
+
+  it('names every unmeasured dimension and what would turn it on', () => {
+    const scored = departmentScore(
+      metrics({ people: 24, peopleWithRole: 0, peopleWithContact: 24, peopleWithReference: 0 }),
+      NO_SUPPORT,
+    );
+    const d = departmentDerivation(scored);
+
+    expect(d.exclusions.length).toBe(scored.dimensions.length - 1);
+    // A greyed-out row is only useful if it says how to stop being greyed out.
+    for (const x of d.exclusions) {
+      expect(x.remedy.length).toBeGreaterThan(0);
+      expect(x.basis.length).toBeGreaterThan(0);
+      expect(x.weight).toBeGreaterThan(0);
+    }
+  });
+
+  it('reports coverage as the share of the model weight that was measurable', () => {
+    const all = departmentDerivation(departmentScore(healthy(), fullSupport()));
+    const one = departmentDerivation(departmentScore(
+      metrics({ people: 24, peopleWithRole: 0, peopleWithContact: 24, peopleWithReference: 0 }),
+      NO_SUPPORT,
+    ));
+
+    expect(all.coverage).toBeGreaterThan(one.coverage);
+    expect(one.coverage).toBeCloseTo(one.survivingWeight / one.totalWeight, 5);
   });
 });
