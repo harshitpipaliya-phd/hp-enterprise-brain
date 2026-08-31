@@ -12,11 +12,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Activity, AlertTriangle, ChevronRight, Clock3, FileSearch, RefreshCw, Share2, Signal as SignalIcon } from 'lucide-react';
+import { Activity, AlertTriangle, ChevronRight, Clock3, FileSearch, Radio, RefreshCw, Scale, Share2, Signal as SignalIcon } from 'lucide-react';
 import { api } from '../../api/signal';
 import type { View } from '../../App';
+import { HeaderActions, PageHeader } from '../../ui';
 import './SignalDashboard.css';
 import { CHART_PALETTE, SEVERITY_COLOR, STATUS_COLOR } from '../../ui/palette';
+import { operationsApi } from '../../api/operations';
+import type { LoopMetrics } from '../../api/operations';
+import { DistributionPanel } from '../workspace/OperationalIntelligencePanels';
+
 
 export interface Signal {
   id: string;
@@ -401,6 +406,20 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+    THE DETECTOR'S OWN MEASUREMENTS, which the list above never had.
+
+    A signal row can say WHAT fired and WHEN; only the detector knows WHAT IT
+    MEASURED — the share that breached, the area that over-indexed, the
+    subscribers who came back. Every rule writes that into its metadata and the
+    signals endpoint dropped it, so the screen could report that something
+    happened and never what. This second request carries it, plus the
+    distributions the strip cannot show.
+
+    LOADED SEPARATELY AND ALLOWED TO FAIL: the queue is the screen, and this is
+    the analysis around it.
+  */
+  const [loop, setLoop] = useState<LoopMetrics | null>(null);
 
   /**
    * The window is a server-side predicate now.
@@ -424,6 +443,7 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
         params.since = since.toISOString();
       }
       const data = await api.listSignals(tenantId, params);
+      operationsApi.getLoop(tenantId).then(setLoop).catch(() => setLoop(null));
       setSignals(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Unable to load signals.');
@@ -532,19 +552,26 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
 
   return (
     <div className="signal-intel">
-      <header className="signal-intel__header">
-        <div>
-          <span className="eb-page-kicker">Intelligence Loop</span>
-          <h1>Operational Signals</h1>
-          <p>Everything this organization&apos;s data has flagged: what was noticed, what raised it, and who it concerns.</p>
-        </div>
-        <div className="signal-intel__actions">
-          <button className="signal-intel__refresh" onClick={loadSignals} disabled={refreshing} title="Refresh signals">
-            <RefreshCw size={15} />
-            {refreshing ? 'Refreshing' : 'Refresh'}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        variant="intelligence"
+        icon={<Radio />}
+        title="Operational Signals"
+        description={<>What changed, what was detected, and what requires organizational attention.</>}
+        actions={(
+          <HeaderActions>
+            <button
+              type="button"
+              className="u-btn u-btn-secondary"
+              onClick={loadSignals}
+              disabled={refreshing}
+              title="Refresh signals"
+            >
+              <RefreshCw size={15} aria-hidden="true" />
+              {refreshing ? 'Refreshing' : 'Refresh'}
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       <section className="signal-intel__filters" aria-label="Signal filters">
         <select value={dateWindow} onChange={(e) => setDateWindow(e.target.value as DateWindow)} aria-label="Time window">
@@ -622,6 +649,131 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
               tone={model.mttrHours !== null && model.mttrHours > 72 ? 'warn' : 'good'}
             />
           </section>
+
+          {/*
+            SIGNAL INTELLIGENCE — the shape of the queue, not just its length.
+
+            Severity, classification and grounding are three different questions
+            about the same set of signals and the strip above can answer none of
+            them: "12 open" says nothing about whether they are twelve variations
+            of one fault or twelve unrelated ones, nor whether any of them cites a
+            record that can be checked.
+
+            Rendered from the same tenant-scoped aggregate the organization
+            screen reads, so the two cannot disagree about how many signals exist.
+          */}
+          {loop?.signals.supported && (
+            <>
+              <section className="signal-intel__metric-strip">
+                <KpiCard
+                  icon={<FileSearch size={18} />}
+                  label="Grounded in evidence"
+                  value={`${loop.signals.grounded ?? 0} of ${loop.signals.total}`}
+                  hint={(loop.signals.ungrounded ?? 0) > 0
+                    ? `${loop.signals.ungrounded} cite no source record and cannot be verified`
+                    : 'Every signal cites at least one observed record'}
+                  tone={(loop.signals.ungrounded ?? 0) > 0 ? 'warn' : 'good'}
+                />
+                <KpiCard
+                  icon={<Scale size={18} />}
+                  label="Under investigation"
+                  value={String(loop.signals.underInvestigation ?? 0)}
+                  hint={`${loop.cases.total} investigation${loop.cases.total === 1 ? '' : 's'} opened in total`}
+                  tone={(loop.signals.underInvestigation ?? 0) > 0 ? 'good' : 'warn'}
+                />
+                <KpiCard
+                  icon={<Activity size={18} />}
+                  label="Distinct rules fired"
+                  value={String(loop.signals.distinctRules ?? 0)}
+                  hint={loop.signals.averageConfidence !== null && loop.signals.averageConfidence !== undefined
+                    ? `Average detector confidence ${(loop.signals.averageConfidence * 100).toFixed(0)}%`
+                    : 'Detector confidence is not recorded'}
+                  tone="good"
+                />
+                <KpiCard
+                  icon={<Clock3 size={18} />}
+                  label="Resolution rate"
+                  value={loop.signals.resolutionRate !== null && loop.signals.resolutionRate !== undefined
+                    ? `${(loop.signals.resolutionRate * 100).toFixed(0)}%`
+                    : 'Not measurable'}
+                  hint={`${loop.signals.resolved ?? 0} resolved, ${loop.signals.open ?? 0} still open`}
+                  tone={(loop.signals.resolutionRate ?? 0) >= 0.5 ? 'good' : 'warn'}
+                />
+              </section>
+
+              <div className="opsi-grid-2">
+                <DistributionPanel
+                  title="Severity"
+                  rows={(loop.signals.bySeverity ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
+                  empty="No signal carries a severity."
+                />
+                <DistributionPanel
+                  title="What the detectors are finding"
+                  rows={(loop.signals.byClassification ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
+                  empty="No signal carries a classification."
+                />
+              </div>
+
+              {/*
+                WHAT EACH DETECTOR ACTUALLY MEASURED.
+
+                Republished verbatim from the rule's own metadata — not
+                recomputed, not rephrased, and not generated. A signal that
+                recorded no measurements shows none rather than a placeholder.
+              */}
+              <section className="signal-intel__queue-panel">
+                <div className="signal-intel__card-head">
+                  <h2>What each detection measured</h2>
+                  <span>from the rule&apos;s own metadata</span>
+                </div>
+                <ul className="signal-intel__findings">
+                  {(loop.signals.signals ?? [])
+                    .filter((entry) => entry.measurements.length > 0 || entry.scope.length > 0)
+                    .slice(0, 10)
+                    .map((entry) => (
+                      <li key={entry.id} data-severity={entry.severity}>
+                        <div className="signal-intel__finding-head">
+                          <strong>{entry.title}</strong>
+                          <span className="signal-intel__pill">{entry.severity}</span>
+                          <span className="signal-intel__muted">
+                            {entry.evidenceCount > 0
+                              ? `${entry.evidenceCount} supporting record${entry.evidenceCount === 1 ? '' : 's'}`
+                              : 'No supporting record cited'}
+                          </span>
+                          {entry.caseCount > 0 && <span className="signal-intel__muted">under investigation</span>}
+                        </div>
+                        {entry.measurements.length > 0 && (
+                          <dl className="signal-intel__measures">
+                            {entry.measurements.map((m) => (
+                              <Fragment key={m.key}>
+                                <dt>{m.label}</dt>
+                                <dd>
+                                  {m.format === 'ratio' && typeof m.value === 'number'
+                                    ? `${(m.value * 100).toFixed(1)}%`
+                                    : typeof m.value === 'number'
+                                      ? m.value.toLocaleString()
+                                      : String(m.value)}
+                                </dd>
+                              </Fragment>
+                            ))}
+                          </dl>
+                        )}
+                        {entry.scope.length > 0 && (
+                          <p className="signal-intel__scope">
+                            Concentrated in:{' '}
+                            {entry.scope.map((item) => (
+                              <span key={`${item.group}-${item.name}`}>
+                                {item.name}{item.count !== null ? ` (${item.count})` : ''}
+                              </span>
+                            ))}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              </section>
+            </>
+          )}
 
           <section className="signal-intel__queue-panel">
             <div className="signal-intel__card-head">

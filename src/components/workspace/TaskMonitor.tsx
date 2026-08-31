@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { ListChecks } from 'lucide-react';
+import { PageHeader } from '../../ui';
 import { taskApi } from '../../api/task';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -44,10 +46,17 @@ export default function TaskMonitor({ tenantId }: { tenantId: string }) {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1000, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <h1 style={{ marginBottom: 8 }}>Task Orchestrator</h1>
-      <p style={{ color: theme.textMuted, marginBottom: 24, fontSize: 13 }}>
-        Deterministic tasks wrapping existing services — not AI reasoning agents. Select tasks, run them in sequence, watch each step's real result.
-      </p>
+      <PageHeader
+        variant="list"
+        icon={<ListChecks />}
+        title="Task Orchestration"
+        description={(
+          <>
+            Deterministic tasks wrapping existing services — not AI reasoning agents. Select tasks, run them in
+            sequence, watch each step&apos;s real result.
+          </>
+        )}
+      />
 
       {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>{error}</div>}
 

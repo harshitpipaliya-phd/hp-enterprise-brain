@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, CheckCircle2, ClipboardCheck, FileArchive, FileCode2, FileImage, FileJson, FileSpreadsheet, FileText, ListChecks, Radio, RefreshCw, SearchCheck, ShieldCheck, UploadCloud, Wand2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ClipboardCheck, FileArchive, FileCode2, FileImage, FileJson, FileSpreadsheet, FileText, ListChecks, Radio, RefreshCw, SearchCheck, ShieldCheck, Upload, UploadCloud, Wand2 } from 'lucide-react';
 import { CANONICAL_FIELDS, REQUIRED_FIELDS, ingestionApi } from '../../api/ingestion';
 import type { CanonicalField, CommitResponse, DataSourceRow, IngestionPreview } from '../../api/ingestion';
 import { ApiError } from '../../api/client';
 import { useToast } from '../Toast';
 import type { View } from '../../App';
+import { PageHeader } from '../../ui';
 import './IngestionWorkspace.css';
 
 const ACCEPTED = '.csv,.xls,.xlsx,.pdf,.doc,.docx,.txt,.json,.xml,.html,.htm,.md,.markdown,.zip,.sql,.png,.jpg,.jpeg';
@@ -257,16 +258,18 @@ export default function IngestionWorkspace({ tenantId, onNavigate }: { tenantId:
 
   return (
     <div className="ingestion-page">
-      <section className="ingestion-hero">
-        <div>
-          <span className="eb-page-kicker">Foundation</span><h1>Data Ingestion</h1>
-          <p>
+      <PageHeader
+        variant="list"
+        icon={<Upload />}
+        title="Data Ingestion"
+        description={(
+          <>
             Bring this organization&apos;s data in from a file. Every row you import becomes a Signal with its
             Evidence attached, which is what the rest of the workspace reasons over. Nothing is written until
             you have seen the preview and confirmed the field mapping.
-          </p>
-        </div>
-      </section>
+          </>
+        )}
+      />
 
       <section className="ingestion-pipeline" aria-label="Import steps">
         {STEPS.map((step, index) => (

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Database } from 'lucide-react';
+import { PageHeader } from '../../ui';
 import { api } from '../../api/intelligence.js';
 import { reasoningEngineApi } from '../../api/reasoning-engine.js';
 import { useToast } from '../Toast';
@@ -80,9 +82,12 @@ export default function MemoryScreen({ tenantId }: { tenantId: string }) {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: 'var(--surface-ground)', color: 'var(--content-primary)', minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <span className="eb-page-kicker">Knowledge</span><h1>Organizational Memory</h1>
-      </header>
+      <PageHeader
+        variant="list"
+        icon={<Database />}
+        title="Organizational Memory"
+        description="What the Brain has retained between sessions, and how much of it has been used again."
+      />
 
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>

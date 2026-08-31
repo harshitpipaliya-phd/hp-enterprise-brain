@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { AlertTriangle, BookOpen, IndianRupee, Info } from 'lucide-react';
 import { api } from '../../api/student';
 import type { AcademicRecord, FeeRecord, Page, StudentDetail as Detail } from '../../api/student';
@@ -87,32 +88,35 @@ export default function StudentDetail({ tenantId, studentId, onBack, onExploreIn
 
   return (
     <div className="student-detail">
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button className="eb-pill-btn" onClick={onBack}>Back to Students</button>
-        {/* The graph is where this child's results, fee records and any signals
-            raised against their enrolment number are visible together. */}
-        <ExploreInGraphButton
-          label="Student"
-          id={studentId}
-          entityName={s.studentName || s.studentRef}
-          onExplore={onExploreInGraph}
-          className="eb-pill-btn"
-        />
-      </div>
-
-      <header className="student-hero">
-        <span className="student-hero-avatar">{initials || 'S'}</span>
-        <div style={{ flex: '1 1 320px' }}>
-          <h2>{s.studentName || `Student ${s.studentRef}`}</h2>
-          <p>
-            Enrollment / GR <strong>{s.studentRef}</strong>
-            {s.academicStandard && <> · Academic standard <strong>{s.academicStandard}</strong></>}
-            {s.standard && <> · Fee register standard <strong>{s.standard}</strong></>}
-            {s.division && <> · Division <strong>{s.division}</strong></>}
-            {s.uniqueId && <> · Unique ID <strong>{s.uniqueId}</strong></>}
-          </p>
-        </div>
-        <div className="students-kpis" style={{ flex: '1 1 340px' }}>
+      <PageHeader
+        variant="detail"
+        icon={<span className="u-ph__initials">{initials || 'S'}</span>}
+        eyebrow="Student record"
+        title={s.studentName || `Student ${s.studentRef}`}
+        back={{ label: 'Students', onClick: onBack }}
+        meta={[
+          { label: `Enrollment / GR ${s.studentRef}` },
+          s.academicStandard ? { label: `Academic standard ${s.academicStandard}` } : null,
+          s.standard ? { label: `Fee register standard ${s.standard}` } : null,
+          s.division ? { label: `Division ${s.division}` } : null,
+          s.uniqueId ? { label: `Unique ID ${s.uniqueId}` } : null,
+        ]}
+        actions={(
+          <HeaderActions>
+            {/* The graph is where this child's results, fee records and any
+                signals raised against their enrolment number are visible
+                together. */}
+            <ExploreInGraphButton
+              label="Student"
+              id={studentId}
+              entityName={s.studentName || s.studentRef}
+              onExplore={onExploreInGraph}
+              className="u-btn u-btn-secondary"
+            />
+          </HeaderActions>
+        )}
+      >
+        <div className="students-kpis">
           <article className="students-kpi">
             <span>Average</span>
             <strong>{s.avgPercentage === null ? '—' : `${s.avgPercentage.toFixed(1)}%`}</strong>
@@ -128,7 +132,7 @@ export default function StudentDetail({ tenantId, studentId, onBack, onExploreIn
             <small>{s.feeRecords.toLocaleString()} receipt{s.feeRecords === 1 ? '' : 's'}</small>
           </article>
         </div>
-      </header>
+      </PageHeader>
 
       {/*
         Shown whenever the two files describe different periods — which is the

@@ -4,7 +4,11 @@ import { CheckCircle2, RefreshCw, Scale, Send, XCircle } from 'lucide-react';
 import { decisionIntelligenceApi } from '../../api/intelligence';
 import { EmptyState, ErrorState, LoadingState } from '../shared/States';
 import { badgeTone, formatDateTime, formatNumber, formatPercent } from './intelligenceShared';
+import { HeaderActions, PageHeader } from '../../ui';
 import './IntelligenceSuite.css';
+import { operationsApi } from '../../api/operations';
+import type { LoopMetrics } from '../../api/operations';
+import { DistributionPanel, LifecyclePanel } from './OperationalIntelligencePanels';
 
 type DeliberationOverview = any;
 
@@ -14,6 +18,19 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  /*
+    THE LIFECYCLE, WITH THE REASON EACH EMPTY STAGE IS EMPTY.
+
+    This screen's own summary can say how many recommendations are pending; it
+    cannot say WHY there are none, and "Pending Recommendations 0" on an
+    organization whose five investigations have not yet reached a hypothesis
+    reads as a broken product rather than as an accurate report. The loop
+    aggregate carries the state and the sentence for every stage.
+
+    Loaded separately and allowed to fail — the deliberation overview is the
+    screen, this is the context around it.
+  */
+  const [loop, setLoop] = useState<LoopMetrics | null>(null);
 
   // Case context is fetched per recommendation, on demand, and cached by id.
   // It is a second round-trip on purpose: the overview says what the brain
@@ -125,6 +142,14 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
   };
 
   useEffect(() => {
+    let cancelled = false;
+    operationsApi.getLoop(tenantId)
+      .then((result) => { if (!cancelled) setLoop(result); })
+      .catch(() => { if (!cancelled) setLoop(null); });
+    return () => { cancelled = true; };
+  }, [tenantId]);
+
+  useEffect(() => {
     load();
   }, [tenantId]);
 
@@ -141,41 +166,40 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
 
   return (
     <div className="intel-page intel-deliberation">
-      <header className="intel-header intel-deliberation-header">
-        <div>
-          <span className="intel-eyebrow"><Scale size={14} /> Intelligence Loop</span>
-          <span className="eb-page-kicker">Intelligence Loop</span><h1>Cases & Deliberation</h1>
-          <p>Open investigations, the evidence behind each one, what could explain it, and the decision waiting on you.</p>
-          <div className="intel-meta">
-            <div className="intel-meta-card">
-              <span>Organization</span>
-              <strong>{data.organization?.name || 'Organization'}</strong>
-              <small>Current tenant scope</small>
-            </div>
-            <div className="intel-meta-card">
-              <span>Pending Decisions</span>
-              <strong>{formatNumber(data.summary?.pendingDecisions)}</strong>
-              <small>Waiting for governance attention</small>
-            </div>
-            <div className="intel-meta-card">
-              <span>Refresh</span>
-              <strong><button type="button" onClick={() => load({ background: true })}><RefreshCw size={15} /> Refresh</button></strong>
-              <small>{refreshing ? 'Updating investigations...' : 'Reload only this workspace'}</small>
-            </div>
+      <PageHeader
+        variant="intelligence"
+        icon={<Scale />}
+        title="Cases & Deliberation"
+        description="Investigations, hypotheses, evidence and decisions being evaluated."
+        meta={[
+          { label: data.organization?.name || 'Organization', title: 'Current tenant scope' },
+          {
+            label: `${formatNumber(data.summary?.pendingDecisions)} pending decision${data.summary?.pendingDecisions === 1 ? '' : 's'}`,
+            title: 'Waiting for governance attention',
+          },
+        ]}
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-secondary" onClick={() => load({ background: true })} disabled={refreshing}>
+              <RefreshCw size={15} aria-hidden="true" /> {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </HeaderActions>
+        )}
+        aside={(
+          /* The one figure this screen exists to surface, held beside the
+             actions rather than buried in the stat grid below. */
+          <div className="intel-score-card">
+            <span className="intel-subtle">Current Bottleneck</span>
+            <strong>{data.focus?.biggestBottleneck?.label || 'Nothing is stuck'}</strong>
+            <p>
+              {data.focus?.biggestBottleneck?.conversionRate != null
+                ? `${formatPercent(data.focus.biggestBottleneck.conversionRate)} conversion from the previous stage`
+                : 'No complete stage conversion metric is available yet.'}
+            </p>
+            {refreshing && <div className="intel-refresh-chip" data-variant="deliberation">Refreshing case intelligence...</div>}
           </div>
-        </div>
-
-        <div className="intel-score-card">
-          <span className="intel-subtle">Current Bottleneck</span>
-          <strong>{data.focus?.biggestBottleneck?.label || 'Nothing is stuck'}</strong>
-          <p>
-            {data.focus?.biggestBottleneck?.conversionRate != null
-              ? `${formatPercent(data.focus.biggestBottleneck.conversionRate)} conversion from the previous stage`
-              : 'No complete stage conversion metric is available yet.'}
-          </p>
-          {refreshing && <div className="intel-refresh-chip" data-variant="deliberation">Refreshing case intelligence...</div>}
-        </div>
-      </header>
+        )}
+      />
 
       <section className="intel-section">
         <div className="intel-section-head">
@@ -203,6 +227,56 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
           ))}
         </div>
       </section>
+
+      {/*
+        WHAT IS ACTUALLY BEING INVESTIGATED, and where the loop stops.
+
+        Every figure below is a count over this organization's own case,
+        evidence and signal rows. A stage with nothing in it renders the reason
+        rather than a zero — see IntelligenceLoopMetrics on the server.
+      */}
+      {loop && <LifecyclePanel stages={loop.stages} />}
+
+      {loop?.cases.supported && (
+        <section className="intel-section">
+          <div className="intel-section-head">
+            <div>
+              <span className="intel-eyebrow">Investigation posture</span>
+              <h2>Where each investigation has reached</h2>
+            </div>
+          </div>
+          <div className="intel-stat-grid">
+            {[
+              ['Investigations', loop.cases.total, 'Opened against detected signals'],
+              ['Still open', loop.cases.open ?? 0, `${loop.cases.closed ?? 0} closed`],
+              ['Awaiting a cause', loop.cases.awaitingHypothesis ?? 0, 'No hypothesis recorded yet — the loop stops here'],
+              ['Root cause identified', loop.cases.withResolvedCause ?? 0, 'A hypothesis has been accepted'],
+              ['Average age', loop.cases.averageAgeDays != null ? `${loop.cases.averageAgeDays} days` : 'Not dated', 'Across every investigation'],
+              ['Oldest open', loop.cases.oldestOpenDays != null ? `${loop.cases.oldestOpenDays} days` : 'None open', 'The one that has waited longest'],
+            ].map(([label, value, note]) => (
+              <article key={String(label)} className="intel-kpi" data-tone="pending">
+                <span className="intel-kpi-label">{label}</span>
+                <div className="intel-kpi-value">{typeof value === 'number' ? formatNumber(value) : value}</div>
+                <small>{note}</small>
+              </article>
+            ))}
+          </div>
+
+          <div className="opsi-grid-2">
+            <DistributionPanel
+              title="Severity carried over from the triggering signal"
+              rows={(loop.cases.bySeverity ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
+              empty="No investigation is linked to a signal carrying a severity."
+              note="A case has no severity of its own; this is the severity of the signal it was opened for."
+            />
+            <DistributionPanel
+              title="Investigation status"
+              rows={(loop.cases.byStatus ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
+              empty="No investigation carries a status."
+            />
+          </div>
+        </section>
+      )}
 
       <section className="intel-section intel-deliberation-shell">
         <div className="intel-case-list">

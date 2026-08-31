@@ -105,6 +105,8 @@ export default function OrganizationList({ organizations, loading, onSelect, onE
   return (
     <div>
       <PageHeader
+        variant="list"
+        icon={<Building2 />}
         title="Organizations"
         description="Every organization this account can reach. Open one to work with its data."
       />

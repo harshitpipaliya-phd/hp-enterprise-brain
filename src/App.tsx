@@ -149,6 +149,7 @@ function AuthenticatedApp() {
     the correct default.
   */
   const [graphFocus, setGraphFocus] = useState<GraphFocus | null>(null);
+  const [peopleDepartmentId, setPeopleDepartmentId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -407,6 +408,7 @@ function AuthenticatedApp() {
     else clearSelectedOrgId();
     setSelected(scopedNextOrg);
     setView(v);
+    setPeopleDepartmentId(null);
 
     // Only a navigation that NAMES a node carries one. Any other route to the
     // graph — the sidebar, the command palette, a reload — opens on the
@@ -591,7 +593,6 @@ function AuthenticatedApp() {
                   onNavigate: (v: View) => navigate(v, selected),
                   onUpdated: (org: Organization) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); },
                   onArchive: () => navigate('archive', selected),
-                  onDeleted: handleOrganizationDeleted,
                   onExploreInGraph: exploreInGraph,
                 }}
               />
@@ -638,7 +639,6 @@ function AuthenticatedApp() {
                   onNavigate: (v: View) => navigate(v, selected),
                   onUpdated: (org: Organization) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); },
                   onArchive: () => navigate('archive', selected),
-                  onDeleted: handleOrganizationDeleted,
                   onExploreInGraph: exploreInGraph,
                 }}
               />
@@ -647,14 +647,22 @@ function AuthenticatedApp() {
               <LazyView
                 label="Departments"
                 loader={DEPARTMENT_APP}
-                props={{ organization: selected, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph }}
+                props={{
+                  organization: selected,
+                  onBack: () => navigate('details', selected),
+                  onOpenPeople: (departmentId: string) => {
+                    navigate('people', selected);
+                    setPeopleDepartmentId(departmentId);
+                  },
+                  onExploreInGraph: exploreInGraph,
+                }}
               />
             )}
             {view === 'people' && selected && (
               <LazyView
                 label="People"
                 loader={PERSON_APP}
-                props={{ organization: selected, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph }}
+                props={{ organization: selected, initialDepartmentId: peopleDepartmentId, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph }}
               />
             )}
             {view === 'capabilities' && selected && (
@@ -725,7 +733,13 @@ function AuthenticatedApp() {
               <LazyView
                 label="Settings"
                 loader={SETTINGS}
-                props={{ tenantId: selected.tenantId, organizationName: selected.name, orgStatus: selected.status }}
+                props={{
+                  tenantId: selected.tenantId,
+                  organizationName: selected.name,
+                  orgStatus: selected.status,
+                  organization: selected,
+                  onDeleted: handleOrganizationDeleted,
+                }}
               />
             )}
             {view === 'policies' && selected && (

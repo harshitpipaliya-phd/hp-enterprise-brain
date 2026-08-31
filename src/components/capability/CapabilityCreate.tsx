@@ -4,18 +4,231 @@ import type { Capability } from './CapabilityApp';
 import { api } from '../../api/capability';
 import './CapabilityCreate.css';
 
-interface Props { tenantId: string; orgId: string; onCreated: (cap: Capability) => void; onCancel: () => void; }
-const dimensions = [['knowledge', 'Knowledge'], ['ability', 'Ability'], ['skill', 'Skill'], ['behaviour', 'Behaviour'], ['attitude', 'Attitude']] as const;
+interface Props {
+  tenantId: string;
+  orgId: string;
+  onCreated: (cap: Capability) => void;
+  onCancel: () => void;
+}
+
+const dimensions = [
+  ['knowledge', 'Knowledge'],
+  ['ability', 'Ability'],
+  ['skill', 'Skill'],
+  ['behaviour', 'Behaviour'],
+  ['attitude', 'Attitude'],
+] as const;
 
 export default function CapabilityCreate({ orgId, onCreated, onCancel }: Props) {
-  const [form, setForm] = useState({ capabilityCode: '', name: '', description: '', category: '', capabilityType: 'competency', difficulty: 'intermediate', criticality: 'medium', kasba: { knowledge: '', ability: '', skill: '', behaviour: '', attitude: '' } });
-  const [error, setError] = useState<string | null>(null); const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    capabilityCode: '',
+    name: '',
+    description: '',
+    category: '',
+    capabilityType: 'competency',
+    difficulty: 'intermediate',
+    criticality: 'medium',
+    kasba: { knowledge: '', ability: '', skill: '', behaviour: '', attitude: '' },
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const update = (patch: Partial<typeof form>) => setForm((current) => ({ ...current, ...patch }));
-  const submit = async (event: React.FormEvent) => { event.preventDefault(); setError(null); setSaving(true); try {
-    const kasba = Object.fromEntries(dimensions.map(([key]) => [key, form.kasba[key].trim() ? { description: form.kasba[key].trim() } : null]));
-    const cap = await api.createCapability({ name: form.name.trim(), capabilityCode: form.capabilityCode.trim(), orgId, description: form.description.trim() || null, category: form.category.trim() || null, capabilityType: form.capabilityType, difficulty: form.difficulty, criticality: form.criticality, ...kasba }); onCreated(cap);
-  } catch (e: any) { setError(e.message || 'Unable to create capability.'); } finally { setSaving(false); } };
-  return <main className="cap-create"><header><span>Capability design</span><h2>Create a capability</h2><p>Define a reusable organizational capability with clear proficiency expectations across the KASBA model.</p></header><form onSubmit={submit} className="cap-create__layout"><div className="cap-create__form"><Section icon={<Target size={18}/>} title="Capability definition" description="Identity and classification used throughout the organization."><Field label="Capability code" required><input required value={form.capabilityCode} onChange={(e)=>update({capabilityCode:e.target.value})} placeholder="e.g. CUST-OPS-001" /></Field><Field label="Capability name" required><input required value={form.name} onChange={(e)=>update({name:e.target.value})} placeholder="e.g. Customer issue resolution" /></Field><Field label="Category"><input value={form.category} onChange={(e)=>update({category:e.target.value})} placeholder="e.g. Customer operations" /></Field><Field label="Capability type"><select value={form.capabilityType} onChange={(e)=>update({capabilityType:e.target.value})}><option value="competency">Competency</option><option value="skill">Skill</option><option value="knowledge">Knowledge</option><option value="behaviour">Behaviour</option></select></Field><Field label="Difficulty"><select value={form.difficulty} onChange={(e)=>update({difficulty:e.target.value})}><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option><option value="expert">Expert</option></select></Field><Field label="Criticality"><select value={form.criticality} onChange={(e)=>update({criticality:e.target.value})}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select></Field><Field label="Description" wide><textarea rows={5} value={form.description} onChange={(e)=>update({description:e.target.value})} placeholder="Describe the organizational outcome and scope of this capability." /></Field></Section><Section icon={<BrainCircuit size={18}/>} title="KASBA proficiency model" description="Define what this capability means across each editable KASBA dimension."><div className="cap-create__kasba">{dimensions.map(([key,label])=><label key={key}><span>{label}</span><textarea rows={3} value={form.kasba[key]} onChange={(e)=>update({kasba:{...form.kasba,[key]:e.target.value}})} placeholder={`Define ${label.toLowerCase()} expectations`} /></label>)}</div></Section>{error&&<p className="cap-create__error">{error}</p>}<footer><button disabled={saving||!form.name.trim()||!form.capabilityCode.trim()}>{saving?'Creating…':'Create capability'}</button><button type="button" className="eb-pill-btn" onClick={onCancel}>Cancel</button></footer></div><aside><section><ShieldCheck size={18}/><div><h3>Version 1 · Active</h3><p>New capabilities begin active at version 1. Later changes are tracked as version history.</p></div></section><section><Target size={18}/><div><h3>Assignments after creation</h3><p>Assign this capability to departments, people, or roles from the capability details page.</p></div></section></aside></form></main>;
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setSaving(true);
+    try {
+      const kasba = Object.fromEntries(
+        dimensions.map(([key]) => [
+          key,
+          form.kasba[key].trim() ? { description: form.kasba[key].trim() } : null,
+        ]),
+      );
+      const cap = await api.createCapability({
+        name: form.name.trim(),
+        capabilityCode: form.capabilityCode.trim(),
+        orgId,
+        description: form.description.trim() || null,
+        category: form.category.trim() || null,
+        capabilityType: form.capabilityType,
+        difficulty: form.difficulty,
+        criticality: form.criticality,
+        ...kasba,
+      });
+      onCreated(cap);
+    } catch (e: any) {
+      setError(e.message || 'Unable to create capability.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <main className="cap-create">
+      <form onSubmit={submit} className="cap-create__layout">
+        <div className="cap-create__form">
+          <Section
+            icon={<Target size={18} />}
+            title="Capability definition"
+            description="Identity and classification used throughout the organization."
+          >
+            <Field label="Capability code" required>
+              <input
+                required
+                value={form.capabilityCode}
+                onChange={(e) => update({ capabilityCode: e.target.value })}
+                placeholder="e.g. CUST-OPS-001"
+              />
+            </Field>
+            <Field label="Capability name" required>
+              <input
+                required
+                value={form.name}
+                onChange={(e) => update({ name: e.target.value })}
+                placeholder="e.g. Customer issue resolution"
+              />
+            </Field>
+            <Field label="Category">
+              <input
+                value={form.category}
+                onChange={(e) => update({ category: e.target.value })}
+                placeholder="e.g. Customer operations"
+              />
+            </Field>
+            <Field label="Capability type">
+              <select
+                value={form.capabilityType}
+                onChange={(e) => update({ capabilityType: e.target.value })}
+              >
+                <option value="competency">Competency</option>
+                <option value="skill">Skill</option>
+                <option value="knowledge">Knowledge</option>
+                <option value="behaviour">Behaviour</option>
+              </select>
+            </Field>
+            <Field label="Difficulty">
+              <select value={form.difficulty} onChange={(e) => update({ difficulty: e.target.value })}>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+                <option value="expert">Expert</option>
+              </select>
+            </Field>
+            <Field label="Criticality">
+              <select value={form.criticality} onChange={(e) => update({ criticality: e.target.value })}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </Field>
+            <Field label="Description" wide>
+              <textarea
+                rows={5}
+                value={form.description}
+                onChange={(e) => update({ description: e.target.value })}
+                placeholder="Describe the organizational outcome and scope of this capability."
+              />
+            </Field>
+          </Section>
+
+          <Section
+            icon={<BrainCircuit size={18} />}
+            title="KASBA proficiency model"
+            description="Define what this capability means across each editable KASBA dimension."
+          >
+            <div className="cap-create__kasba">
+              {dimensions.map(([key, label]) => (
+                <label key={key}>
+                  <span>{label}</span>
+                  <textarea
+                    rows={3}
+                    value={form.kasba[key]}
+                    onChange={(e) => update({ kasba: { ...form.kasba, [key]: e.target.value } })}
+                    placeholder={`Define ${label.toLowerCase()} expectations`}
+                  />
+                </label>
+              ))}
+            </div>
+          </Section>
+
+          {error && <p className="cap-create__error">{error}</p>}
+          <footer>
+            <button disabled={saving || !form.name.trim() || !form.capabilityCode.trim()}>
+              {saving ? 'Creating...' : 'Create capability'}
+            </button>
+            <button type="button" className="eb-pill-btn" onClick={onCancel}>
+              Cancel
+            </button>
+          </footer>
+        </div>
+
+        <aside>
+          <section>
+            <ShieldCheck size={18} />
+            <div>
+              <h3>Version 1 - Active</h3>
+              <p>New capabilities begin active at version 1. Later changes are tracked as version history.</p>
+            </div>
+          </section>
+          <section>
+            <Target size={18} />
+            <div>
+              <h3>Assignments after creation</h3>
+              <p>Assign this capability to departments, people, or roles from the capability details page.</p>
+            </div>
+          </section>
+        </aside>
+      </form>
+    </main>
+  );
 }
-function Section({icon,title,description,children}:{icon:React.ReactNode;title:string;description:string;children:React.ReactNode}) { return <section className="cap-create__section"><header><span>{icon}</span><div><h3>{title}</h3><p>{description}</p></div></header><div className="cap-create__fields">{children}</div></section>; }
-function Field({label,required,wide,children}:{label:string;required?:boolean;wide?:boolean;children:React.ReactNode}) { return <label className={`cap-create__field${wide?' cap-create__field--wide':''}`}><span>{label}{required&&<b>Required</b>}</span>{children}</label>; }
+
+function Section({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="cap-create__section">
+      <header>
+        <span>{icon}</span>
+        <div>
+          <h3>{title}</h3>
+          <p>{description}</p>
+        </div>
+      </header>
+      <div className="cap-create__fields">{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  required,
+  wide,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  wide?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className={`cap-create__field${wide ? ' cap-create__field--wide' : ''}`}>
+      <span>
+        {label}
+        {required && <b>Required</b>}
+      </span>
+      {children}
+    </label>
+  );
+}

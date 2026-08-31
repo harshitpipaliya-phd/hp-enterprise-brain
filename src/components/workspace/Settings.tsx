@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, Building2, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { settingsApi, authApi } from '../../api/notification';
+import { api as organizationApi } from '../../api/organization';
+import type { DeletionPreview, DeletionResult } from '../../api/organization';
+import type { Organization } from '../../App';
 import { getThemeOverride, setThemeOverride } from '../../hooks/useTheme';
 import {
   PageHeader, Card, CardHeader, CardBody, CardFooter,
-  Button, Switch, Field, TextInput, Select, StatusBadge, Alert,
+  Button, Switch, Field, TextInput, Select, StatusBadge, Alert, Modal,
 } from '../../ui';
+import './Settings.css';
 
 /**
  * Settings screen.
@@ -24,10 +29,14 @@ export default function Settings({
   tenantId,
   organizationName,
   orgStatus,
+  organization,
+  onDeleted,
 }: {
   tenantId: string;
   organizationName?: string;
   orgStatus?: string;
+  organization?: Organization;
+  onDeleted?: (organization: Organization, result: DeletionResult) => void;
 }) {
   const [override, setOverride] = useState<'light' | 'dark' | null>(getThemeOverride());
   const [notifyOnRecommendation, setNotifyOnRecommendation] = useState(true);
@@ -39,6 +48,16 @@ export default function Settings({
   const [newPassword, setNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deletePreview, setDeletePreview] = useState<DeletionPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [acknowledgeSourceData, setAcknowledgeSourceData] = useState(false);
+  const [sourceSystemPrompt, setSourceSystemPrompt] = useState<
+    { message: string; tables: { table: string; rows: number }[]; rows: number } | null
+  >(null);
 
   // Frontend-only preferences — persisted to localStorage, not the backend.
   const [landingPage, setLandingPage] = useState<string>(
@@ -109,6 +128,64 @@ export default function Settings({
     }
   }, [currentPassword, newPassword]);
 
+  const openDeleteDialog = useCallback(async () => {
+    if (!organization) return;
+
+    setDeleteOpen(true);
+    setDeleteConfirm('');
+    setDeleteError(null);
+    setAcknowledgeSourceData(false);
+    setSourceSystemPrompt(null);
+    setDeletePreview(null);
+    setPreviewLoading(true);
+
+    try {
+      setDeletePreview(await organizationApi.getDeletionPreview(organization.tenantId, organization.id));
+    } catch (e: any) {
+      setDeleteError(e.message || 'Could not load the deletion summary. Counts are unavailable.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [organization]);
+
+  const canonicalName = deletePreview?.organizationName ?? null;
+
+  const closeDeleteDialog = useCallback(() => {
+    if (deleting) return;
+    setDeleteOpen(false);
+    setDeleteError(null);
+    setSourceSystemPrompt(null);
+  }, [deleting]);
+
+  const deletePermanently = useCallback(async () => {
+    if (!organization || canonicalName === null || deleteConfirm !== canonicalName) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const result = await organizationApi.deleteOrganizationPermanently(
+        organization.tenantId,
+        deleteConfirm,
+        acknowledgeSourceData,
+      );
+      setDeleteOpen(false);
+      onDeleted?.(organization, result);
+    } catch (e: any) {
+      const body = e?.responseJson ?? null;
+      const detail = body?.message || e?.message || 'Unable to delete organization.';
+
+      if (e?.status === 409 && body?.error === 'source_system_data_present') {
+        setSourceSystemPrompt({ message: detail, tables: body.tables ?? [], rows: body.rows ?? 0 });
+        setDeleteError(null);
+      } else {
+        setDeleteError(detail);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  }, [acknowledgeSourceData, canonicalName, deleteConfirm, onDeleted, organization]);
+
   const themeOptions: { value: 'light' | 'dark' | null; label: string }[] = [
     { value: 'light', label: 'Light' },
     { value: 'dark', label: 'Dark' },
@@ -118,8 +195,11 @@ export default function Settings({
   return (
     <div className="u-stack" style={{ gap: 'var(--eb-space-5)' }}>
       <PageHeader
-        title="Settings"
-        description="Manage your appearance, notifications, security, and workspace preferences."
+        variant="settings"
+        icon={<SettingsIcon />}
+        title="Organization Settings"
+        description="Manage organization configuration, access and system preferences."
+        meta={[organizationName ? { icon: <Building2 />, label: organizationName } : null]}
       />
 
       {/* Appearance */}
@@ -283,6 +363,126 @@ export default function Settings({
           </dl>
         </CardBody>
       </Card>
+
+      <Card className="settings-danger">
+        <CardHeader
+          title={(
+            <span className="settings-danger__title">
+              <AlertTriangle size={18} aria-hidden="true" />
+              Danger Zone
+            </span>
+          )}
+        />
+        <CardBody>
+          <div className="settings-danger__body">
+            <div>
+              <h4>Delete organization</h4>
+              <p>
+                Permanently delete this organization and all organization-owned data.
+                This includes users, departments, imported records, ingestion history,
+                intelligence, signals, evidence, cases, and organization-specific records.
+                This action cannot be undone.
+              </p>
+            </div>
+            <Button
+              variant="danger-solid"
+              icon={<Trash2 size={16} aria-hidden="true" />}
+              onClick={openDeleteDialog}
+              disabled={!organization}
+            >
+              Delete Organization
+            </Button>
+          </div>
+        </CardBody>
+      </Card>
+
+      <Modal
+        open={deleteOpen}
+        onClose={closeDeleteDialog}
+        title="Delete Organization?"
+        description={canonicalName ? `Organization: ${canonicalName}` : 'Loading organization details...'}
+        size="lg"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={closeDeleteDialog} disabled={deleting}>Cancel</Button>
+            <Button
+              variant="danger-solid"
+              icon={<Trash2 size={16} aria-hidden="true" />}
+              loading={deleting}
+              disabled={
+                canonicalName === null
+                || deleteConfirm !== canonicalName
+                || (sourceSystemPrompt !== null && !acknowledgeSourceData)
+              }
+              onClick={deletePermanently}
+            >
+              Delete Permanently
+            </Button>
+          </>
+        )}
+      >
+        <div className="settings-delete">
+          <Alert tone="danger" title="Permanent deletion">
+            This permanently deletes the organization, users, departments, imported data,
+            operational records, intelligence, signals, evidence, cases, ingestion history,
+            and organization-specific records. Other organizations are not affected.
+          </Alert>
+
+          {previewLoading && <p className="u-muted">Calculating what will be deleted...</p>}
+
+          {deletePreview && (
+            <div className="settings-delete__summary">
+              <strong>{deletePreview.totals.rows.toLocaleString()}</strong> records across{' '}
+              <strong>{deletePreview.totals.tables}</strong> tables will be destroyed.
+              <ul>
+                <li>{deletePreview.totals.identity.toLocaleString()} organization, user, and login records</li>
+                <li>{deletePreview.totals.brain.toLocaleString()} intelligence, ingestion, and configuration records</li>
+                {deletePreview.totals.sourceSystem > 0 && (
+                  <li>{deletePreview.totals.sourceSystem.toLocaleString()} records held by connected source systems</li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {sourceSystemPrompt && (
+            <div className="settings-delete__source">
+              <p>{sourceSystemPrompt.message}</p>
+              <ul>
+                {sourceSystemPrompt.tables.slice(0, 8).map((table) => (
+                  <li key={table.table}><code>{table.table}</code>: {table.rows.toLocaleString()} rows</li>
+                ))}
+                {sourceSystemPrompt.tables.length > 8 && (
+                  <li>{sourceSystemPrompt.tables.length - 8} more tables</li>
+                )}
+              </ul>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={acknowledgeSourceData}
+                  onChange={(event) => setAcknowledgeSourceData(event.target.checked)}
+                  disabled={deleting}
+                />
+                Also permanently delete these {sourceSystemPrompt.rows.toLocaleString()} connected-system records
+              </label>
+            </div>
+          )}
+
+          <Field
+            label={canonicalName ? `Type ${canonicalName} to confirm` : 'Loading organization name'}
+            required
+          >
+            <TextInput
+              value={deleteConfirm}
+              onChange={(event) => setDeleteConfirm(event.target.value)}
+              placeholder="Type organization name"
+              disabled={deleting || canonicalName === null}
+              autoComplete="off"
+            />
+          </Field>
+
+          {deleteError && <Alert tone="danger" title="Deletion failed">{deleteError}</Alert>}
+        </div>
+      </Modal>
     </div>
   );
 }

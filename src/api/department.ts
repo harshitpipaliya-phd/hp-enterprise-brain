@@ -25,6 +25,31 @@ export interface AcademicSectionsResponse {
   totals: { students: number; placed: number; unplaced: number; sections: number };
 }
 
+/**
+ * The batched per-department metrics. Keyed by department id — a JSON object,
+ * which the server casts explicitly so a tenant whose ids run 0,1,2 cannot
+ * serialise as an array and break every lookup.
+ */
+export interface DepartmentIntelligenceResponse {
+  departments: Record<string, Record<string, number | null>>;
+  support: {
+    capability: boolean;
+    signals: boolean;
+    evidence: boolean;
+    cases: boolean;
+    decisions: boolean;
+    activity: boolean;
+  };
+  tenant: {
+    departments: number;
+    people: number;
+    signalsTotal: number;
+    evidenceTotal: number;
+    casesTotal: number;
+    capabilityAssignments: number;
+  };
+}
+
 function withTenant(row: any, tenantId: string): any {
   return { ...row, tenantId };
 }
@@ -68,6 +93,22 @@ export const api = {
    */
   getSections: (tenantId: string): Promise<AcademicSectionsResponse> =>
     request(`/departments/${scopedTenant(tenantId)}/sections`),
+
+  /**
+   * GET /api/v1/departments/{tenantId}/intelligence
+   *
+   * Every department's measurable facts in ONE request, replacing the
+   * twin-per-department fan-out the Departments screen used to run — 13 round
+   * trips on Fiber Valley, each costing six queries of its own, before a single
+   * card could show a number.
+   *
+   * `support` travels with the counts and is the part that matters: it says
+   * whether this ORGANIZATION records each kind of data at all, so the scoring
+   * layer can drop a dimension it cannot measure instead of scoring the absence
+   * as a zero. See components/department/departmentScore.ts.
+   */
+  getIntelligence: (tenantId: string): Promise<DepartmentIntelligenceResponse> =>
+    request(`/departments/${scopedTenant(tenantId)}/intelligence`),
 
   /** GET /api/v1/departments/{tenantId}/{id} */
   getDepartment: async (tenantId: string, id: string) => {

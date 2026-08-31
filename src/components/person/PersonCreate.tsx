@@ -44,7 +44,6 @@ export default function PersonCreate({ tenantId, orgId, organizationName, onCrea
   };
 
   return <main className="people-create">
-    <header className="people-create__hero"><span className="people-eyebrow">Workforce setup</span><h2>Create a person</h2><p>Establish an accurate employee record for <strong>{organizationName}</strong>, including contact, assignment, and profile context.</p></header>
     <form className="people-create__layout" onSubmit={submit}>
       <div className="people-create__form">
         <Section icon={<Contact size={18} />} title="Identity and contact" description="Core details used to identify and contact this person.">

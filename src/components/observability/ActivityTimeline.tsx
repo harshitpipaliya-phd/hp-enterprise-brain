@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Activity, RefreshCw } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { api } from '../../api/observability';
 
 interface ActivityItem {
@@ -35,10 +37,19 @@ export default function ActivityTimeline() {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 800, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <span className="eb-page-kicker">Automation</span><h1>Activity Timeline</h1>
-        <button onClick={load}>Refresh</button>
-      </header>
+      <PageHeader
+        variant="list"
+        icon={<Activity />}
+        title="Activity Timeline"
+        description="What has happened in this workspace, most recent first."
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-secondary" onClick={load}>
+              <RefreshCw size={15} aria-hidden="true" /> Refresh
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       {error ? <p style={{ color: 'var(--status-crit)' }}>Error: {error}</p>
         : activities.length === 0 ? <p>No activity recorded.</p> : (

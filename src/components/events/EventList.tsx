@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Database, RefreshCw } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { api } from '../../api/events';
 
 interface Event {
@@ -52,10 +54,19 @@ export default function EventList() {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <span className="eb-page-kicker">Automation</span><h1>Event Store</h1>
-        <button onClick={load}>Refresh</button>
-      </header>
+      <PageHeader
+        variant="list"
+        icon={<Database />}
+        title="Event Store"
+        description="Every event this installation has published, with its type, entity and delivery status."
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-secondary" onClick={load}>
+              <RefreshCw size={15} aria-hidden="true" /> Refresh
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input placeholder="Event type..." value={filter.type} onChange={(e) => setFilter({ ...filter, type: e.target.value })} style={{ padding: 8, flex: 1 }} />

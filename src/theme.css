@@ -125,8 +125,10 @@ tbody tr:hover { background: var(--surface-hover); box-shadow: inset 3px 0 0 var
 .eb-grid-2 { grid-template-columns: repeat(2, 1fr); }
 .eb-grid-3 { grid-template-columns: repeat(3, 1fr); }
 .eb-grid-4 { grid-template-columns: repeat(4, 1fr); }
-@media (max-width: 900px) { .eb-grid-2, .eb-grid-3, .eb-grid-4 { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 600px) { .eb-grid-2, .eb-grid-3, .eb-grid-4 { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+ .eb-grid-2, .eb-grid-3, .eb-grid-4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) {
+ .eb-grid-2, .eb-grid-3, .eb-grid-4 { grid-template-columns: 1fr; } }
 
 .eb-stat, .eb-tile { position: relative; overflow: hidden; background: var(--surface-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: var(--space-4) var(--space-5); box-shadow: var(--shadow); }
 .eb-stat::before, .eb-tile::before {
@@ -139,7 +141,8 @@ tbody tr:hover { background: var(--surface-hover); box-shadow: inset 3px 0 0 var
 .eb-tile-value-row { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
 .eb-tile-suffix { font-family: var(--mono); font-size: 12px; color: var(--content-secondary); }
 .eb-tile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
-@media (max-width: 900px) { .eb-tile-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) {
+ .eb-tile-grid { grid-template-columns: 1fr 1fr; } }
 
 .eb-badge {
   display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px;
@@ -168,7 +171,8 @@ tbody tr:hover { background: var(--surface-hover); box-shadow: inset 3px 0 0 var
 @keyframes eb-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
 
 .eb-fade-in { animation: eb-fade var(--dur-enter) var(--ease-out); }
-@keyframes eb-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes eb-fade {
+ from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 
 .eb-progress-track { width: 100%; height: 8px; border-radius: 999px; background: var(--surface-inset); overflow: hidden; }
 .eb-progress-fill { height: 100%; border-radius: 999px; background: var(--accent-intelligence); transition: width var(--dur-fill) var(--ease-teach); }
@@ -747,7 +751,8 @@ tbody tr:hover { background: var(--surface-hover); box-shadow: inset 3px 0 0 var
   border-radius: 50%;
   animation: eb-auth-rotate 700ms linear infinite;
 }
-@keyframes eb-auth-rotate { to { transform: rotate(360deg); } }
+@keyframes eb-auth-rotate {
+ to { transform: rotate(360deg); } }
 
 .eb-auth-link {
   padding: 0;
@@ -956,13 +961,6 @@ a:hover { text-decoration: underline; opacity: 0.85; }
 
 /* Organization Intelligence Home */
 .eb-home { max-width: 1100px; margin: 0 auto; padding: 24px; }
-.eb-home-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-.eb-home-brand { display: flex; align-items: center; gap: 14px; }
-.eb-home-logo { width: 44px; height: 44px; border-radius: var(--radius-sm); object-fit: cover; border: 1px solid var(--border-subtle); }
-.eb-home-header h1 { font-family: var(--display); font-size: var(--fs-h2); margin: 0; }
-.eb-home-subtitle { font-size: 12.5px; color: var(--content-secondary); margin: 0; }
-.eb-home-user { text-align: right; }
-.eb-home-role { font-family: var(--mono); font-size: 11px; color: var(--content-tertiary); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); }
 .eb-home-hero { margin-bottom: 24px; }
 .eb-home-hero h2 { font-family: var(--display); font-size: var(--fs-h1); margin: 0 0 6px; }
 .eb-home-hero p { color: var(--content-secondary); margin: 0; }
@@ -990,6 +988,7 @@ a:hover { text-decoration: underline; opacity: 0.85; }
 .eb-attention-link:hover { background: var(--surface-inset); }
 .eb-loading, .eb-error, .eb-empty { text-align: center; padding: 60px 20px; color: var(--content-secondary); }
 .eb-loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border-default); border-top-color: var(--accent-intelligence); border-radius: 50%; animation: eb-spin 0.8s linear infinite; margin: 0 auto 14px; }
-@keyframes eb-spin { to { transform: rotate(360deg); } }
+@keyframes eb-spin {
+ to { transform: rotate(360deg); } }
 .eb-error { color: var(--color-semantic-error); }
 .eb-error button { margin-top: 10px; padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--surface-inset); cursor: pointer; font-weight: 600; }

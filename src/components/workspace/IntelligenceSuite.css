@@ -19,35 +19,6 @@
 .intel-section {
   margin-bottom: var(--space-5, 20px);
 }
-
-.intel-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.8fr);
-  align-items: start;
-  gap: var(--space-5, 20px);
-  padding: clamp(26px, 4vw, 42px);
-  margin-bottom: var(--space-5, 20px);
-  border: 1px solid var(--border-default, #e5dccb);
-  border-radius: var(--radius);
-  background:
-    radial-gradient(circle at 82% 18%, rgba(201, 162, 77, 0.14), transparent 34%),
-    linear-gradient(120deg, var(--eb-white, #fff), var(--eb-cream-100, #faf5ea) 58%, var(--eb-cream-200, #f4ecd9));
-  box-shadow: var(--shadow-sm, 0 12px 30px rgba(43, 29, 10, 0.05));
-}
-
-.intel-header h1 {
-  margin: 0 0 8px;
-  font-size: clamp(30px, 4vw, 52px);
-  line-height: 1.02;
-}
-
-.intel-header p {
-  margin: 0;
-  max-width: 70ch;
-  color: var(--content-secondary, #576273);
-  line-height: 1.65;
-}
-
 .intel-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -60,8 +31,6 @@
   text-transform: uppercase;
   color: var(--content-tertiary, #8a8376);
 }
-
-.intel-meta,
 .intel-stat-grid,
 .intel-summary-list,
 .intel-trend-grid,
@@ -78,13 +47,6 @@
   display: grid;
   gap: var(--space-3, 12px);
 }
-
-.intel-meta {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  margin-top: var(--space-5, 20px);
-}
-
-.intel-meta-card,
 .intel-score-card,
 .intel-kpi,
 .intel-panel,
@@ -102,14 +64,10 @@
   background: var(--surface-card, rgba(255, 255, 255, 0.88));
   box-shadow: var(--shadow, 0 12px 30px rgba(43, 29, 10, 0.06));
 }
-
-.intel-meta-card,
 .intel-kpi,
 .intel-status-card {
   padding: 14px 16px;
 }
-
-.intel-meta-card span,
 .intel-kpi-label,
 .intel-subtle {
   font-family: var(--mono, ui-monospace, monospace);
@@ -119,8 +77,6 @@
   text-transform: uppercase;
   color: var(--content-tertiary, #8a8376);
 }
-
-.intel-meta-card strong,
 .intel-kpi-value,
 .intel-number {
   display: block;
@@ -129,8 +85,6 @@
   font-size: 24px;
   color: var(--content-primary, #142033);
 }
-
-.intel-meta-card small,
 .intel-kpi small,
 .intel-note {
   color: var(--content-secondary, #576273);
@@ -1204,15 +1158,12 @@
 }
 
 @media (max-width: 1220px) {
-  .intel-meta,
   .intel-stat-grid,
   .intel-workforce-cards,
   .intel-enterprise-kpi-strip,
   .intel-exec-kpi-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .intel-header,
   .intel-deliberation-shell,
   .intel-execution-layout,
   .intel-enterprise-panels,
@@ -1266,8 +1217,6 @@
   .intel-page {
     padding: var(--space-4, 16px);
   }
-
-  .intel-meta,
   .intel-stat-grid,
   .intel-summary-columns,
   .intel-trend-grid,
@@ -1562,11 +1511,4 @@
   color: var(--content-secondary);
   font-size: 13px;
   line-height: 1.6;
-}
-
-.intel-header__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: flex-start;
 }

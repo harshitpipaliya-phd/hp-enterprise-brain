@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Notebook } from 'lucide-react';
 import { organizationIntelligenceApi } from '../../api/organizationIntelligence';
 import type { KnowledgeIntelligence, KnowledgeDomain } from '../../api/organizationIntelligence';
 import {
@@ -78,9 +79,9 @@ export default function MentalModelBrowser({ tenantId }: { tenantId: string }) {
   return (
     <div className="oi-page">
       <IntelligenceHeader
-        eyebrow="Analytics"
         title="Organizational Knowledge"
-        question="What does this organization genuinely know, and how hard-earned is that knowledge?"
+        icon={<Notebook />}
+        question="The organization's accumulated knowledge, relationships and institutional memory."
         meta={data}
         actions={<Button variant="secondary" onClick={() => void load(true)} disabled={loading}>Recompute</Button>}
       />

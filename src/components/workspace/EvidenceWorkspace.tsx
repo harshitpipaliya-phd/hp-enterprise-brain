@@ -16,12 +16,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Archive, Brain, Clock3, Database, FileCheck2, Link2, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
+import { Archive, Brain, Clock3, Database, FileCheck2, FileSearch, Link2, Plus, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { api } from '../../api/intelligence';
 import { api as signalApi } from '../../api/signal';
 import { aiApi } from '../../api/ai';
 import { useToast } from '../Toast';
 import type { View } from '../../App';
+import { HeaderActions, PageHeader } from '../../ui';
+import { operationsApi } from '../../api/operations';
+import type { LoopMetrics } from '../../api/operations';
+import { DistributionPanel } from './OperationalIntelligencePanels';
 import './EvidenceWorkspace.css';
 
 interface Evidence {
@@ -234,6 +238,24 @@ export default function EvidenceWorkspace({ tenantId, onNavigate }: { tenantId: 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+    COVERAGE, WHICH THIS SCREEN COULD NOT SEE.
+
+    The lists here describe the evidence rows themselves — their sources, types,
+    freshness and confidence. What they cannot answer is the question a reader
+    actually has: how much of what the organization has DETECTED is grounded in
+    an observed record? That is a join against the signal set, and it is already
+    computed tenant-wide by the loop aggregate.
+  */
+  const [loop, setLoop] = useState<LoopMetrics | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    operationsApi.getLoop(tenantId)
+      .then((result) => { if (!cancelled) setLoop(result); })
+      .catch(() => { if (!cancelled) setLoop(null); });
+    return () => { cancelled = true; };
+  }, [tenantId]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ signalId: '', source: 'internal', content: '', confidence: '0.7' });
   const [submitting, setSubmitting] = useState(false);
@@ -504,18 +526,29 @@ export default function EvidenceWorkspace({ tenantId, onNavigate }: { tenantId: 
 
   return (
     <div className="evidence-intel">
-      <header className="evidence-intel__header">
-        <span className="eb-page-kicker">Intelligence Loop</span>
-        <h1>Evidence &amp; Provenance</h1>
-        <p>What supports each signal this organization has raised — where it came from, when it was observed, and how firmly it is held.</p>
-        <div className="evidence-intel__actions">
-          <button onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ Add evidence'}</button>
-          <button className="evidence-intel__refresh" onClick={load} disabled={refreshing} title="Refresh evidence">
-            <RefreshCw size={15} />
-            {refreshing ? 'Refreshing' : 'Refresh'}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        variant="intelligence"
+        icon={<FileSearch />}
+        title="Evidence & Provenance"
+        description="The evidence supporting signals, cases and organizational intelligence."
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-primary" onClick={() => setShowForm((v) => !v)}>
+              {showForm ? 'Cancel' : <><Plus size={15} aria-hidden="true" /> Add evidence</>}
+            </button>
+            <button
+              type="button"
+              className="u-btn u-btn-secondary"
+              onClick={load}
+              disabled={refreshing}
+              title="Refresh evidence"
+            >
+              <RefreshCw size={15} aria-hidden="true" />
+              {refreshing ? 'Refreshing' : 'Refresh'}
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       {showForm && (
         <form onSubmit={submit} className="evidence-intel__form">
@@ -575,6 +608,70 @@ export default function EvidenceWorkspace({ tenantId, onNavigate }: { tenantId: 
         <Kpi icon={<Link2 size={18} />} label="Attached to a signal" value={formatPercent(model.total ? model.grounded.length / model.total : null)} hint={`${model.ungrounded.length.toLocaleString()} not attached`} tone={model.ungrounded.length > 0 ? 'warn' : 'good'} />
         <Kpi icon={<Brain size={18} />} label="Overall strength" value={formatPercent(model.avgQuality)} hint="Confidence, weighted by how recent" tone={model.avgQuality !== null && model.avgQuality >= 0.5 ? 'good' : 'warn'} />
       </section>
+
+      {/*
+        HOW MUCH OF WHAT WAS DETECTED IS ACTUALLY GROUNDED.
+
+        Every figure is a count over this organization's own signal and evidence
+        rows. Where nothing has been detected the panel states that rather than
+        rendering a 0% coverage figure, which would read as a failure to collect
+        evidence for signals that do not exist.
+      */}
+      {loop?.evidence.supported && loop.signals.supported && (
+        <>
+          <section className="evidence-intel__kpis">
+            <Kpi
+              icon={<Link2 size={18} />}
+              label="Signals grounded"
+              value={`${loop.signals.grounded ?? 0} of ${loop.signals.total}`}
+              hint={(loop.signals.ungrounded ?? 0) > 0
+                ? `${loop.signals.ungrounded} cite no observed record`
+                : 'Every detection cites at least one record'}
+              tone={(loop.signals.ungrounded ?? 0) > 0 ? 'warn' : 'good'}
+            />
+            <Kpi
+              icon={<FileCheck2 size={18} />}
+              label="Observations per signal"
+              value={loop.evidence.perSignalAverage != null ? loop.evidence.perSignalAverage.toFixed(1) : 'Not measurable'}
+              hint={`${loop.evidence.total} observations across ${loop.evidence.signalsCovered ?? 0} signals`}
+              tone="state"
+            />
+            <Kpi
+              icon={<Clock3 size={18} />}
+              label="Newest observation"
+              value={loop.evidence.freshnessDays != null
+                ? `${loop.evidence.freshnessDays} day${loop.evidence.freshnessDays === 1 ? '' : 's'} old`
+                : 'Not dated'}
+              hint="Across every evidence row held for this organization"
+              tone={(loop.evidence.freshnessDays ?? 0) > 30 ? 'warn' : 'good'}
+            />
+            <Kpi
+              icon={<ShieldCheck size={18} />}
+              label="Stated confidence"
+              value={loop.evidence.averageConfidence != null
+                ? `${Math.round(loop.evidence.averageConfidence * 100)}%`
+                : 'Not recorded'}
+              hint="As written by the detector that collected it"
+              tone="state"
+            />
+          </section>
+
+          <div className="opsi-grid-2">
+            <DistributionPanel
+              title="Where the evidence came from"
+              rows={(loop.evidence.bySource ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
+              empty="No evidence row names its source."
+              note="The source each detector recorded on the observation, verbatim."
+            />
+            <DistributionPanel
+              title="Detections it supports"
+              rows={(loop.signals.byClassification ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
+              empty="No signal carries a classification."
+              note="Signals by classification — the population this evidence has to cover."
+            />
+          </div>
+        </>
+      )}
 
       <section className="evidence-intel__summary">
         {insights.map((insight) => (

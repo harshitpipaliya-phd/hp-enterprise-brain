@@ -6,16 +6,6 @@
     linear-gradient(180deg, rgba(122, 104, 180, 0.08), transparent 280px),
     var(--surface-ground);
 }
-
-.signal-intel__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
 .signal-intel__kpi-label {
   font-family: var(--mono);
   font-size: 11px;
@@ -23,31 +13,12 @@
   letter-spacing: var(--ls-eyebrow);
   text-transform: uppercase;
 }
-
-.signal-intel__header h1 {
-  margin: 0;
-  font-size: 30px;
-  line-height: 1.1;
-  letter-spacing: 0;
-}
-
-.signal-intel__header p {
-  margin: 12px 0 0;
-  max-width: 720px;
-  color: var(--status-crit);
-  font-family: var(--display);
-  font-size: 17px;
-}
-
-.signal-intel__actions,
 .signal-intel__filters {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
-
-.signal-intel__refresh,
 .signal-intel__ghost {
   display: inline-flex;
   align-items: center;
@@ -56,11 +27,6 @@
   min-height: 36px;
   white-space: nowrap;
 }
-
-.signal-intel__refresh:disabled svg {
-  animation: signal-spin 900ms linear infinite;
-}
-
 @keyframes signal-spin {
   to { transform: rotate(360deg); }
 }
@@ -334,13 +300,7 @@
 @media (max-width: 920px) {
   .signal-intel {
     padding: 20px;
-  }
-
-  .signal-intel__header {
-    flex-direction: column;
-  }
-
-  .signal-intel__count {
+  }  .signal-intel__count {
     width: 100%;
     margin-left: 0;
   }
@@ -385,12 +345,6 @@
 
   .signal-intel__metric-strip {
     margin-bottom: 16px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .signal-intel__refresh:disabled svg {
-    animation: none;
   }
 }
 
@@ -723,3 +677,71 @@ tr[data-open='true'] .signal-intel__chevron { transform: rotate(90deg); }
 }
 
 .signal-intel__chain svg { color: var(--content-tertiary); }
+
+/* ------------------------------------------------------- detector findings ---
+   What each rule MEASURED, republished from its own metadata.
+
+   A definition list rather than prose, because these are the detector's raw
+   numbers and the point is that a reader can check them against the records
+   screen. Nothing here is generated text. */
+
+.signal-intel__findings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.signal-intel__findings > li {
+  border: 1px solid var(--border-subtle);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm, 6px);
+  padding: 10px 12px;
+  background: var(--surface-base);
+}
+
+.signal-intel__findings > li[data-severity='high'],
+.signal-intel__findings > li[data-severity='critical'] { border-left-color: var(--feedback-error-content); }
+.signal-intel__findings > li[data-severity='medium'] { border-left-color: var(--feedback-warning-content); }
+.signal-intel__findings > li[data-severity='low'] { border-left-color: var(--border-strong); }
+
+.signal-intel__finding-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.signal-intel__finding-head strong { font-size: 13.5px; }
+
+.signal-intel__measures {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 4px 14px;
+}
+
+.signal-intel__measures dt {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-eyebrow);
+  color: var(--content-tertiary);
+}
+
+.signal-intel__measures dd {
+  margin: 0 0 4px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.signal-intel__scope {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--content-secondary);
+}
+
+.signal-intel__scope span:not(:last-child)::after { content: ' · '; color: var(--content-tertiary); }

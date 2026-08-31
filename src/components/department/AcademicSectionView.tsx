@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Building2, ChevronDown, GraduationCap, IndianRupee, Layers, RefreshCw, Users } from 'lucide-react';
+import { Building2, ChevronDown, FolderTree, GraduationCap, IndianRupee, Layers, RefreshCw, Users } from 'lucide-react';
 import type { Organization } from '../../App';
 import { api as deptApi, type AcademicSection, type AcademicSectionsResponse } from '../../api/department';
 import { api as studentApi, type Page, type Student } from '../../api/student';
 import AcademicStructure from '../student/AcademicStructure';
+import { PageHeader } from '../../ui';
 import './DepartmentList.css';
 
 /**
@@ -115,20 +116,23 @@ export default function AcademicSectionView({ organization, hrDepartmentCount, o
 
   return (
     <div className="dept-intel">
-      <header className="dept-intel__header">
-        <div>
-          <span className="eb-page-kicker">Foundation</span>
-          <h1>Department Performance</h1>
-          <p>
+      <PageHeader
+        variant="list"
+        icon={<FolderTree />}
+        title="Department Performance"
+        description={(
+          <>
             {organization.name} records no departments in its HR system. Its {totals.students.toLocaleString()}{' '}
             students are grouped below into the school&apos;s teaching sections, by the standard each child
             is recorded in.
-          </p>
-        </div>
-        <div className="dept-intel__actions">
-          <button className="dept-intel__ghost" onClick={onBack}>Back to Organization</button>
-        </div>
-      </header>
+          </>
+        )}
+        back={{ label: 'Organization', onClick: onBack }}
+        breadcrumbs={[
+          { label: organization.name, onClick: onBack },
+          { label: 'Departments' },
+        ]}
+      />
 
       <section className="dept-intel__kpis">
         <Kpi icon={<Layers size={18} />} label="Sections" value={totals.sections.toLocaleString()}
@@ -266,17 +270,19 @@ function SectionDetail({ organization, section, onBack }: {
 
   return (
     <div className="dept-intel">
-      <header className="dept-intel__header">
-        <div>
-          <h1>{section.name}</h1>
-          <p>{section.standards} · {section.students.toLocaleString()} students in {organization.name}.</p>
-        </div>
-        <div className="dept-intel__actions">
-          <button className="dept-intel__ghost" onClick={onBack}>
-            <ArrowLeft size={15} /> All sections
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        variant="detail"
+        icon={<Layers />}
+        eyebrow="Teaching section"
+        title={section.name}
+        description={`${section.standards} · ${section.students.toLocaleString()} students in ${organization.name}.`}
+        back={{ label: 'All sections', onClick: onBack }}
+        breadcrumbs={[
+          { label: organization.name },
+          { label: 'Departments', onClick: onBack },
+          { label: section.name },
+        ]}
+      />
 
       <section className="dept-intel__kpis">
         <Kpi icon={<Users size={18} />} label="Students" value={section.students.toLocaleString()}

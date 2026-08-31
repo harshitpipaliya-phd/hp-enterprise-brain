@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { HeaderActions, PageHeader } from '../../ui';
 import type React from 'react';
-import { Brain, History, MessageSquare, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { Brain, History, MessageSquare, RefreshCw, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { api } from '../../api/intelligence';
 import { graphApi } from '../../api/graph';
 import { conversationApi } from '../../api/conversation';
@@ -257,17 +258,19 @@ export default function AIAssistant({ tenantId }: { tenantId: string }) {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
-        <div>
-          <h1 style={{ margin: 0 }}>AI Assistant</h1>
-          <p style={{ color: theme.textMuted, marginTop: 6, fontSize: 13 }}>
-            Scoped to selected organization records. Select a result before asking; answers and actions are not generated outside that context.
-          </p>
-        </div>
-        <button onClick={loadOperations} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <RefreshCw size={14} aria-hidden="true" /> Refresh
-        </button>
-      </header>
+      <PageHeader
+        variant="list"
+        icon={<Sparkles />}
+        title="AI Assistant"
+        description="Scoped to selected organization records. Select a result before asking; answers and actions are not generated outside that context."
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-secondary" onClick={loadOperations}>
+              <RefreshCw size={15} aria-hidden="true" /> Refresh
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       {error && (
         <div style={{ padding: 10, borderRadius: 6, backgroundColor: 'var(--status-warn)20', color: 'var(--status-warn)', marginBottom: 16, fontSize: 13 }}>

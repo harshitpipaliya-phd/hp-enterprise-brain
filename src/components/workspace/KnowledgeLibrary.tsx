@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Library, Plus } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { knowledgeLibraryApi } from '../../api/knowledge-library';
 import { useTheme } from '../../hooks/useTheme';
 import { useToast } from '../Toast';
@@ -69,10 +71,19 @@ export default function KnowledgeLibrary({ tenantId }: { tenantId: string }) {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1000, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <span className="eb-page-kicker">Knowledge</span><h1>Knowledge Library</h1>
-        <button onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ Add Knowledge'}</button>
-      </header>
+      <PageHeader
+        variant="list"
+        icon={<Library />}
+        title="Knowledge Library"
+        description="Reusable knowledge this organization has written down, and what each piece is about."
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-primary" onClick={() => setShowForm((v) => !v)}>
+              {showForm ? 'Cancel' : <><Plus size={15} aria-hidden="true" /> Add Knowledge</>}
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       {showForm && (
         <form onSubmit={submit} style={{ padding: 16, borderRadius: 8, border: `1px solid ${theme.border}`, backgroundColor: theme.surface, marginBottom: 24, display: 'grid', gap: 8 }}>

@@ -241,26 +241,6 @@
 /* ---- Student profile ---------------------------------------------------- */
 
 .student-detail { display: grid; gap: var(--space-5); }
-
-.student-hero {
-  display: flex; flex-wrap: wrap; gap: var(--space-4);
-  align-items: center;
-  padding: var(--space-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius);
-  background: var(--surface-card);
-  box-shadow: var(--shadow);
-}
-.student-hero h2 { margin: 0; font-size: clamp(22px, 3vw, 30px); }
-.student-hero p { margin: 6px 0 0; color: var(--content-secondary); font-size: 13.5px; }
-.student-hero-avatar {
-  display: grid; place-items: center;
-  width: 62px; height: 62px;
-  border-radius: 999px;
-  background: var(--surface-inset); color: var(--accent-intelligence-deep);
-  font-size: 20px; font-weight: 700;
-}
-
 .student-caution {
   display: grid; gap: 6px;
   padding: 16px 18px;

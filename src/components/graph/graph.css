@@ -23,65 +23,9 @@
   margin: 0 auto;
   padding: var(--space-3) var(--space-5) var(--space-2);
   color: var(--content-primary);
-}
-
-/* ------------------------------------------------------------------ head --- */
-
-.gx-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.gx-kicker {
-  display: block;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: var(--ls-eyebrow, .12em);
-  text-transform: uppercase;
-  color: var(--content-tertiary);
-}
-
-.gx-title {
-  margin: 1px 0 0;
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -.01em;
-}
-
-/* One line. The full sentence is still the accessible name of the graph, but
-   three wrapped lines of preamble cost more vertical space than they earn. */
-.gx-lede {
-  margin: 3px 0 0;
-  max-width: 78ch;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--content-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-}
-
-.gx-lede strong { color: var(--content-primary); font-weight: 650; }
-
-/* Ten controls live here. Tight gaps and small type keep them on one row at
-   1440px, which is worth ~60px of vertical space above the graph. */
-.gx-head__actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.gx-head__actions .u-btn { padding-inline: 9px; font-size: 12px; }
+}/* One line. The full sentence is still the accessible name of the graph, but
+   three wrapped lines of preamble cost more vertical space than they earn. *//* Ten controls live here. Tight gaps and small type keep them on one row at
+   1440px, which is worth ~60px of vertical space above the graph. */.gx-head__actions .u-btn { padding-inline: 9px; font-size: 12px; }
 
 .gx-btn--on {
   border-color: var(--accent-intelligence);
@@ -804,7 +748,8 @@
 .gx-empty svg, .gx-loading svg { color: var(--content-tertiary); }
 
 .gx-spin { animation: gx-rotate 1s linear infinite; }
-@keyframes gx-rotate { to { transform: rotate(360deg); } }
+@keyframes gx-rotate {
+ to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) {
   .gx-spin, .gx-node__pip--busy { animation: none; }

@@ -612,14 +612,12 @@
 /* =============================================================================
    PAGE HEADER / TOOLBAR
    ============================================================================= */
-.u-page-header {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: var(--eb-space-5); flex-wrap: wrap;
-  margin-bottom: var(--eb-space-5);
-}
-.u-page-title { font-size: var(--fs-h1); font-weight: 700; color: var(--content-primary); margin: 0; line-height: var(--lh-tight); }
-.u-page-desc { font-size: var(--fs-body); color: var(--content-tertiary); margin: 6px 0 0; max-width: 68ch; }
-.u-page-actions { display: flex; align-items: center; gap: var(--eb-space-3); flex-shrink: 0; }
+/*
+  .u-page-header moved to ./pageHeader.css, which owns the whole page-header
+  system now. Only .u-page-desc stays here: Settings and a handful of cards use
+  it as a standalone "quiet sentence" class, independent of any header.
+*/
+.u-page-desc { font-size: var(--fs-body); color: var(--content-secondary); margin: 6px 0 0; max-width: 68ch; line-height: var(--lh-snug); }
 
 .u-toolbar {
   display: flex; align-items: center; gap: var(--eb-space-3); flex-wrap: wrap;

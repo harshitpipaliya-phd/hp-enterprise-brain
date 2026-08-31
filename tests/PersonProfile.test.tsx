@@ -232,7 +232,10 @@ describe('Person profile', () => {
     const onEdit = vi.fn();
     await renderProfile(studentProfile(), { onEdit, onArchive: vi.fn(), onBack: vi.fn(), backLabel: 'Back to People' });
 
-    expect(screen.getByRole('button', { name: '← Back to People' })).toBeTruthy();
+    // The back affordance is the page header's, and its arrow is now a real
+    // icon rather than a literal ← in the label, so the accessible name is
+    // the destination alone.
+    expect(screen.getByRole('button', { name: 'Back to People' })).toBeTruthy();
     act(() => { screen.getByRole('button', { name: /Edit contact details/ }).click(); });
     expect(onEdit).toHaveBeenCalled();
   });

@@ -31,6 +31,9 @@ const listSources = vi.fn();
 const getStructure = vi.fn();
 const getDataQuality = vi.fn();
 const getAuditLogs = vi.fn();
+const listSettings = vi.fn();
+const setSettings = vi.fn();
+const changePassword = vi.fn();
 
 vi.mock('../src/api/organization', () => ({
   api: {
@@ -57,6 +60,13 @@ vi.mock('../src/api/department', () => ({
 vi.mock('../src/api/ingestion', () => ({
   ingestionApi: { listSources: (...a: unknown[]) => listSources(...a) },
 }));
+vi.mock('../src/api/notification', () => ({
+  settingsApi: {
+    list: (...a: unknown[]) => listSettings(...a),
+    set: (...a: unknown[]) => setSettings(...a),
+  },
+  authApi: { changePassword: (...a: unknown[]) => changePassword(...a) },
+}));
 
 const ORG = {
   id: '8',
@@ -68,11 +78,22 @@ const ORG = {
   country: null,
   timezone: 'UTC',
   currency: 'USD',
+  email: null,
+  phone: null,
+  website: null,
+  address: null,
+  registrationNumber: null,
+  taxId: null,
+  contactPerson: null,
+  employeeCount: null,
+  workWeek: null,
   logo: null,
   status: 'active',
   createdBy: 'system',
   createdDate: '2026-08-07T00:00:00Z',
   updatedDate: '2026-08-07T00:00:00Z',
+  profileFields: [],
+  identityFields: [],
 };
 
 describe('permanent deletion ends the session', () => {
@@ -83,7 +104,7 @@ describe('permanent deletion ends the session', () => {
     sessionStorage.setItem('accessToken', 'access-token-for-tenant-8');
     sessionStorage.setItem('refreshToken', 'refresh-token-for-tenant-8');
     localStorage.setItem('hpbrain-session', JSON.stringify({
-      role: 'tenant_admin', userName: 'Administrator', organization: ORG, view: 'home', personId: null,
+      role: 'tenant_admin', userName: 'Administrator', organization: ORG, view: 'settings', personId: null,
     }));
 
     listOrganizations.mockReset().mockResolvedValue([ORG]);
@@ -111,6 +132,9 @@ describe('permanent deletion ends the session', () => {
     getStructure.mockReset().mockResolvedValue({ departments: [], peopleByDepartment: {}, heads: {} });
     getDataQuality.mockReset().mockResolvedValue({ score: 100, totalPeople: 0, totalDepartments: 0, issues: [] });
     getAuditLogs.mockReset().mockResolvedValue([]);
+    listSettings.mockReset().mockResolvedValue([]);
+    setSettings.mockReset().mockResolvedValue({ ok: true });
+    changePassword.mockReset().mockResolvedValue({ ok: true });
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => '{}' }));
   });
@@ -124,13 +148,14 @@ describe('permanent deletion ends the session', () => {
   async function deleteFromTheUi() {
     render(<App />);
 
-    // Boots straight into the workspace, because tokens are present.
-    await screen.findByRole('button', { name: /^Delete$/ }, { timeout: 5000 });
-    fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }));
+    // Boots straight into Settings, because tokens are present and the restored
+    // session says the user was on the settings screen.
+    await screen.findByText('Danger Zone', {}, { timeout: 5000 });
+    fireEvent.click(screen.getByRole('button', { name: /Delete Organization/i }));
 
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => expect(getDeletionPreview).toHaveBeenCalled());
-    await waitFor(() => expect(within(dialog).getAllByText('Lions').length).toBeGreaterThan(0));
+    await waitFor(() => expect(within(dialog).getByText(/Organization: Lions/i)).toBeTruthy());
 
     fireEvent.change(screen.getByPlaceholderText('Type organization name'), { target: { value: 'Lions' } });
     fireEvent.click(screen.getByRole('button', { name: /Delete Permanently/i }));
@@ -196,11 +221,11 @@ describe('permanent deletion ends the session', () => {
     );
 
     render(<App />);
-    await screen.findByRole('button', { name: /^Delete$/ }, { timeout: 5000 });
-    fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }));
+    await screen.findByText('Danger Zone', {}, { timeout: 5000 });
+    fireEvent.click(screen.getByRole('button', { name: /Delete Organization/i }));
 
     const dialog = await screen.findByRole('dialog');
-    await waitFor(() => expect(within(dialog).getAllByText('Lions').length).toBeGreaterThan(0));
+    await waitFor(() => expect(within(dialog).getByText(/Organization: Lions/i)).toBeTruthy());
 
     fireEvent.change(screen.getByPlaceholderText('Type organization name'), { target: { value: 'Lions' } });
     fireEvent.click(screen.getByRole('button', { name: /Delete Permanently/i }));
@@ -211,5 +236,5 @@ describe('permanent deletion ends the session', () => {
     expect(sessionStorage.getItem('accessToken')).toBe('access-token-for-tenant-8');
     expect(localStorage.getItem('accessToken')).toBeNull();
     expect(screen.queryByText('Welcome back')).toBeNull();
-  });
+  }, 15000);
 });

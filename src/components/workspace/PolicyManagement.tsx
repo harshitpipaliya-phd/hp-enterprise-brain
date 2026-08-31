@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Plus, ShieldCheck } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { policyApi } from '../../api/policy';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -76,13 +78,25 @@ export default function PolicyManagement({ tenantId }: { tenantId: string }) {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 900, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span className="eb-page-kicker">Automation</span><h1>Execution Policies</h1>
-        <button onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancel' : '+ New Policy'}</button>
-      </header>
-      <p style={{ color: theme.textMuted, marginBottom: 24, fontSize: 13 }}>
-        Policies govern autonomous decision approval. An <code>executor_autonomy</code>-type policy with an <code>auto_approve</code> action can let the system approve recommendations without a human — <strong>except</strong> opportunity-category recommendations, which are hard-blocked regardless of any policy.
-      </p>
+      <PageHeader
+        variant="list"
+        icon={<ShieldCheck />}
+        title="Execution Policies"
+        description={(
+          <>
+            Policies govern autonomous decision approval. An <code>executor_autonomy</code>-type policy with an{' '}
+            <code>auto_approve</code> action can let the system approve recommendations without a human —{' '}
+            <strong>except</strong> opportunity-category recommendations, which are hard-blocked regardless of any policy.
+          </>
+        )}
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-primary" onClick={() => setShowForm((v) => !v)}>
+              {showForm ? 'Cancel' : <><Plus size={15} aria-hidden="true" /> New Policy</>}
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       {showForm && (
         <form onSubmit={submit} style={{ padding: 16, borderRadius: 8, border: `1px solid ${theme.border}`, backgroundColor: theme.surface, marginBottom: 24, display: 'grid', gap: 8 }}>

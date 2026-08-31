@@ -35,13 +35,3 @@
 .cap-library__blank strong{color:var(--content-primary);font-size:17px}
 .cap-library__blank p{max-width:62ch;margin:0;color:var(--content-secondary);line-height:1.6}
 
-.cap-app-header{
-  display:flex;
-  flex-wrap:wrap;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:16px;
-  margin-bottom:24px;
-}
-.cap-app-header h1{margin:12px 0 0;font-size:30px;line-height:1.1}
-.cap-app-header p{max-width:70ch;margin:8px 0 0;color:var(--content-secondary);line-height:1.6}

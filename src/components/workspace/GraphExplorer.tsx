@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, BarChart3, Crosshair, Expand, GitBranch, Loader2, Maximize2, Orbit, PieChart,
-  RefreshCw, Search, Shrink, SlidersHorizontal, Target, X,
+  AlertTriangle, BarChart3, Crosshair, Expand, GitBranch, Loader2, Maximize2, Network, Orbit,
+  PieChart, RefreshCw, Search, Shrink, SlidersHorizontal, Target, X,
 } from 'lucide-react';
 import { graphApi } from '../../api/graph';
 import type { View } from '../../App';
-import { ErrorState } from '../../ui';
+import { ErrorState, HeaderActions, HeaderOverflowMenu, PageHeader } from '../../ui';
 import { GraphBreakdown } from '../graph/GraphBreakdown';
 import { GraphCanvas } from '../graph/GraphCanvas';
 import { GraphSunburst } from '../graph/GraphSunburst';
@@ -543,97 +543,99 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
 
   return (
     <div className="gx-page">
-      <header className="gx-head">
-        <div>
-          <span className="gx-kicker">Knowledge</span>
-          <h1 className="gx-title">Graph Explorer</h1>
-          <p className="gx-lede">
+      {/*
+        THE DRAWING MODE IS NOT AN ACTION, so it no longer sits in the action
+        row. Four mode buttons beside six controls gave this screen ten equally
+        loud buttons and no primary; the modes are a view state and belong under
+        the title, and the four canvas manipulations that only apply to a canvas
+        view moved behind the overflow menu.
+      */}
+      <PageHeader
+        variant="intelligence"
+        icon={<Network />}
+        title="Graph Explorer"
+        description={(
+          <>
             {organizationName ? <strong>{organizationName}</strong> : 'This organization'} and everything the connected
             source systems record about it. Every node is a row; every edge names the column that joins them.
-          </p>
+          </>
+        )}
+        actions={(
+          <HeaderActions>
+            <button
+              type="button"
+              className={`u-btn u-btn-secondary${showFilters ? ' gx-btn--on' : ''}`}
+              onClick={() => setShowFilters((v) => !v)}
+              aria-expanded={showFilters}
+            >
+              <SlidersHorizontal size={14} aria-hidden="true" />
+              Filters
+            </button>
+            <button type="button" className="u-btn u-btn-secondary" onClick={() => { setSelectedKey(null); void load(); }}>
+              <RefreshCw size={14} aria-hidden="true" />
+              Reset
+            </button>
+            {isCanvasView && (
+              <HeaderOverflowMenu
+                label="Canvas controls"
+                items={[
+                  {
+                    label: bulkBusy ? 'Expanding…' : 'Expand all',
+                    icon: bulkBusy
+                      ? <Loader2 size={15} className="gx-spin" aria-hidden="true" />
+                      : <Expand size={15} aria-hidden="true" />,
+                    disabled: bulkBusy || loading,
+                    onSelect: () => { void expandAll(); },
+                  },
+                  {
+                    label: 'Collapse all',
+                    icon: <Shrink size={15} aria-hidden="true" />,
+                    disabled: bulkBusy || loading,
+                    onSelect: collapseAll,
+                  },
+                  {
+                    label: 'Focus selected node',
+                    icon: <Target size={15} aria-hidden="true" />,
+                    disabled: !selectedKey,
+                    onSelect: () => setFocusToken((n) => n + 1),
+                  },
+                  {
+                    label: 'Fit to view',
+                    icon: <Maximize2 size={15} aria-hidden="true" />,
+                    onSelect: () => setFitToken((n) => n + 1),
+                  },
+                ]}
+              />
+            )}
+          </HeaderActions>
+        )}
+      >
+        <div className="gx-modes" role="group" aria-label="How to draw the graph">
+          {([
+            ['hierarchy', 'Intelligence Flow', GitBranch],
+            ['radial', 'Data Relationships', Orbit],
+            ['sunburst', 'Composition', PieChart],
+            ['bars', 'Bar Chart', BarChart3],
+          ] as const).map(([value, label, Icon]) => (
+            <button
+              key={value}
+              type="button"
+              className={`gx-mode${viewMode === value ? ' gx-mode--on' : ''}`}
+              onClick={() => setViewMode(value)}
+              aria-pressed={viewMode === value}
+              title={
+                value === 'hierarchy' ? 'Left to right, organization to intelligence — how this data becomes an insight'
+                  : value === 'radial' ? 'Rings around the organization — compact for wide graphs'
+                    : value === 'sunburst' ? 'One ring per hop — which branch is most of this organization'
+                      : 'Counts as bars — for how many rather than what connects to what'
+              }
+            >
+              <Icon size={13} aria-hidden="true" />
+              {label}
+            </button>
+          ))}
         </div>
-
-        <div className="gx-head__actions">
-          <div className="gx-modes" role="group" aria-label="How to draw the graph">
-            {([
-              ['hierarchy', 'Intelligence Flow', GitBranch],
-              ['radial', 'Data Relationships', Orbit],
-              ['sunburst', 'Composition', PieChart],
-              ['bars', 'Bar Chart', BarChart3],
-            ] as const).map(([value, label, Icon]) => (
-              <button
-                key={value}
-                type="button"
-                className={`gx-mode${viewMode === value ? ' gx-mode--on' : ''}`}
-                onClick={() => setViewMode(value)}
-                aria-pressed={viewMode === value}
-                title={
-                  value === 'hierarchy' ? 'Left to right, organization to intelligence — how this data becomes an insight'
-                    : value === 'radial' ? 'Rings around the organization — compact for wide graphs'
-                      : value === 'sunburst' ? 'One ring per hop — which branch is most of this organization'
-                        : 'Counts as bars — for how many rather than what connects to what'
-                }
-              >
-                <Icon size={13} aria-hidden="true" />
-                {label}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className={`u-btn u-btn-secondary u-btn-sm${showFilters ? ' gx-btn--on' : ''}`}
-            onClick={() => setShowFilters((v) => !v)}
-            aria-expanded={showFilters}
-          >
-            <SlidersHorizontal size={14} aria-hidden="true" />
-            Filters
-          </button>
-          {isCanvasView && (
-            <>
-              <button
-                type="button"
-                className="u-btn u-btn-secondary u-btn-sm"
-                onClick={() => void expandAll()}
-                disabled={bulkBusy || loading}
-                title="Open every branch currently on screen, one level deeper"
-              >
-                {bulkBusy
-                  ? <Loader2 size={14} className="gx-spin" aria-hidden="true" />
-                  : <Expand size={14} aria-hidden="true" />}
-                Expand all
-              </button>
-              <button
-                type="button"
-                className="u-btn u-btn-secondary u-btn-sm"
-                onClick={collapseAll}
-                disabled={bulkBusy || loading}
-                title="Back to the branches this organization opens on"
-              >
-                <Shrink size={14} aria-hidden="true" />
-                Collapse all
-              </button>
-              <button
-                type="button"
-                className="u-btn u-btn-secondary u-btn-sm"
-                onClick={() => setFocusToken((n) => n + 1)}
-                disabled={!selectedKey}
-                title="Centre the view on the selected node"
-              >
-                <Target size={14} aria-hidden="true" />
-                Focus
-              </button>
-              <button type="button" className="u-btn u-btn-secondary u-btn-sm" onClick={() => setFitToken((n) => n + 1)}>
-                <Maximize2 size={14} aria-hidden="true" />
-                Fit
-              </button>
-            </>
-          )}
-          <button type="button" className="u-btn u-btn-secondary u-btn-sm" onClick={() => { setSelectedKey(null); void load(); }}>
-            <RefreshCw size={14} aria-hidden="true" />
-            Reset
-          </button>
-        </div>
-      </header>
+      </PageHeader>
 
       {summary && <SummaryStrip summary={summary} nodeCount={nodeList.length} edgeCount={edgeList.length} />}
 

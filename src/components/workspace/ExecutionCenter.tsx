@@ -5,6 +5,7 @@ import { api, decisionIntelligenceApi } from '../../api/intelligence';
 import { esoApi } from '../../api/eso';
 import { LoadingState, ErrorState, EmptyState } from '../shared/States';
 import { badgeTone, formatDateTime, formatNumber, formatPercent } from './intelligenceShared';
+import { HeaderActions, PageHeader } from '../../ui';
 import './IntelligenceSuite.css';
 
 type ExecutionOverview = any;
@@ -211,49 +212,51 @@ export default function ExecutionCenter({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="intel-page intel-execution">
-      <header className="intel-header">
-        <div>
-          <span className="intel-eyebrow"><PlayCircle size={14} /> Intelligence Loop</span>
-          <span className="eb-page-kicker">Intelligence Loop</span><h1>Execution & Outcomes</h1>
-          <p>What has actually been done about the decisions this organization approved, and what the result was.</p>
-          <div className="intel-meta">
-            <div className="intel-meta-card">
-              <span>Organization</span>
-              <strong>{data.organization?.name || 'Organization'}</strong>
-              <small>Current tenant scope</small>
-            </div>
-            <div className="intel-meta-card">
-              <span>Primary Bottleneck</span>
-              <strong>{data.bottlenecks?.primary?.label || 'Nothing is blocked'}</strong>
-              <small>{formatNumber(data.bottlenecks?.primary?.count)} affected</small>
-            </div>
-            <div className="intel-meta-card">
-              <span>Refresh</span>
-              <strong><button type="button" onClick={() => load(statusFilter, { background: true })}><RefreshCw size={15} /> Refresh</button></strong>
-              <small>{refreshing ? 'Resyncing live execution state…' : 'Refresh only execution intelligence'}</small>
-            </div>
+      <PageHeader
+        variant="intelligence"
+        icon={<PlayCircle />}
+        title="Execution & Outcomes"
+        description="What the organization approved, executed and learned."
+        meta={[
+          { label: data.organization?.name || 'Organization', title: 'Current tenant scope' },
+          {
+            label: `Bottleneck: ${data.bottlenecks?.primary?.label || 'nothing is blocked'}`,
+            title: `${formatNumber(data.bottlenecks?.primary?.count)} affected`,
+          },
+        ]}
+        actions={(
+          <HeaderActions>
+            <button
+              type="button"
+              className="u-btn u-btn-secondary"
+              onClick={() => load(statusFilter, { background: true })}
+              disabled={refreshing}
+            >
+              <RefreshCw size={15} aria-hidden="true" /> {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </HeaderActions>
+        )}
+        aside={(
+          /* A bare "NA" in 48pt type reads as a measured value. When nothing has
+             completed, say so in words instead. */
+          <div className="intel-score-card">
+            <span className="intel-subtle">Executions that succeeded</span>
+            {data.summary?.successRate != null ? (
+              <>
+                <strong>{Math.round(data.summary.successRate * 100)}%</strong>
+                <p>
+                  {data.summary?.outcomeMeasurementRate != null
+                    ? `${formatPercent(data.summary.outcomeMeasurementRate)} of completed runs have a measured outcome.`
+                    : 'No completed run has a measured outcome yet.'}
+                </p>
+              </>
+            ) : (
+              <p>Nothing has completed yet, so there is no success rate to report.</p>
+            )}
+            {refreshing && <div className="intel-refresh-chip" data-variant="execution">Refreshing execution pipeline…</div>}
           </div>
-        </div>
-
-        {/* A bare "NA" in 48pt type reads as a measured value. When nothing has
-            completed, say so in words instead. */}
-        <div className="intel-score-card">
-          <span className="intel-subtle">Executions that succeeded</span>
-          {data.summary?.successRate != null ? (
-            <>
-              <strong>{Math.round(data.summary.successRate * 100)}%</strong>
-              <p>
-                {data.summary?.outcomeMeasurementRate != null
-                  ? `${formatPercent(data.summary.outcomeMeasurementRate)} of completed runs have a measured outcome.`
-                  : 'No completed run has a measured outcome yet.'}
-              </p>
-            </>
-          ) : (
-            <p>Nothing has completed yet, so there is no success rate to report.</p>
-          )}
-          {refreshing && <div className="intel-refresh-chip" data-variant="execution">Refreshing execution pipeline…</div>}
-        </div>
-      </header>
+        )}
+      />
 
       {/* The pipeline strip that stood here showed Queued / Running / Completed,
           which the Execution Health grid below already reports alongside the

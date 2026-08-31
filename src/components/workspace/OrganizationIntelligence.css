@@ -17,61 +17,8 @@
   padding: 20px 24px 56px;
   max-width: 1360px;
   margin: 0 auto;
-}
-
-.oi-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-.oi-head__text { min-width: 260px; flex: 1 1 320px; }
-
-.oi-eyebrow {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--content-tertiary);
-  margin: 0 0 4px;
-}
-
-.oi-head h1 {
-  margin: 0 0 6px;
-  font-size: 26px;
-  line-height: 1.15;
-  letter-spacing: -0.025em;
-  color: var(--content-primary);
-}
-
-.oi-question {
-  margin: 0;
-  font-size: 14px;
-  color: var(--content-secondary);
-  max-width: 68ch;
-}
-
-.oi-head__aside {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-  flex-wrap: wrap;
-}
-
-/* The data fingerprint. Deliberately quiet and always present: it is how a reader
-   confirms two panels describe the same state of the organization. */
-.oi-stamp {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10px;
-  color: var(--content-tertiary);
-  text-align: right;
-  line-height: 1.5;
-}
-
-.oi-sections { display: grid; gap: 18px; }
+}/* The data fingerprint. Deliberately quiet and always present: it is how a reader
+   confirms two panels describe the same state of the organization. */.oi-sections { display: grid; gap: 18px; }
 
 .oi-page,
 .oi-page * {
@@ -83,10 +30,8 @@
   min-width: 0;
   overflow-x: clip;
 }
-
 .oi-head__aside > .u-btn,
-.oi-toolbar .u-btn,
-.oi-head__aside button {
+.oi-toolbar .u-btn {
   flex: 0 0 auto;
 }
 
@@ -537,14 +482,10 @@
 
 @media (max-width: 900px) {
   .oi-page { padding: 16px 14px 48px; }
-  .oi-head h1 { font-size: 22px; }
-  .oi-head__aside { margin-left: 0; }
-  .oi-stamp { text-align: left; }
   .oi-dim { grid-template-columns: 110px 1fr 76px; gap: 8px; }
   .oi-factor { grid-template-columns: 1fr; gap: 2px; }
   .oi-ai-grid { grid-template-columns: 1fr; }
   .oi-table { min-width: 620px; }
-  .oi-head { display: grid; grid-template-columns: 1fr; }
 }
 
 @media (min-width: 1400px) {

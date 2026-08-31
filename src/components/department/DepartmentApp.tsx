@@ -1,4 +1,6 @@
 
+import { FolderTree, Plus } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { useState, useEffect } from 'react';
 import type { Organization } from '../../App';
 import DepartmentList from './DepartmentList';
@@ -12,6 +14,17 @@ import { api } from '../../api/department';
 import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
 
 export type DepartmentView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
+
+/** The last breadcrumb on each sub-screen. `list` never renders one — that view
+ *  is DepartmentList, which draws the product header itself. */
+const DEPARTMENT_VIEW_LABEL: Record<DepartmentView, string> = {
+  list: 'Departments',
+  create: 'New department',
+  edit: 'Edit department',
+  details: 'Department',
+  archive: 'Archive department',
+  intelligence: 'Department intelligence',
+};
 
 export interface Department {
   id: string;
@@ -28,7 +41,17 @@ export interface Department {
   updatedDate: string;
 }
 
-export default function DepartmentApp({ organization, onBack, onExploreInGraph }: { organization: Organization; onBack: () => void; onExploreInGraph?: (label: string, id: string) => void }) {
+export default function DepartmentApp({
+  organization,
+  onBack,
+  onOpenPeople,
+  onExploreInGraph,
+}: {
+  organization: Organization;
+  onBack: () => void;
+  onOpenPeople?: (departmentId: string) => void;
+  onExploreInGraph?: (label: string, id: string) => void;
+}) {
   const [view, setView] = useState<DepartmentView>('list');
   const [selected, setSelected] = useState<Department | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -72,14 +95,35 @@ export default function DepartmentApp({ organization, onBack, onExploreInGraph }
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1320, margin: '0 auto', padding: view === 'list' ? 0 : 24 }}>
-      {view !== 'list' && (
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <div>
-            <button onClick={() => navigate('list')}>Back to Departments</button>
-            <h1 style={{ display: 'inline', marginLeft: 12 }}>Departments - {organization.name}</h1>
-          </div>
-          <button onClick={() => navigate('create')}>+ New Department</button>
-        </header>
+      {/*
+        ONE HEADER PER SCREEN.
+
+        Two of the views below already carry the product header themselves —
+        `list` is DepartmentList and `intelligence` is DepartmentIntelligence —
+        so this one stands down for those. The remaining sub-screens (create,
+        edit, details, archive) open with a form and no title of their own, and
+        this is the header that names where they are.
+      */}
+      {view !== 'list' && view !== 'intelligence' && (
+        <PageHeader
+          variant="detail"
+          icon={<FolderTree />}
+          title="Departments"
+          description={`How ${organization.name} is structured.`}
+          back={{ label: 'Departments', onClick: () => navigate('list') }}
+          breadcrumbs={[
+            { label: organization.name },
+            { label: 'Departments', onClick: () => navigate('list') },
+            { label: DEPARTMENT_VIEW_LABEL[view] },
+          ]}
+          actions={(
+            <HeaderActions>
+              <button type="button" className="u-btn u-btn-primary" onClick={() => navigate('create')}>
+                <Plus size={15} aria-hidden="true" /> New Department
+              </button>
+            </HeaderActions>
+          )}
+        />
       )}
       {error && <div style={{ color: 'red' }}>{error}</div>}
       {view === 'list' && (
@@ -88,8 +132,7 @@ export default function DepartmentApp({ organization, onBack, onExploreInGraph }
           departments={departments}
           loading={loading}
           onSelect={(dept) => navigate('intelligence', dept)}
-          onEdit={(dept) => navigate('edit', dept)}
-          onArchive={(dept) => navigate('archive', dept)}
+          onOpenPeople={(dept) => onOpenPeople?.(dept.id)}
           onCreate={() => navigate('create')}
           onRefresh={load}
           onBack={onBack}

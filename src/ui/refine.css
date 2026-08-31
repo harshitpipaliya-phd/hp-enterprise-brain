@@ -85,7 +85,8 @@
   Tasks, Policies, Agent Monitor, Conversation, Capabilities, Departments,
   Audit, Events and the rest — open with
 
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: 24,
+      <div style={{
+ maxWidth: 1200, margin: '0 auto', padding: 24,
                     backgroundColor: theme.bg, minHeight: '100vh' }}>
 
   and the number differs per screen: 800 / 900 / 1000 / 1200 / 1320 / 1400.
@@ -148,7 +149,6 @@
 .s-content-inner h1,
 .dept-create__hero h2,
 .people-create__hero h2,
-.student-hero h2,
 .cap-create > header h2,
 .school-intel__header h2 {
   margin: 0;
@@ -203,18 +203,12 @@
   margin-bottom: 0;
 }
 
-/* ---- page lede: the one sentence under the page title ---- */
-.intel-header p,
-.dept-intel__header p,
-.signal-intel__header p,
-.evidence-intel__header p,
-.people-app-header p,
-.oi-head__text p,
-.cc-org-hero__lede,
-.ingestion-hero > p,
+/* ---- lede: the one sentence under a hero or section heading ----
+   The PAGE lede belongs to the header component (.u-ph__desc) and is stated in
+   pageHeader.css. What is left here is the create-form heroes and the one
+   in-page section header that legitimately carry one. */
 .dept-create__hero p,
 .people-create__hero p,
-.kx-lede,
 .cap-create > header p,
 .school-intel__header p {
   margin: var(--eb-space-2) 0 0;
@@ -228,8 +222,10 @@
   color: var(--content-secondary);
 }
 
-/* ---- eyebrow / kicker: eight screens had eight sizes, 9.5px to 11px ---- */
-.eb-page-kicker,
+/* ---- eyebrow / kicker: eight screens had eight sizes, 9.5px to 11px ----
+   The PAGE eyebrow belongs to the header component (.u-ph__eyebrow) and is
+   stated in pageHeader.css. What is left here is the in-page eyebrows: the ones
+   above a section heading or on a metric tile. */
 .intel-eyebrow,
 .cc-kicker,
 .kx-kicker,
@@ -254,22 +250,12 @@
 }
 
 /*
-  THE PAGE KICKER, and why every screen now opens with one.
-
-  A page title on its own answers "what am I looking at" and nothing else. The
-  kicker above it answers "where am I", which is the question a reader arriving
-  from the sidebar actually has, and it is what lets the title itself be the
-  specific thing — a department's name, an organization's name — rather than a
-  category label repeated from the menu.
-
-  Block, so it sits on its own line above the title rather than beside it, with
-  a small gap the title's own margin does not provide.
+  THE PAGE KICKER used to be declared here, as a loose <span> each screen placed
+  above its own <h1>. It is now the `eyebrow` prop of the page header, so the
+  answer to "where am I" is a field of the component rather than a class name a
+  screen has to remember to add — which is why eight screens had it and the rest
+  did not.
 */
-.eb-page-kicker {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--accent-intelligence-deep);
-}
 
 /* ---- numbers read as data, and columns of them line up ---- */
 .eb-stat-value,
@@ -311,23 +297,32 @@
    Section-to-section and heading-to-content distances were chosen independently
    on every screen — 18px here, 20px there, 22px, 24px, 28px. One scale.
    ============================================================================= */
-.intel-header,
-.dept-intel__header,
-.signal-intel__header,
-.evidence-intel__header,
-.people-app-header,
-.oi-head,
-.kx-head,
-.gx-head,
-.pp-head,
-.cc-org-hero,
-.ingestion-hero,
 .dept-create__hero,
 .people-create__hero,
-.student-hero,
 .school-intel__header {
   margin-bottom: var(--page-head-gap);
 }
+
+/* =============================================================================
+   THE PAGE HEADER IS NO LONGER NORMALISED FROM OUT HERE.
+
+   This file used to carry a "universal premium page header" block: one selector
+   list naming eleven screen-specific header class names — .intel-header,
+   .dept-intel__header, .cc-org-hero, .oi-head, .kx-head and the rest — repeated
+   five times to paint a surface, a sheen, a flex layout, an eyebrow colour and
+   a title weight onto all of them at once.
+
+   It made eleven different DOM shapes LOOK alike, which is as far as a
+   stylesheet can get. It could not give a screen an icon it did not have, a
+   status badge it did not render, or an action group that wraps the same way at
+   every width — and every screen added to the product needed its class name
+   appended to five selector lists or it silently opted out.
+
+   Every page-level header is now one component, src/ui/pageHeader.tsx, styled
+   by src/ui/pageHeader.css. The screen-specific header rules that remain below
+   belong to SECTION headings inside screens, which are a different thing and
+   keep their own treatment.
+   ============================================================================= */
 
 .intel-section,
 .kx-section,
@@ -375,14 +370,6 @@
    being named here. What is left is the page header, which was the one surface
    styled as a hero rather than as a panel.
    ============================================================================= */
-.intel-header {
-  padding: var(--eb-space-5);
-  gap: var(--eb-space-5);
-  border-radius: var(--radius-lg);
-  border-color: var(--border-subtle);
-  box-shadow: var(--shadow-sm);
-}
-
 /* Every grid track may shrink, so a long unbroken value can never push a column
    off the screen. */
 .s-content-inner [class*="grid"] > *,
@@ -413,10 +400,8 @@
    sized by what it contains.
    -------------------------------------------------------------------------- */
 .evidence-intel__hero,
-.ingestion-hero,
 .intel-enterprise-board-copy,
-.intel-exec-hero,
-.pp-head {
+.intel-exec-hero {
   min-height: 0;
   padding: var(--eb-space-5);
   border-radius: var(--radius);
@@ -560,18 +545,10 @@
 /* Groups of controls sit on one baseline with one gap and wrap rather than
    overflow. */
 .intel-inline-actions,
-.intel-header__actions,
-.cc-org-hero__actions,
-.oi-head__aside,
 .oi-toolbar,
-.dept-intel__actions,
 .dept-intel__filters,
-.signal-intel__actions,
 .signal-intel__filters,
-.evidence-intel__actions,
-.people-inline-actions,
-.gx-head__actions,
-.pp-actions {
+.people-inline-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -759,8 +736,7 @@
      usable width. */
   .people-create__layout,
   .dept-create__layout,
-  .cap-create__layout,
-  .intel-header { grid-template-columns: minmax(0, 1fr); }
+  .cap-create__layout { grid-template-columns: minmax(0, 1fr); }
 }
 
 /*
@@ -795,36 +771,14 @@
   }
 }
 
-@media (max-width: 900px) {
-  .dept-intel__header,
-  .signal-intel__header,
-  .evidence-intel__header,
-  .people-app-header,
-  .oi-head,
-  .kx-head,
-  .gx-head {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--eb-space-4);
-  }
-
-  /*
-    THE ORGANIZATION HERO IS A GRID, NOT A FLEX ROW, and it was listed above
-    with the flex headers — where `flex-direction: column` is inert. It kept its
-    two tracks all the way down, so on a narrow window the action buttons and
-    the organization's name competed for the same line and the row pushed the
-    page sideways.
-  */
-  .cc-org-hero {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--eb-space-4);
-  }
-
-  .cc-org-hero__actions {
-    max-width: none;
-    justify-content: flex-start;
-  }
-}
+/*
+  The narrow-window rules for the eleven bespoke page headers used to live here.
+  They are gone with the headers: src/ui/pageHeader.css states the tablet and
+  mobile layouts once, against the header's OWN inline size rather than the
+  viewport — which is the only way to get it right in both sidebar states, since
+  the same header is ~260px narrower with the rail expanded than with it
+  collapsed.
+*/
 
 /*
   A TABLE IS THE ONE THING THAT CANNOT BE MADE NARROWER.

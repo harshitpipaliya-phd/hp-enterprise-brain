@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Search } from 'lucide-react';
+import { PageHeader } from '../../ui';
 import { api } from '../../api/intelligence';
 import { graphApi } from '../../api/graph';
 import { useTheme } from '../../hooks/useTheme';
@@ -63,7 +65,12 @@ export default function GlobalSearch({ tenantId }: { tenantId: string }) {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 800, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <h1 style={{ marginBottom: 16 }}>Global Search</h1>
+      <PageHeader
+        variant="list"
+        icon={<Search />}
+        title="Global Search"
+        description="One query across every record this organization holds — people, departments, capabilities, signals and evidence."
+      />
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
         <input
           value={query} onChange={(e) => setQuery(e.target.value)}

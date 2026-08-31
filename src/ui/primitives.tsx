@@ -707,19 +707,18 @@ export function Tabs<T extends string>({
    PAGE CHROME
    ========================================================================== */
 
-export function PageHeader({
-  title, description, actions,
-}: { title: string; description?: string; actions?: React.ReactNode }) {
-  return (
-    <header className="u-page-header">
-      <div className="u-grow">
-        <h1 className="u-page-title">{title}</h1>
-        {description && <p className="u-page-desc">{description}</p>}
-      </div>
-      {actions && <div className="u-page-actions">{actions}</div>}
-    </header>
-  );
-}
+/*
+  PageHeader USED TO LIVE HERE and no longer does.
+
+  It rendered a title, an optional sentence and an action slot — which was the
+  right shape for two of the product's thirty-odd screens and could not express
+  what the rest of them actually have: an icon, a status, an identifier row, a
+  breadcrumb, a provenance stamp, a tab strip. Screens that needed those built
+  their own header instead, which is how the product ended up with eleven.
+
+  The replacement is ./pageHeader.tsx, re-exported from ../ui alongside these
+  primitives, so `import { PageHeader } from '../../ui'` still resolves.
+*/
 
 export function PageToolbar({ children }: { children: React.ReactNode }) {
   return <div className="u-toolbar">{children}</div>;

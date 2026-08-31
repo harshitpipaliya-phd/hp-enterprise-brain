@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { GraduationCap, Plus, Users } from 'lucide-react';
 import type { Organization } from '../../App';
 import { api as departmentApi } from '../../api/department';
 import { api } from '../../api/person';
@@ -12,6 +13,7 @@ import StudentList from '../student/StudentList';
 import StudentDetail from '../student/StudentDetail';
 import type { Student } from '../../api/student';
 import { loadSession, saveSession } from '../../utils/session';
+import { HeaderActions, PageHeader } from '../../ui';
 import './PersonList.css';
 
 export type PersonView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
@@ -104,7 +106,17 @@ export interface PersonDepartment {
  */
 let restorePending = true;
 
-export default function PersonApp({ organization, onBack, onExploreInGraph }: { organization: Organization; onBack: () => void; onExploreInGraph?: (label: string, id: string) => void }) {
+export default function PersonApp({
+  organization,
+  initialDepartmentId,
+  onBack,
+  onExploreInGraph,
+}: {
+  organization: Organization;
+  initialDepartmentId?: string | null;
+  onBack: () => void;
+  onExploreInGraph?: (label: string, id: string) => void;
+}) {
   const [view, setView] = useState<PersonView>('list');
   const [selected, setSelected] = useState<Person | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
@@ -136,7 +148,7 @@ export default function PersonApp({ organization, onBack, onExploreInGraph }: { 
         const staff = Number(summary?.people?.total ?? 0);
         const students = Number(summary?.students?.total ?? 0);
         setCounts({ staff, students });
-        setPopulation(students > 0 ? 'students' : 'erp');
+        setPopulation(initialDepartmentId ? 'erp' : students > 0 ? 'students' : 'erp');
       })
       .catch(() => {
         if (cancelled) return;
@@ -145,7 +157,7 @@ export default function PersonApp({ organization, onBack, onExploreInGraph }: { 
       });
 
     return () => { cancelled = true; };
-  }, [organization.tenantId]);
+  }, [organization.tenantId, initialDepartmentId]);
 
   const load = async () => {
     setLoading(true);
@@ -262,13 +274,13 @@ export default function PersonApp({ organization, onBack, onExploreInGraph }: { 
   if (population === null) {
     return (
       <div className="people-app">
-        <header className="people-app-header">
-          <div>
-            <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
-            <span className="eb-page-kicker">Foundation</span>
-            <h1>Workforce Intelligence</h1>
-          </div>
-        </header>
+        <PageHeader
+          variant="list"
+          icon={<Users />}
+          title="Workforce Intelligence"
+          back={{ label: 'Organization', onClick: onBack }}
+          breadcrumbs={[{ label: organization.name, onClick: onBack }, { label: 'People' }]}
+        />
         <div className="people-empty">Loading {organization.name}&apos;s people…</div>
       </div>
     );
@@ -287,18 +299,23 @@ export default function PersonApp({ organization, onBack, onExploreInGraph }: { 
   if (population === 'students') {
     return (
       <div className="people-app">
-        <header className="people-app-header">
-          <div>
-            <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
-            <span className="eb-page-kicker">Foundation</span>
-            <h1>Student Intelligence</h1>
-            <p>
-              The students {organization.name} has records for — their class, section and, where this
-              organization has them, their results and fee history.
-            </p>
+        {!student && (
+          <PageHeader
+            variant="list"
+            icon={<GraduationCap />}
+            title="Student Intelligence"
+            description={(
+              <>
+                The students {organization.name} has records for — their class, section and, where this
+                organization has them, their results and fee history.
+              </>
+            )}
+            back={{ label: 'Organization', onClick: onBack }}
+            breadcrumbs={[{ label: organization.name, onClick: onBack }, { label: 'People' }, { label: 'Students' }]}
+          >
             {switcher}
-          </div>
-        </header>
+          </PageHeader>
+        )}
 
         {student
           ? (
@@ -316,30 +333,39 @@ export default function PersonApp({ organization, onBack, onExploreInGraph }: { 
 
   return (
     <div className="people-app">
-      <header className="people-app-header">
-        <div>
-          <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
-          {/*
-            THE TITLE NAMES THE SUBJECT, THE KICKER NAMES THE PLACE.
+      {/*
+        THE TITLE NAMES THE SUBJECT, THE EYEBROW NAMES THE PLACE.
 
-            "Staff Intelligence" rather than "Staff" because this screen is not
-            a roster — it carries coverage, gaps and per-person indicators, and
-            a one-word title sold it as a table. The staff/people split stays:
-            on a school the switcher above makes "staff" a real distinction from
-            the students beside them, and on every other organization it is not
-            a distinction at all.
-          */}
-          <span className="eb-page-kicker">Foundation</span>
-          <h1>{showSwitcher ? 'Staff Intelligence' : 'Workforce Intelligence'}</h1>
-          <p>
-            {showSwitcher
-              ? `The staff ${organization.name} employs — teachers, administrators and support staff, as its HR system records them. Open someone to see their profile, department and recorded activity.`
-              : `Everyone recorded in ${organization.name}. Open a person to see their profile, department and recorded activity.`}
-          </p>
+        "Staff Intelligence" rather than "Staff" because this screen is not a
+        roster — it carries coverage, gaps and per-person indicators, and a
+        one-word title sold it as a table. The staff/people split stays: on a
+        school the switcher makes "staff" a real distinction from the students
+        beside them, and on every other organization it is not a distinction at
+        all.
+      */}
+      {/* Not on the profile: PersonIntelligence carries the page header for
+          the person it is showing, and two <h1>s is a broken outline. */}
+      {view !== 'intelligence' && (
+        <PageHeader
+          variant="list"
+          icon={<Users />}
+          title={showSwitcher ? 'Staff Intelligence' : 'Workforce Intelligence'}
+          description={showSwitcher
+            ? `The staff ${organization.name} employs — teachers, administrators and support staff, as its HR system records them. Open someone to see their profile, department and recorded activity.`
+            : `Everyone recorded in ${organization.name}. Open a person to see their profile, department and recorded activity.`}
+          back={{ label: 'Organization', onClick: onBack }}
+          breadcrumbs={[{ label: organization.name, onClick: onBack }, { label: 'People' }]}
+          actions={view === 'list' ? (
+            <HeaderActions>
+              <button type="button" className="u-btn u-btn-primary" onClick={() => navigate('create')}>
+                <Plus size={15} aria-hidden="true" /> New Person
+              </button>
+            </HeaderActions>
+          ) : undefined}
+        >
           {switcher}
-        </div>
-        {view === 'list' && <button onClick={() => navigate('create')}>+ New Person</button>}
-      </header>
+        </PageHeader>
+      )}
 
       {error && <div className="people-alert" role="alert">{error}</div>}
 
@@ -359,6 +385,7 @@ export default function PersonApp({ organization, onBack, onExploreInGraph }: { 
           departments={departments}
           loading={loading}
           tenantId={organization.tenantId}
+          initialDepartmentId={initialDepartmentId}
           onSelect={(person) => navigate('intelligence', person)}
           onEdit={(person) => navigate('edit', person)}
           onArchive={(person) => navigate('archive', person)}

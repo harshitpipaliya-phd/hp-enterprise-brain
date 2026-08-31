@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { MessageSquare, Plus } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { conversationApi } from '../../api/conversation';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -105,7 +107,19 @@ export default function ConversationWorkspace({ tenantId }: { tenantId: string }
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <h1 style={{ marginBottom: 16 }}>Enterprise Copilot</h1>
+      <PageHeader
+        variant="list"
+        icon={<MessageSquare />}
+        title="Enterprise Copilot"
+        description="Saved conversations about this organization, each scoped to the records it was asked about."
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-primary" onClick={createSession}>
+              <Plus size={15} aria-hidden="true" /> New Conversation
+            </button>
+          </HeaderActions>
+        )}
+      />
       {error && (
         <div style={{ padding: 10, borderRadius: 6, backgroundColor: 'var(--status-warn)20', color: 'var(--status-warn)', marginBottom: 16, fontSize: 13 }}>{error}</div>
       )}

@@ -12,6 +12,16 @@ export * from './primitives';
 export * from './LazyView';
 
 /**
+ * The page header system.
+ *
+ * Separate from primitives.tsx because it is not a primitive: it is the one
+ * composition every screen in the product opens with, and it carries five
+ * variants, an overflow menu and its own container-query responsive rules. It
+ * is exported from here so a screen imports it the same way it imports Button.
+ */
+export * from './pageHeader';
+
+/**
  * Charts and the three-layer reading.
  *
  * These two DO know about the Brain's concepts — a null that means "never

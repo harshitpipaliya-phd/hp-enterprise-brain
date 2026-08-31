@@ -13,6 +13,7 @@ interface Props {
   onArchive: (person: Person) => void;
   onRefresh: () => void;
   tenantId: string;
+  initialDepartmentId?: string | null;
 }
 
 type SortKey = 'name' | 'department' | 'role' | 'status' | 'created';
@@ -65,7 +66,7 @@ function formatDate(value: string | null | undefined): string {
  * showing, so it is still here. It is now reported as what it is: a count of
  * records missing a named field, per field, with no score on top.
  */
-export default function PersonList({ people, departments, loading, tenantId, onSelect, onEdit, onArchive, onRefresh }: Props) {
+export default function PersonList({ people, departments, loading, tenantId, initialDepartmentId, onSelect, onEdit, onArchive, onRefresh }: Props) {
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('all');
   const [role, setRole] = useState('all');
@@ -88,6 +89,11 @@ export default function PersonList({ people, departments, loading, tenantId, onS
     not be blanked because a secondary endpoint was unavailable.
   */
   const [signalsByPerson, setSignalsByPerson] = useState<Map<string, number> | null>(null);
+
+  useEffect(() => {
+    setDepartment(initialDepartmentId || 'all');
+    setPage(1);
+  }, [initialDepartmentId]);
 
   useEffect(() => {
     let cancelled = false;

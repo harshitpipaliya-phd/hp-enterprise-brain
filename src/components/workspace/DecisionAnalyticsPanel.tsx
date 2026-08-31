@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChartNoAxesColumn } from 'lucide-react';
 import { organizationIntelligenceApi } from '../../api/organizationIntelligence';
+import { operationsApi, count as opsCount, hours as opsHours, pct as opsPct } from '../../api/operations';
+import type { OperationsOverview } from '../../api/operations';
+import {
+  DistributionPanel,
+  ExecutionStrip,
+  InsightsPanel,
+  MeasureTile,
+  TrendChart,
+} from './OperationalIntelligencePanels';
 import type {
   DecisionIntelligenceData,
   Gap,
@@ -56,6 +66,7 @@ export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string 
   const [gaps, setGaps] = useState<GapsResponse | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationsResponse | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [operations, setOperations] = useState<OperationsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<Filter>('all');
@@ -97,6 +108,26 @@ export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string 
     const recAreas = [...new Set(recommendations?.recommendations.map((r) => r.area) ?? [])];
     return { categories, riskAreas, gapAreas, recAreas };
   }, [decisions, gaps, recommendations]);
+
+  /*
+    DERIVED OPERATIONAL ANALYTICS.
+
+    This screen answered "how are decisions going" over a loop that, on an
+    organization mid-way through its first week, has almost nothing in it — while
+    a quarter of a million operational records sat unexamined one table away.
+    Both belong here: the loop is how the organization REASONS, and these are the
+    facts it reasons about.
+
+    Loaded separately and allowed to fail, so a cold aggregate never stops the
+    decision analytics from rendering.
+  */
+  useEffect(() => {
+    let cancelled = false;
+    operationsApi.getOverview(tenantId)
+      .then((result) => { if (!cancelled) setOperations(result); })
+      .catch(() => { if (!cancelled) setOperations(null); });
+    return () => { cancelled = true; };
+  }, [tenantId]);
 
   useEffect(() => {
     setFilterType('all');
@@ -162,9 +193,9 @@ export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string 
   return (
     <div className="oi-page">
       <IntelligenceHeader
-        eyebrow="Analytics"
         title="Decision Analytics"
-        question="Where is this organization right now, what is changing, why does it matter, and what should be done next?"
+        icon={<ChartNoAxesColumn />}
+        question="How decisions, risks, gaps and recommendations connect across this organization."
         meta={decisions}
         actions={<Button variant="secondary" onClick={() => void load(true)} disabled={loading}>Recompute</Button>}
       />
@@ -199,6 +230,119 @@ export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string 
       <div className="oi-sections" style={{ marginBottom: 18 }}>
         <ExecutiveInterpretationPanel interpretation={decisions.interpretation} />
       </div>
+
+      {/*
+        ─────────────────────────────────────────────────────────────────────
+        OPERATIONAL ANALYTICS — the facts the loop above reasons about.
+
+        Every series is a GROUP BY over this organization's own imported rows.
+        There is no sample data, no interpolation and no synthetic series: a
+        chart appears only when the data behind it exists, and a measure that
+        cannot be derived states why instead of plotting a flat line at zero.
+      */}
+      {operations?.available && (
+        <>
+          <section className="opsi-tile-grid" aria-label="Derived operational measures">
+            <MeasureTile
+              label="Operational records"
+              value={opsCount(operations.headline.operationalRecords?.value)}
+              detail={operations.headline.operationalRecords?.detail ?? ''}
+              supported
+              tone="good"
+            />
+            <MeasureTile
+              label="Completion"
+              value={opsPct(operations.execution.completionRate, 1)}
+              detail={`${opsCount(operations.execution.completed)} of ${opsCount(operations.execution.classified)} classified`}
+              supported={operations.execution.supported}
+              reason={operations.execution.reason}
+              tone={(operations.execution.completionRate ?? 0) >= 0.7 ? 'good' : 'warn'}
+            />
+            <MeasureTile
+              label="Open workload"
+              value={opsCount(operations.execution.backlog)}
+              detail={`${opsPct(operations.execution.backlogRate, 1)} of classified work`}
+              supported={operations.execution.supported}
+              reason={operations.execution.reason}
+              tone={(operations.execution.backlogRate ?? 0) > 0.35 ? 'warn' : 'good'}
+            />
+            <MeasureTile
+              label="Average turnaround"
+              value={opsHours(operations.responsiveness.averageHours)}
+              detail={operations.responsiveness.supported
+                ? `${opsPct(operations.responsiveness.withinDayRate, 1)} closed within a day`
+                : ''}
+              supported={operations.responsiveness.supported}
+              reason={operations.responsiveness.reason}
+              tone={(operations.responsiveness.withinDayRate ?? 0) >= 0.5 ? 'good' : 'warn'}
+            />
+            <MeasureTile
+              label="Repeat activity"
+              value={opsPct(operations.service.repeatRate, 1)}
+              detail={operations.service.supported
+                ? `${opsCount(operations.service.repeatedSubjects)} of ${opsCount(operations.service.subjects)} subjects recur`
+                : ''}
+              supported={operations.service.supported}
+              reason={operations.service.reason}
+              tone={(operations.service.repeatRate ?? 0) > 0.25 ? 'warn' : 'good'}
+            />
+          </section>
+
+          {operations.execution.supported && (
+            <section className="opsi-panel" aria-label="Workflow state distribution">
+              <div className="opsi-head">
+                <div>
+                  <span className="opsi-kicker">Every record whose status resolves to a workflow state</span>
+                  <h2>Where recorded work stands</h2>
+                </div>
+              </div>
+              <ExecutionStrip
+                completed={operations.execution.completed}
+                inProgress={operations.execution.inProgress}
+                open={operations.execution.open}
+                cancelled={operations.execution.cancelled}
+              />
+            </section>
+          )}
+
+          {operations.trend.supported && (
+            <TrendChart
+              points={operations.trend.points}
+              momentum={operations.trend.momentum}
+              title="Recorded activity by month"
+            />
+          )}
+
+          <div className="opsi-grid-2">
+            <DistributionPanel
+              title="Workload by unit"
+              rows={operations.rankings.departments}
+              concentration={operations.rankings.concentration?.departments}
+              empty="Imported records do not name an owning unit, so work cannot be attributed to a department."
+            />
+            <DistributionPanel
+              title="Workload by type"
+              rows={operations.rankings.categories}
+              concentration={operations.rankings.concentration?.categories}
+              empty="No imported record carries a category."
+            />
+            <DistributionPanel
+              title="Workload by area"
+              rows={operations.rankings.zones}
+              concentration={operations.rankings.concentration?.zones}
+              empty="No imported record carries a geographic tag."
+            />
+            <DistributionPanel
+              title="Contribution by dataset"
+              rows={operations.rankings.datasets}
+              concentration={operations.rankings.concentration?.datasets}
+              empty="Nothing has been ingested for this organization."
+            />
+          </div>
+
+          <InsightsPanel insights={operations.insights} limit={6} />
+        </>
+      )}
 
       <div className="oi-toolbar" style={{ marginBottom: 16 }}>
         <label className="oi-block" style={{ minWidth: 210 }}>

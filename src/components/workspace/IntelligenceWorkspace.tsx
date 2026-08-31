@@ -17,12 +17,33 @@ import {
 } from 'lucide-react';
 import { decisionIntelligenceApi } from '../../api/intelligence';
 import SchoolIntelligence from './SchoolIntelligence';
+import { HeaderActions, PageHeader } from '../../ui';
 import { EmptyState, ErrorState, LoadingState } from '../shared/States';
 import { badgeTone, formatDateTime, formatNumber, formatPercent } from './intelligenceShared';
 import type { View } from '../../App';
 import './IntelligenceSuite.css';
+import { operationsApi } from '../../api/operations';
+import type { OperationsOverview } from '../../api/operations';
+import { InsightsPanel, LifecyclePanel, ScorecardPanel } from './OperationalIntelligencePanels';
 
 type EnterpriseOverview = any;
+
+/**
+ * Where each lifecycle stage sends a reader. Keyed by the server's stage key, so
+ * a stage added on the server falls back to this screen rather than producing a
+ * dead tile.
+ */
+const LOOP_VIEWS: Record<string, View> = {
+  signals: 'signals',
+  evidence: 'evidence',
+  cases: 'deliberation',
+  hypotheses: 'deliberation',
+  recommendations: 'deliberation',
+  decisions: 'analytics',
+  executions: 'executions',
+  outcomes: 'executions',
+  learnings: 'mentalmodels',
+};
 
 /**
  * Intelligence Workspace — "what does this organization currently know about
@@ -44,6 +65,16 @@ type EnterpriseOverview = any;
  */
 export default function IntelligenceWorkspace({ tenantId, onNavigate }: { tenantId: string; onNavigate?: (view: View) => void }) {
   const [data, setData] = useState<EnterpriseOverview | null>(null);
+  /*
+    WHAT THE ORGANIZATION'S RECORDS SAY, and where the loop has reached.
+
+    This screen's blank slate reads "No organizational intelligence has been
+    generated yet" whenever the loop tables are empty — which is accurate about
+    the LOOP and badly wrong about the organization, whose imported operational
+    data is fully analysable and is the reason the loop has anything to detect.
+    The scorecard and the lifecycle states below say both things at once.
+  */
+  const [operations, setOperations] = useState<OperationsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +96,14 @@ export default function IntelligenceWorkspace({ tenantId, onNavigate }: { tenant
       setRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    operationsApi.getOverview(tenantId)
+      .then((result) => { if (!cancelled) setOperations(result); })
+      .catch(() => { if (!cancelled) setOperations(null); });
+    return () => { cancelled = true; };
+  }, [tenantId]);
 
   useEffect(() => {
     void load();
@@ -113,21 +152,24 @@ export default function IntelligenceWorkspace({ tenantId, onNavigate }: { tenant
 
   return (
     <div className="intel-page intel-enterprise">
-      <header className="intel-header">
-        <div>
-          <span className="intel-eyebrow"><Brain size={14} /> Intelligence Loop</span>
-          <span className="eb-page-kicker">Intelligence Loop</span><h1>Organization Intelligence</h1>
-          <p>
+      <PageHeader
+        variant="intelligence"
+        icon={<Brain />}
+        title="Organization Intelligence"
+        description={(
+          <>
             What {data.organization?.name || 'this organization'} currently knows about itself: what is happening,
             what supports it, what is recommended, and what is waiting on a decision.
-          </p>
-        </div>
-        <div className="intel-header__actions">
-          <button type="button" className="eb-pill-btn" onClick={() => load({ background: true })} disabled={refreshing}>
-            <RefreshCw size={15} /> {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
-        </div>
-      </header>
+          </>
+        )}
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-secondary" onClick={() => load({ background: true })} disabled={refreshing}>
+              <RefreshCw size={15} aria-hidden="true" /> {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       {/*
         Rendered ABOVE the loop summary and outside the `hasAnything` branch.
@@ -141,7 +183,20 @@ export default function IntelligenceWorkspace({ tenantId, onNavigate }: { tenant
       */}
       <SchoolIntelligence tenantId={tenantId} />
 
-      {!hasAnything ? (
+      {/*
+        DERIVED OPERATIONAL INTELLIGENCE, rendered whether or not the loop has
+        produced anything. It is the answer to "what does this organization know
+        about itself" that does not depend on anyone having triaged a signal yet.
+      */}
+      {operations?.available && (
+        <>
+          <ScorecardPanel scorecard={operations.scorecard} />
+          <LifecyclePanel stages={operations.lifecycle} onOpen={onNavigate ? (key) => onNavigate(LOOP_VIEWS[key] ?? 'workspace') : undefined} />
+          <InsightsPanel insights={operations.insights} limit={6} />
+        </>
+      )}
+
+      {!hasAnything && !operations?.available ? (
         <section className="intel-section">
           <div className="intel-blank-slate">
             <Brain size={30} />

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Gauge, RefreshCw } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { api } from '../../api/observability';
 
 export interface HealthStatus {
@@ -33,10 +35,19 @@ export default function SystemHealth() {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 800, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <span className="eb-page-kicker">Automation</span><h1>System Health</h1>
-        <button onClick={load}>Refresh</button>
-      </header>
+      <PageHeader
+        variant="list"
+        icon={<Gauge />}
+        title="System Health"
+        description="Each dependency this installation needs, and whether it is currently answering."
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-secondary" onClick={load}>
+              <RefreshCw size={15} aria-hidden="true" /> Refresh
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       <div style={{ padding: 16, borderRadius: 8, backgroundColor: health.status === 'healthy' ? 'var(--feedback-success-surface)' : health.status === 'degraded' ? 'var(--feedback-warning-surface)' : 'var(--feedback-error-surface)', marginBottom: 24 }}>
         <h2 style={{ margin: 0 }}>{health.status.toUpperCase()}</h2>

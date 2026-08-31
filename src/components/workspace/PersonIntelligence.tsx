@@ -1,10 +1,12 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Archive, FileSearch, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { api as personApi } from '../../api/person';
 import { api as departmentApi } from '../../api/department';
 import { LoadingState, ErrorState } from '../shared/States';
 import './PersonProfile.css';
 import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
+import { HeaderActions, HeaderOverflowMenu, PageHeader } from '../../ui';
 
 /**
  * The person profile.
@@ -424,38 +426,62 @@ export default function PersonIntelligence({
 
   return (
     <div className="pp eb-fade-in">
-      <div className="pp-actions">
-        {onBack && <button className="eb-pill-btn" onClick={onBack}>{'← '}{backLabel}</button>}
-        <span className="pp-actions-spacer" />
-        <ExploreInGraphButton
-          label="Person"
-          id={personId}
-          entityName={name}
-          onExplore={onExploreInGraph}
-          className="eb-pill-btn"
-        />
-        {onEdit && <button className="eb-pill-btn" onClick={onEdit}>Edit contact details</button>}
-        {onViewSourceRecord && <button className="eb-pill-btn" onClick={onViewSourceRecord}>Source record</button>}
-        <button className="eb-pill-btn" onClick={load} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
-        {onArchive && <button className="eb-pill-btn" onClick={onArchive}>Archive</button>}
-      </div>
-
       {error && <div className="pp-alert" role="alert">Could not refresh this person: {error}. The details below are from the last successful load.</div>}
 
-      <header className="pp-head">
-        <div>
-          <div className="eb-eyebrow">Person profile{organization?.name ? ` · ${organization.name}` : ''}</div>
-          <h1>{name}</h1>
-          <div className="pp-head-meta">
-            {person.role && <span className="eb-badge eb-badge-info">{person.role}</span>}
-            {person.jobTitle && <span className="eb-badge">{person.jobTitle}</span>}
-            {person.departmentName && <span className="eb-badge">{person.departmentName}</span>}
-            {person.externalRef && <span className="eb-badge">Ref {person.externalRef}</span>}
-            {academic?.academicYear && <span className="eb-badge">Academic year {academic.academicYear}</span>}
-          </div>
-        </div>
-        <span className="pp-avatar" aria-hidden="true">{initials(person)}</span>
-      </header>
+      {/*
+        ONE HEADER, NOT AN ACTION BAR PLUS A HERO.
+
+        This screen used to open with a floating row of six identical pill
+        buttons and then, separately, with the person's name — so the first
+        thing on the page was a set of controls for a subject that had not been
+        named yet. The identity leads now, and the actions sit beside it with a
+        hierarchy: refreshing this profile is the ordinary thing, and archiving
+        a person is not, so it lives behind the overflow rather than one pixel
+        away from Refresh.
+      */}
+      <PageHeader
+        variant="detail"
+        icon={<span className="u-ph__initials">{initials(person)}</span>}
+        eyebrow={`Person profile${organization?.name ? ` · ${organization.name}` : ''}`}
+        title={name}
+        back={onBack ? { label: backLabel, onClick: onBack } : null}
+        meta={[
+          person.role ? { label: person.role, title: 'Role' } : null,
+          person.jobTitle ? { label: person.jobTitle, title: 'Job title' } : null,
+          person.departmentName ? { label: person.departmentName, title: 'Department' } : null,
+          person.externalRef ? { label: `Ref ${person.externalRef}`, title: 'Source system reference' } : null,
+          academic?.academicYear ? { label: `Academic year ${academic.academicYear}` } : null,
+        ]}
+        actions={(
+          <HeaderActions>
+            <ExploreInGraphButton
+              label="Person"
+              id={personId}
+              entityName={name}
+              onExplore={onExploreInGraph}
+              className="u-btn u-btn-secondary"
+            />
+            {onEdit && (
+              <button type="button" className="u-btn u-btn-secondary" onClick={onEdit}>
+                Edit contact details
+              </button>
+            )}
+            <button type="button" className="u-btn u-btn-secondary" onClick={load} disabled={loading}>
+              <RefreshCw size={15} aria-hidden="true" /> {loading ? 'Refreshing…' : 'Refresh'}
+            </button>
+            <HeaderOverflowMenu
+              items={[
+                ...(onViewSourceRecord
+                  ? [{ label: 'Source record', icon: <FileSearch size={15} aria-hidden="true" />, onSelect: onViewSourceRecord }]
+                  : []),
+                ...(onArchive
+                  ? [{ label: 'Archive person', icon: <Archive size={15} aria-hidden="true" />, onSelect: onArchive, danger: true }]
+                  : []),
+              ]}
+            />
+          </HeaderActions>
+        )}
+      />
 
       {tabs.length > 1 && (
         <div className="pp-tabs" role="tablist">

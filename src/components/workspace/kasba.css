@@ -12,42 +12,7 @@
   margin: 0 auto;
   padding: var(--space-3) var(--space-5) var(--space-5);
   color: var(--content-primary);
-}
-
-/* ------------------------------------------------------------------ head --- */
-
-.kx-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.kx-kicker {
-  display: block;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--content-tertiary);
-}
-
-.kx-title { margin: 2px 0 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
-.kx-title strong { color: var(--accent-intelligence); font-weight: 700; }
-
-.kx-lede {
-  margin: 4px 0 0;
-  max-width: 90ch;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--content-secondary);
-}
-
-/* --------------------------------------------------------------- metrics --- */
+}/* --------------------------------------------------------------- metrics --- */
 
 .kx-metrics {
   display: grid;

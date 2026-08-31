@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { Building2, Layers } from 'lucide-react';
 import { kasbaApi } from '../../api/kasba';
 import { api as capabilityApi } from '../../api/capability';
 import { KasbaBadge } from '../../components/rcl';
 import { IntelligenceCard, type IntelligenceStatus } from '../../ui/intelligenceCard';
 import { useToast } from '../Toast';
+import { PageHeader } from '../../ui';
 import './kasba.css';
 
 interface HeatmapCell {
@@ -178,20 +180,19 @@ export default function KasbaExplorer(
 
   return (
     <div className="kx-page">
-      <header className="kx-head">
-        <div>
-          <span className="kx-kicker">Knowledge</span>
-          <h1 className="kx-title">
-            {organizationName ? <strong>{organizationName}</strong> : 'This organization'}
-            {' \u00b7 KASBA capability assessment'}
-          </h1>
-          <p className="kx-lede">
+      <PageHeader
+        variant="intelligence"
+        icon={<Layers />}
+        title="KASBA Explorer"
+        description={(
+          <>
             Knowledge, Ability, Skill, Behaviour and Attitude, measured per capability. A level answers
             &ldquo;how good&rdquo;; the state beside it answers &ldquo;how firmly do we know&rdquo;.
             Department-level aggregates only &mdash; no individual is identifiable from this screen.
-          </p>
-        </div>
-      </header>
+          </>
+        )}
+        meta={[organizationName ? { icon: <Building2 />, label: organizationName } : null]}
+      />
 
       <div className="kx-metrics">
         <div className="kx-metric">

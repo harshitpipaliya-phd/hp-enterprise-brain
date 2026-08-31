@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Radio, RefreshCw } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { api } from '../../api/events';
 
 export interface EventStats {
@@ -38,10 +40,19 @@ export default function EventDashboard() {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <span className="eb-page-kicker">Automation</span><h1>Event Backbone</h1>
-        <button onClick={load}>Refresh</button>
-      </header>
+      <PageHeader
+        variant="list"
+        icon={<Radio />}
+        title="Event Backbone"
+        description="Throughput across the event backbone: what is queued, in flight, and settled."
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-secondary" onClick={load}>
+              <RefreshCw size={15} aria-hidden="true" /> Refresh
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16, marginBottom: 32 }}>
         <StatCard label="Total Events" value={stats.total} color="#333" />

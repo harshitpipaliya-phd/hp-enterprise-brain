@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Building2 } from 'lucide-react';
+import { PageHeader } from '../../ui';
 import { api } from '../../api/intelligence';
 import type { Organization } from '../../App';
 import type { View } from '../../App';
@@ -201,26 +203,16 @@ export default function OrganizationIntelligenceHome({ organization, onNavigate 
 
   return (
     <div className="eb-home">
-      <div className="eb-home-header">
-        <div className="eb-home-brand">
-          {organization.logo && (
-            <img src={organization.logo} alt="" className="eb-home-logo" />
-          )}
-          <div>
-            <h1>{organization.name}</h1>
-            <p className="eb-home-subtitle">{today}</p>
-            <p className="eb-home-freshness">
-              ERP data: live · Brain data: {dataFreshness.brain}
-            </p>
-          </div>
-        </div>
-        <div className="eb-home-user">
-          <span className="eb-home-role">Organization Intelligence Home</span>
-          {totalAttention > 0 && (
-            <span className="eb-home-alerts">{totalAttention} active alert{totalAttention !== 1 ? 's' : ''}</span>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        variant="organization"
+        icon={organization.logo ? <img src={organization.logo} alt="" /> : <Building2 />}
+        title={organization.name}
+        status={totalAttention > 0
+          ? { label: `${totalAttention} active alert${totalAttention !== 1 ? 's' : ''}`, tone: 'warning' }
+          : null}
+        description={today}
+        meta={[{ label: `ERP data: live · Brain data: ${dataFreshness.brain}` }]}
+      />
 
       <div className="eb-home-hero">
         <h2>{greeting}.</h2>

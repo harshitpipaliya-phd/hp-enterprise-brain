@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Gauge } from 'lucide-react';
 import { organizationIntelligenceApi } from '../../api/organizationIntelligence';
 import type { OrganizationalState, RecommendationsResponse, GapsResponse } from '../../api/organizationIntelligence';
 import {
@@ -10,6 +11,9 @@ import {
   pct, num, count,
 } from './intelligenceUi';
 import './OrganizationIntelligence.css';
+import { operationsApi } from '../../api/operations';
+import type { OperationsOverview } from '../../api/operations';
+import { InsightsPanel, ScorecardPanel, TrendChart } from './OperationalIntelligencePanels';
 
 /**
  * Executive Dashboard — "Where is this organization, and what should it do next?"
@@ -40,6 +44,26 @@ export default function ExecutiveDashboard({ tenantId }: { tenantId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'actions' | 'gaps'>('actions');
+  /*
+    THE OPERATIONAL SCORECARD, alongside the loop state above.
+
+    The loop measures how far this organization's REASONING has travelled; the
+    scorecard measures the organization itself, from its own imported records.
+    An executive screen that shows only the first reports a young installation as
+    having nothing to say — while a quarter of a million operational records sit
+    one table away, fully analysable.
+
+    Loaded separately and allowed to fail: the loop state is the screen.
+  */
+  const [operations, setOperations] = useState<OperationsOverview | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    operationsApi.getOverview(tenantId)
+      .then((result) => { if (!cancelled) setOperations(result); })
+      .catch(() => { if (!cancelled) setOperations(null); });
+    return () => { cancelled = true; };
+  }, [tenantId]);
 
   const load = useCallback(async (fresh = false) => {
     setLoading(true);
@@ -89,12 +113,35 @@ export default function ExecutiveDashboard({ tenantId }: { tenantId: string }) {
   return (
     <div className="oi-page">
       <IntelligenceHeader
-        eyebrow="Analytics"
         title="Executive Dashboard"
-        question="Where is this organization on its intelligence loop, and what should it do next?"
+        icon={<Gauge />}
+        question="A decision-oriented view of organizational performance, risk and opportunity."
         meta={state}
         actions={<Button variant="secondary" onClick={() => void load(true)} disabled={loading}>Recompute</Button>}
       />
+
+      {/*
+        WHAT THE ORGANIZATION'S OWN RECORDS SAY, before the loop's own state.
+
+        Placed first because it is the half a reader can act on today: the loop
+        below describes how much reasoning has been done, and this describes what
+        there is to reason about. Every dimension carries its arithmetic, and any
+        the connected data cannot support is listed separately rather than scored
+        as zero — see App\Domain\Operations\OrganizationScorecard.
+      */}
+      {operations?.available && (
+        <>
+          <ScorecardPanel scorecard={operations.scorecard} title="Organization intelligence" />
+          <InsightsPanel insights={operations.insights} limit={6} />
+          {operations.trend.supported && (
+            <TrendChart
+              points={operations.trend.points}
+              momentum={operations.trend.momentum}
+              title="Recorded activity by month"
+            />
+          )}
+        </>
+      )}
 
       <LayerStrip>
         <StateLayer>

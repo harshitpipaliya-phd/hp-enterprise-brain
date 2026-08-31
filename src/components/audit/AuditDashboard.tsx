@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { RefreshCw, ShieldCheck } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import { api } from '../../api/observability';
 
 interface AuditLog {
@@ -40,10 +42,19 @@ export default function AuditDashboard() {
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 1400, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <span className="eb-page-kicker">Account</span><h1>Audit Trail</h1>
-        <button onClick={load}>Refresh</button>
-      </header>
+      <PageHeader
+        variant="list"
+        icon={<ShieldCheck />}
+        title="Audit Trail"
+        description="Every recorded change to this organization’s data — who made it, to what, and when."
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-secondary" onClick={load}>
+              <RefreshCw size={15} aria-hidden="true" /> Refresh
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       {error && <div style={{ color: 'var(--status-crit)', marginBottom: 16 }}>Error: {error}</div>}
 

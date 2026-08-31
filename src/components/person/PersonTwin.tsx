@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { UserRound } from 'lucide-react';
+import { HeaderStamp, PageHeader } from '../../ui';
 import { api } from '../../api/person';
 import { useTheme } from '../../hooks/useTheme';
 import { LoadingState, ErrorState } from '../shared/States';
@@ -60,23 +62,35 @@ export default function PersonTwin({ tenantId, personId, onBack }: { tenantId: s
 
   return (
     <div style={{ fontFamily: 'var(--sans)', maxWidth: 800, margin: '0 auto', padding: 24, backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      <button onClick={onBack} style={{ marginBottom: 16 }}>← Back</button>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 style={{ marginBottom: 4 }}>{twin.person.firstName} {twin.person.lastName}</h1>
-          <p style={{ color: theme.textMuted, marginBottom: 24 }}>{twin.person.jobTitle ?? 'No title set'} · {twin.person.email}</p>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: theme.textMuted }}>Individual Intelligence Score</div>
-          {twin.individualScore.score != null ? (
-            <div style={{ fontSize: 32, fontWeight: 'bold', color: twin.individualScore.score >= 70 ? 'var(--status-good)' : twin.individualScore.score >= 40 ? 'var(--status-warn)' : 'var(--status-crit)' }}>
-              {twin.individualScore.score}
-            </div>
-          ) : (
-            <div style={{ fontSize: 14, color: theme.textMuted, fontStyle: 'italic' }}>Insufficient data yet</div>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        variant="detail"
+        icon={<UserRound />}
+        eyebrow="Person twin"
+        title={`${twin.person.firstName} ${twin.person.lastName}`}
+        back={{ label: 'Back', onClick: onBack }}
+        meta={[
+          twin.person.jobTitle ? { label: twin.person.jobTitle } : { label: 'No title set' },
+          twin.person.email ? { label: twin.person.email } : null,
+        ]}
+        aside={(
+          <HeaderStamp>
+            Individual Intelligence Score
+            <br />
+            <strong
+              style={{
+                fontSize: 22,
+                color: twin.individualScore.score == null
+                  ? 'var(--content-tertiary)'
+                  : twin.individualScore.score >= 70 ? 'var(--status-good)'
+                    : twin.individualScore.score >= 40 ? 'var(--status-warn)'
+                      : 'var(--status-crit)',
+              }}
+            >
+              {twin.individualScore.score ?? 'Insufficient data yet'}
+            </strong>
+          </HeaderStamp>
+        )}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 32 }}>
         <Stat theme={theme} label="Capabilities" value={String(twin.capabilityCount)} />

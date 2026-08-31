@@ -429,4 +429,3 @@
 /* ------------------------------------------------------------------ header */
 
 /* The picker sits with the buttons and must not stretch to their height. */
-.dept-intel__actions select { align-self: center; }

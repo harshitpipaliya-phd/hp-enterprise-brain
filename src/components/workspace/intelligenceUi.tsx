@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { Panel } from '../../ui';
+import { HeaderActions, HeaderStamp, PageHeader, Panel } from '../../ui';
 import type {
   ConfidenceValue, EvidenceRef, ExecutiveInterpretation, Provenance, Recommendation, StateDimension, Gap,
 } from '../../api/organizationIntelligence';
@@ -416,35 +416,48 @@ export function GapRow({ gap }: { gap: Gap }) {
 
 /* ─────────────────────────── page furniture ─────────────────────────── */
 
+/**
+ * The header the five derived screens share.
+ *
+ * It is NOT a second header implementation — it composes the product's
+ * PageHeader and only decides the two things that are specific to a derived
+ * screen: that the `question` is the description, and that the provenance stamp
+ * goes in the aside slot. Everything else — surface, icon plate, action
+ * hierarchy, responsive behaviour — is the shared component's.
+ */
 export function IntelligenceHeader({
-  eyebrow, title, question, meta, actions,
+  eyebrow, title, question, icon, meta, actions,
 }: {
-  eyebrow: string;
+  /** Optional, and no longer the nav section. The five derived screens dropped
+   *  theirs when the section kicker left the header — a screen keeps this only
+   *  if it has something to say that the title does not. */
+  eyebrow?: string;
   title: string;
   question: string;
+  /** A lucide element, sized by the header. */
+  icon?: React.ReactNode;
   meta?: { dataVersion: string; computedAt: string; computeMs: number } | null;
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="oi-head">
-      <div className="oi-head__text">
-        <p className="oi-eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
-        <p className="oi-question">{question}</p>
-      </div>
-      <div className="oi-head__aside">
-        {actions}
-        {meta && (
-          <div className="oi-stamp" title="Fingerprint of the source rows this was computed from. Two panels showing the same version describe the same state of the organization.">
-            data version {meta.dataVersion}
-            <br />
-            derived in {meta.computeMs} ms · {new Date(meta.computedAt).toLocaleString()}
-          </div>
-        )}
-      </div>
-    </header>
+    <PageHeader
+      variant="intelligence"
+      icon={icon}
+      eyebrow={eyebrow}
+      title={title}
+      description={question}
+      actions={actions ? <HeaderActions>{actions}</HeaderActions> : undefined}
+      aside={meta ? (
+        <HeaderStamp title="Fingerprint of the source rows this was computed from. Two panels showing the same version describe the same state of the organization.">
+          data version {meta.dataVersion}
+          <br />
+          derived in {meta.computeMs} ms · {new Date(meta.computedAt).toLocaleString()}
+        </HeaderStamp>
+      ) : undefined}
+    />
   );
 }
+
 
 /**
  * The standing statement that no language model touched these figures.

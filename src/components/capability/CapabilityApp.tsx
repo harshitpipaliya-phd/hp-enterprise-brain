@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Archive, Clock3, Layers3, Plus, Target } from 'lucide-react';
+import { HeaderActions, PageHeader } from '../../ui';
 import type { Organization } from '../../App';
 import CapabilityList from './CapabilityList';
 import CapabilityCreate from './CapabilityCreate';
@@ -11,6 +13,16 @@ import { api } from '../../api/capability';
 import './CapabilityList.css';
 
 export type CapabilityView = 'list' | 'create' | 'edit' | 'details' | 'assignment' | 'archive' | 'versions';
+
+const CAPABILITY_VIEW_LABEL: Record<CapabilityView, string> = {
+  list: 'Capabilities',
+  create: 'New capability',
+  edit: 'Edit capability',
+  details: 'Capability detail',
+  assignment: 'Assignments',
+  archive: 'Archive capability',
+  versions: 'Version history',
+};
 
 export interface Capability {
   id: string;
@@ -62,16 +74,67 @@ export default function CapabilityApp({ organization, onBack }: { organization: 
     setView(v);
   };
 
+  const headerTitle = view === 'list'
+    ? 'Capability Coverage'
+    : view === 'create'
+      ? 'Create Capability'
+      : selected?.name ?? 'Capability';
+
+  const headerDescription = view === 'list'
+    ? `What ${organization.name} can do, where capability is strong, and where capability gaps exist.`
+    : view === 'create'
+      ? 'Define a reusable organizational capability with clear proficiency expectations across the KASBA model.'
+      : 'Capability definition, assignment coverage, version history and operating status.';
+
+  const headerMeta = selected ? [
+    selected.capabilityCode ? { label: selected.capabilityCode, title: 'Capability code' } : null,
+    selected.capabilityType ? { label: selected.capabilityType, title: 'Capability type' } : null,
+    selected.category ? { label: selected.category, title: 'Category' } : null,
+    selected.criticality ? { label: selected.criticality, title: 'Criticality' } : null,
+    { label: `v${selected.version}`, title: 'Current version' },
+  ] : [];
+
   return (
-    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1320, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <button className="eb-pill-btn" onClick={onBack}>Back to Organization</button>
-          <span className="eb-page-kicker">Foundation</span><h1>Capability Coverage</h1>
-          <p>What {organization.name} needs its people to be able to do, and who is currently assigned to each.</p>
-        </div>
-        {view === 'list' && <button onClick={() => navigate('create')}>+ New Capability</button>}
-      </header>
+    <div className="cap-app">
+      <PageHeader
+        variant={view === 'list' ? 'list' : 'detail'}
+        icon={<Target />}
+        title={headerTitle}
+        description={headerDescription}
+        status={selected ? { label: selected.status, tone: selected.status === 'active' ? 'success' : selected.status === 'archived' ? 'warning' : 'neutral' } : undefined}
+        meta={headerMeta}
+        back={{ label: view === 'list' ? 'Organization' : 'Capabilities', onClick: view === 'list' ? onBack : () => navigate('list') }}
+        breadcrumbs={[
+          { label: organization.name, onClick: onBack },
+          { label: 'Capabilities', onClick: view === 'list' ? undefined : () => navigate('list') },
+          ...(view === 'list' ? [] : [{ label: CAPABILITY_VIEW_LABEL[view] }]),
+        ]}
+        actions={view === 'list' ? (
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-primary" onClick={() => navigate('create')}>
+              <Plus size={15} aria-hidden="true" /> New Capability
+            </button>
+          </HeaderActions>
+        ) : selected ? (
+          <HeaderActions>
+            {view !== 'assignment' && (
+              <button type="button" className="u-btn u-btn-primary" onClick={() => navigate('assignment', selected)}>
+                <Layers3 size={15} aria-hidden="true" /> Assign
+              </button>
+            )}
+            {view !== 'versions' && (
+              <button type="button" className="u-btn u-btn-secondary" onClick={() => navigate('versions', selected)}>
+                <Clock3 size={15} aria-hidden="true" /> Versions
+              </button>
+            )}
+            {view !== 'archive' && (
+              <button type="button" className="u-btn u-btn-ghost" onClick={() => navigate('archive', selected)}>
+                <Archive size={15} aria-hidden="true" /> Archive
+              </button>
+            )}
+          </HeaderActions>
+        ) : undefined}
+      />
       {error && <div style={{ color: 'red' }}>{error}</div>}
       {view === 'list' && (
         <CapabilityList

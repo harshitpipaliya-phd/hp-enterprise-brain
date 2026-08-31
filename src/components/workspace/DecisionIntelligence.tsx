@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { TrendingUp } from 'lucide-react';
 import { organizationIntelligenceApi } from '../../api/organizationIntelligence';
 import type { DecisionIntelligenceData, Risk } from '../../api/organizationIntelligence';
 import { API_BASE, authToken } from '../../api/client.js';
@@ -113,8 +114,8 @@ export default function DecisionIntelligence({ tenantId }: { tenantId: string })
   return (
     <div className="oi-page">
       <IntelligenceHeader
-        eyebrow="Analytics"
         title="Decision Intelligence"
+        icon={<TrendingUp />}
         question="Are our decisions any good — and is anything we already know about going uncovered?"
         meta={data}
         actions={

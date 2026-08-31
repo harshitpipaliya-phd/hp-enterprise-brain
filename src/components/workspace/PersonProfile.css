@@ -14,15 +14,12 @@
 
 /* ---- header ------------------------------------------------------------ */
 
-.pp-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-.pp-actions .pp-actions-spacer { flex: 1 1 auto; }
+/*
+  .pp-actions, .pp-head, .pp-head-meta and .pp-avatar used to live here. This
+  screen opened with a floating action bar and then, separately, with a hero —
+  both are now the shared PageHeader in `detail` variant, which carries the
+  initials plate, the identity, the badge row and the action hierarchy.
+*/
 
 /*
   The refresh error. A failed reload leaves the previously loaded person on
@@ -39,49 +36,6 @@
   font-size: 13px;
 }
 
-.pp-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-5);
-  padding: clamp(20px, 3vw, 30px);
-  margin-bottom: var(--space-5);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius);
-  background:
-    radial-gradient(circle at 88% 18%, rgba(201, 162, 77, 0.14), transparent 36%),
-    linear-gradient(135deg, var(--eb-white) 0%, var(--eb-cream-100) 58%, var(--eb-cream-200) 100%);
-  box-shadow: var(--shadow-sm);
-}
-
-.pp-head h1 {
-  margin: 6px 0 0;
-  font-size: clamp(26px, 3.4vw, 38px);
-  letter-spacing: 0;
-  line-height: 1.1;
-}
-
-.pp-head-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.pp-avatar {
-  display: grid;
-  place-items: center;
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  border: 1px solid var(--border-default);
-  background: var(--surface-card);
-  color: var(--content-primary);
-  font-family: var(--display);
-  font-size: 26px;
-  font-weight: 700;
-}
 
 /* ---- tabs -------------------------------------------------------------- */
 
@@ -315,8 +269,6 @@
 .pp-empty p { margin: 8px auto 0; max-width: 62ch; font-size: 13px; line-height: 1.55; color: var(--content-secondary); }
 
 @media (max-width: 820px) {
-  .pp-head { grid-template-columns: minmax(0, 1fr); }
-  .pp-head .pp-avatar { display: none; }
   .pp-fields { grid-template-columns: minmax(0, 1fr); gap: 3px 0; }
   .pp-fields dd { margin-bottom: 10px; }
   /* Four things across one narrow row is unreadable; the source moves under. */

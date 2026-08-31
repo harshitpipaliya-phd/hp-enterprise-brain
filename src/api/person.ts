@@ -40,6 +40,42 @@ export const api = {
     return scope(await request(`/people/${tenant}`), tenant, tenant, departmentId);
   },
 
+  /**
+   * GET /api/v1/people/{tenantId}?unitId=&q=&page=&perPage=
+   *
+   * ONE PAGE, NARROWED IN SQL. `listPeople` above downloads the tenant's whole
+   * workforce and filters it in the browser — on Fiber Valley that is 768 rows
+   * serialised and discarded so a department page can render ten. This asks the
+   * server for the ten.
+   *
+   * `total` comes from a COUNT on the same builder as the rows, so the pager
+   * and the page it labels can never describe different filters.
+   */
+  listPeoplePage: async (
+    tenantId: string,
+    options: { unitId?: string; q?: string; page?: number; perPage?: number } = {},
+  ): Promise<{ people: any[]; total: number; page: number; perPage: number; pages: number }> => {
+    const tenant = scopedTenant(tenantId);
+    const params = new URLSearchParams();
+
+    if (options.unitId) params.set('unitId', String(options.unitId));
+    if (options.q?.trim()) params.set('q', options.q.trim());
+    // Always sent: their presence is what asks the server for the paged
+    // envelope rather than the historical bare array.
+    params.set('page', String(Math.max(1, options.page ?? 1)));
+    params.set('perPage', String(Math.max(1, Math.min(100, options.perPage ?? 20))));
+
+    const body: any = await request(`/people/${tenant}?${params.toString()}`);
+
+    return {
+      people: Array.isArray(body?.people) ? body.people.map((r: any) => normalize(r, tenant)) : [],
+      total: Number(body?.total ?? 0),
+      page: Number(body?.page ?? 1),
+      perPage: Number(body?.perPage ?? 20),
+      pages: Number(body?.pages ?? 1),
+    };
+  },
+
   /** GET /api/v1/people/{tenantId}/search?q= - server caps at 50 rows, then scoped. */
   searchPeople: async (tenantId: string, query: string, _orgId?: string) => {
     const tenant = scopedTenant(tenantId);

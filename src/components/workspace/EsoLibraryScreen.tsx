@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Boxes } from 'lucide-react';
 import { request } from '../../api/client.js';
 import { organizationIntelligenceApi } from '../../api/organizationIntelligence';
 import type { RecommendationsResponse } from '../../api/organizationIntelligence';
@@ -110,8 +111,8 @@ export default function EsoLibraryScreen({ tenantId }: { tenantId: string }) {
   return (
     <div className="oi-page">
       <IntelligenceHeader
-        eyebrow="Knowledge"
         title="ESO Library"
+        icon={<Boxes />}
         question="What can this organization actually do — and how well has it worked before?"
         meta={recommendations ?? null}
         actions={<Button variant="secondary" onClick={() => void load()} disabled={loading}>Reload</Button>}

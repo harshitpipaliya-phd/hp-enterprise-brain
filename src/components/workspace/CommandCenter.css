@@ -27,99 +27,12 @@
 }
 
 /* ---------------------------------------------------------------- hero --- */
-
-.cc-org-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: flex-start;
-  gap: var(--space-5);
-  padding: var(--space-5) 0 var(--space-6);
-  margin-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.cc-org-hero__identity {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-  min-width: 0;
-}
-
-.cc-org-hero__icon {
-  width: 62px;
-  height: 62px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: var(--radius);
-  color: var(--eb-white);
-  background: linear-gradient(135deg, var(--color-gold-500), var(--color-gold-700));
-  box-shadow: var(--shadow);
-}
-
-.cc-org-hero__icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cc-org-hero__title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-}
-
-.cc-org-hero h1 {
-  margin: 0;
-  font-size: clamp(26px, 3vw, 40px);
-  line-height: 1.05;
-  letter-spacing: 0;
-}
-
-/* One sentence saying what the screen is for, per the page-header pattern
-   every other screen follows. */
-.cc-org-hero__lede {
-  max-width: 68ch;
-  margin: 10px 0 0;
-  color: var(--content-secondary);
-  line-height: 1.55;
-}
-
-.cc-org-hero__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 22px;
-  margin-top: 12px;
-  color: var(--content-secondary);
-  font-size: 13px;
-}
-
-.cc-org-hero__meta span,
-.cc-org-hero__actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cc-org-hero__meta svg {
-  color: var(--content-tertiary);
-}
-
-.cc-org-hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-  max-width: 560px;
-}
-
-.cc-danger-outline {
-  color: var(--color-red-700);
-  border-color: color-mix(in srgb, var(--color-red-600) 48%, var(--border-default));
-  background: color-mix(in srgb, var(--color-red-50) 72%, var(--surface-card));
-}
+/*
+  The organization hero is now the shared PageHeader in `organization` variant
+  (src/ui/pageHeader.tsx). Its surface, icon plate, identifier row, action
+  hierarchy and responsive behaviour are stated once there and shared with every
+  other screen, so the eleven rules that used to live here have no subject left.
+*/
 
 /* ----------------------------------------------------------------- kpis --- */
 
@@ -665,184 +578,6 @@
 .cc-audit-list li:last-child { border-bottom: 0; }
 .cc-audit-list span { font-size: 12px; color: var(--content-tertiary); }
 
-/* ---------------------------------------------------------- delete flow --- */
-
-.cc-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
-  background: rgba(32, 27, 20, 0.34);
-  backdrop-filter: blur(4px);
-}
-
-.cc-delete-modal {
-  position: relative;
-  width: min(560px, 100%);
-  padding: var(--space-6);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius);
-  background: var(--surface-card);
-  box-shadow: var(--shadow-raise);
-}
-
-.cc-modal-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: var(--content-tertiary);
-  box-shadow: none;
-}
-
-.cc-delete-modal__head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-3);
-  padding-right: 38px;
-}
-
-.cc-delete-modal__head > span {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-xs);
-  color: var(--color-red-700);
-  background: var(--color-red-50);
-}
-
-.cc-delete-modal h2 {
-  margin: 0 0 14px;
-  font-size: 24px;
-}
-
-.cc-delete-modal p {
-  margin: 0;
-  color: var(--content-secondary);
-  line-height: 1.6;
-}
-
-.cc-delete-modal__warning {
-  margin-top: var(--space-4) !important;
-  padding: var(--space-3);
-  border-radius: var(--radius-xs);
-  color: var(--color-red-700) !important;
-  background: var(--color-red-50);
-}
-
-/* What the deletion will actually destroy, loaded from the preview endpoint.
-   Deliberately quieter than the red warning above it: the warning is the
-   consequence, this is the evidence for it, and making both shout leaves a
-   reader with nowhere to look first. */
-.cc-delete-modal__counts {
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
-  background: var(--surface-inset);
-  font-size: 13px;
-  color: var(--content-secondary);
-}
-
-.cc-delete-modal__counts ul {
-  margin: var(--space-2) 0 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 4px;
-}
-
-.cc-delete-modal__counts strong {
-  color: var(--content-primary);
-}
-
-.cc-delete-modal__note {
-  margin-top: var(--space-2);
-  font-size: 12px;
-  color: var(--content-tertiary);
-}
-
-/* The tenant holds rows in another application's tables. Amber rather than red:
-   the server has not failed, it is asking a question the Brain must not answer
-   on the administrator's behalf. */
-.cc-delete-modal__ack {
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-amber-300, var(--border-strong));
-  border-radius: var(--radius-xs);
-  background: var(--color-amber-50, var(--surface-inset));
-  font-size: 13px;
-  color: var(--content-secondary);
-}
-
-.cc-delete-modal__ack ul {
-  margin: var(--space-2) 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 3px;
-  max-height: 160px;
-  overflow-y: auto;
-}
-
-.cc-delete-modal__ack code {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 12px;
-}
-
-.cc-delete-modal__ack label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: var(--space-2);
-  font-weight: 700;
-  color: var(--content-primary);
-  cursor: pointer;
-}
-
-.cc-delete-modal__confirm {
-  display: grid;
-  gap: 9px;
-  margin-top: var(--space-4);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--content-secondary);
-}
-
-.cc-delete-modal__confirm input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 11px 12px;
-  border: 1px solid var(--color-red-300);
-  border-radius: var(--radius-xs);
-  color: var(--content-primary);
-  background: var(--surface-card);
-  font: inherit;
-}
-
-.cc-delete-modal__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: var(--space-5);
-}
-
-.cc-delete-submit {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--eb-white);
-  background: var(--color-red-600);
-  border-color: var(--color-red-600);
-}
-
 .cc-spin {
   animation: cc-spin 900ms linear infinite;
 }
@@ -861,13 +596,9 @@
 }
 
 @media (max-width: 980px) {
-  .cc-org-hero,
   .cc-main-grid {
     display: grid;
     grid-template-columns: 1fr;
-  }
-  .cc-org-hero__actions {
-    justify-content: flex-start;
   }
 }
 
@@ -878,21 +609,7 @@
   .cc-kpi-grid {
     grid-template-columns: 1fr;
   }
-  .cc-org-hero__identity,
   .cc-detail-list > div,
-  .cc-delete-modal__head {
-    grid-template-columns: 1fr;
-  }
-  .cc-delete-modal {
-    padding: var(--space-5);
-  }
-  .cc-delete-modal__actions {
-    justify-content: stretch;
-    flex-direction: column-reverse;
-  }
-  .cc-delete-modal__actions button {
-    justify-content: center;
-  }
   .cc-profile-editor { grid-template-columns: 1fr; }
   .cc-attention-list strong {
     white-space: normal;
@@ -952,3 +669,15 @@
 .cc-concentration__more {
   margin: 0 var(--space-5) var(--space-4);
 }
+
+/*
+  THE NEUTRAL TONE, for a tile whose measure could not be computed.
+
+  Not a fourth severity: it asserts nothing about the organization, so it takes
+  the tertiary content colour and the plain surface, visually distinct from both
+  a healthy figure and a failing one. See the `Health` type in CommandCenter.tsx
+  for why "not measured" must not be drawn as "measured as nothing".
+*/
+.cc-overview-kpi[data-health='state'] { border-color: var(--border-subtle); }
+.cc-overview-kpi[data-health='state'] .cc-overview-kpi__value { color: var(--content-tertiary); }
+.cc-overview-kpi[data-health='state'] .cc-overview-kpi__icon { color: var(--content-tertiary); }

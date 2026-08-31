@@ -30,16 +30,6 @@
     linear-gradient(180deg, var(--accent-intelligence-glow), transparent 280px),
     var(--surface-ground);
 }
-
-.dept-intel__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-5);
-  padding-bottom: var(--space-5);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
 .dept-intel__kpi-label {
   font-family: var(--mono);
   font-size: 11px;
@@ -47,41 +37,15 @@
   letter-spacing: var(--ls-eyebrow);
   text-transform: uppercase;
 }
-
-.dept-intel__header h1 {
-  margin: 0;
-  font-size: 30px;
-  line-height: 1.1;
-  letter-spacing: 0;
-}
-
-.dept-intel__header p {
-  margin: var(--space-3) 0 0;
-  /* ch, not px: the measure that keeps a line readable is a count of
-     characters, and it holds when the type scale changes. */
-  max-width: 68ch;
-  color: var(--content-secondary);
-  font-family: var(--display);
-  font-size: 16px;
-  line-height: 1.55;
-}
-
-.dept-intel__actions,
 .dept-intel__filters {
   display: flex;
   align-items: center;
   gap: var(--space-2-5);
   flex-wrap: wrap;
-}
-
-/* Actions stay on one line and right-aligned even when the heading wraps, so
-   the primary button does not drift under the title on a mid-width window. */
-.dept-intel__actions {
+}/* Actions stay on one line and right-aligned even when the heading wraps {
   justify-content: flex-end;
   flex: 0 0 auto;
 }
-
-.dept-intel__refresh,
 .dept-intel__ghost {
   display: inline-flex;
   align-items: center;
@@ -90,11 +54,6 @@
   min-height: 36px;
   white-space: nowrap;
 }
-
-.dept-intel__refresh:disabled svg {
-  animation: dept-spin 900ms linear infinite;
-}
-
 @keyframes dept-spin {
   to { transform: rotate(360deg); }
 }
@@ -422,6 +381,12 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   background: var(--surface-inset);
+  cursor: pointer;
+}
+
+.dept-intel__unit-card:hover {
+  border-color: var(--border-default);
+  background: var(--surface-card);
 }
 
 .dept-intel__unit-head {
@@ -441,6 +406,89 @@
 
 .dept-intel__unit-head .dept-intel__badge {
   flex: 0 0 auto;
+}
+
+.dept-intel__score-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.dept-intel__score-badge[data-tone='excellent'],
+.dept-intel__score-badge[data-tone='healthy'] {
+  color: var(--status-good);
+  background: color-mix(in srgb, var(--status-good) 14%, transparent);
+}
+
+.dept-intel__score-badge[data-tone='watch'] {
+  color: var(--status-warn);
+  background: color-mix(in srgb, var(--status-warn) 16%, transparent);
+}
+
+.dept-intel__score-badge[data-tone='attention'] {
+  color: var(--status-crit);
+  background: color-mix(in srgb, var(--status-crit) 12%, transparent);
+}
+
+.dept-intel__people-link {
+  justify-self: start;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--content-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dept-intel__people-link:hover {
+  background: transparent;
+  color: var(--accent-intelligence-deep);
+  text-decoration: underline;
+  box-shadow: none;
+}
+
+.dept-intel__score {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+}
+
+.dept-intel__score[data-tone='excellent'],
+.dept-intel__score[data-tone='healthy'] { border-left-color: var(--status-good); }
+.dept-intel__score[data-tone='watch'] { border-left-color: var(--status-warn); }
+.dept-intel__score[data-tone='attention'] { border-left-color: var(--status-crit); }
+
+.dept-intel__score span {
+  color: var(--content-secondary);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+.dept-intel__score strong {
+  font-family: var(--mono);
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.dept-intel__score em {
+  color: var(--content-tertiary);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
 }
 
 .dept-intel__unit-meta {
@@ -488,30 +536,6 @@
   color: var(--content-tertiary);
   font-size: 11px;
   line-height: 1.35;
-}
-
-.dept-intel__leadership-line {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-  color: var(--content-secondary);
-  font-size: 12px;
-}
-
-.dept-intel__leadership-line span {
-  font-weight: 800;
-}
-
-.dept-intel__leadership-line span.ok { color: var(--status-good); }
-.dept-intel__leadership-line span.gap { color: var(--status-crit); }
-
-.dept-intel__leadership-line em {
-  overflow: hidden;
-  color: var(--content-tertiary);
-  font-style: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .dept-intel__unit-card .dept-intel__row-actions {
@@ -564,7 +588,8 @@
 .dept-create__aside section { display: flex; gap: 10px; padding: 16px; color: var(--accent-intelligence-deep); }
 .dept-create__aside svg { flex: 0 0 auto; margin-top: 2px; }
 
-@media (max-width: 900px) { .dept-create__layout { grid-template-columns: 1fr; } .dept-create__aside { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) {
+ .dept-create__layout { grid-template-columns: 1fr; } .dept-create__aside { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /*
   The two width-based overrides that used to live here — forcing four KPI
@@ -580,15 +605,6 @@
     padding: var(--space-4);
   }
 
-  .dept-intel__header {
-    flex-direction: column;
-  }
-
-  .dept-intel__actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
   .dept-intel__kpis,
   .dept-intel__directory-grid {
     grid-template-columns: 1fr;
@@ -600,7 +616,6 @@
 
   .dept-intel__filters select,
   .dept-intel__filters button,
-  .dept-intel__actions button,
   .dept-intel__search {
     width: 100%;
   }
@@ -622,12 +637,6 @@
 
   .dept-intel__bar-row strong {
     text-align: left;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dept-intel__refresh:disabled svg {
-    animation: none;
   }
 }
 

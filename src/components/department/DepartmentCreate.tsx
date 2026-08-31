@@ -54,12 +54,6 @@ export default function DepartmentCreate({ tenantId, orgId, organizationName, on
 
   return (
     <main className="dept-create">
-      <header className="dept-create__hero">
-        <span className="dept-intel__eyebrow">Organization structure</span>
-        <h2>Create a department</h2>
-        <p>Define a clear operating unit within <strong>{organizationName}</strong>. Its parent determines where it appears in the organization structure.</p>
-      </header>
-
       <div className="dept-create__layout">
         <form className="dept-create__form" onSubmit={submit}>
           <section className="dept-create__card">

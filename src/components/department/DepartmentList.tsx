@@ -1,20 +1,26 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, Building2, RefreshCw, Search, UserCheck, UserMinus, Users } from 'lucide-react';
+import { AlertTriangle, Building2, FolderTree, Plus, RefreshCw, Search, UserCheck, UserMinus, Users } from 'lucide-react';
 import type { Organization } from '../../App';
 import { api as deptApi } from '../../api/department';
 import { api as personApi } from '../../api/person';
 import type { Department } from './DepartmentApp';
 import AcademicSectionView from './AcademicSectionView';
 import './DepartmentList.css';
-import { CHART_PALETTE, STATUS_COLOR } from '../../ui/palette';
+import './department.css';
+import { CHART_PALETTE } from '../../ui/palette';
+import { HeaderActions, PageHeader } from '../../ui';
+import {
+  EMPTY_METRICS, NO_SUPPORT, departmentScore,
+  type DepartmentMetrics, type DepartmentScore, type DepartmentSupport,
+} from './departmentScore';
+import { DepartmentScoreRing } from './DepartmentScoreRing';
 
 interface Props {
   organization: Organization;
   departments: Department[];
   loading: boolean;
   onSelect: (dept: Department) => void;
-  onEdit: (dept: Department) => void;
-  onArchive: (dept: Department) => void;
+  onOpenPeople: (dept: Department) => void;
   onCreate: () => void;
   onRefresh: () => Promise<void> | void;
   onBack: () => void;
@@ -38,9 +44,20 @@ interface FoundationSummary {
 }
 
 interface DepartmentTwin {
+  department?: {
+    id: string;
+    name: string;
+    code?: string | null;
+    description?: string | null;
+    departmentType?: string | null;
+    status?: string | null;
+  };
   personCount?: number;
-  capabilityHeatmap?: Array<{ averageLevel: number; assessedCount: number }>;
+  capabilityHeatmap?: Array<{ capabilityId?: string; departmentId?: string | null; averageLevel: number; assessedCount: number }>;
   openRiskSignalCount?: number;
+  decisionCount?: number;
+  decisionApprovalRate?: number | null;
+  timeline?: Array<{ type: string; actorId: string; createdAt: string }>;
   feeIntelligence?: {
     records: number;
     students: number;
@@ -52,22 +69,20 @@ interface DepartmentTwin {
   } | null;
 }
 
-type SortKey = 'name' | 'status' | 'people' | 'updated';
+type SortKey = 'name' | 'status' | 'people' | 'score' | 'updated';
 type EnrichedDepartment = Department & {
   /** ERP staff in this unit, from the shared count. Never a student count. */
   peopleCount: number | null;
   /** School tenants only, and deliberately kept apart from peopleCount. */
   studentCount: number | null;
+  intelligence: DepartmentScore;
+  metrics: DepartmentMetrics;
   headName: string | null;
-  assessedCapabilities: number;
-  atRiskPeople: number;
   feeIntelligence: DepartmentTwin['feeIntelligence'];
 };
 
 /* Shared with Signals and every other screen — see ui/palette. */
 const PALETTE = CHART_PALETTE;
-const STATUS_COLORS = STATUS_COLOR;
-
 function normalized(value: unknown, fallback: string): string {
   const text = String(value ?? '').trim();
   return text.length ? text.toLowerCase() : fallback;
@@ -85,11 +100,6 @@ function parseDate(value: string | null | undefined): Date | null {
 
 function formatPercent(value: number | null): string {
   return value === null ? '—' : `${Math.round(value * 100)}%`;
-}
-
-function formatDate(value: string | null | undefined): string {
-  const date = parseDate(value);
-  return date ? date.toLocaleDateString() : '—';
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -123,10 +133,12 @@ function personLabel(person: { id: string; displayName?: string | null; firstNam
  * into the markup — so the leadership line read "Head assigned / 4417". It now
  * resolves against the people list that this screen already loads.
  */
-export default function DepartmentList({ organization, departments, loading, onSelect, onEdit, onArchive, onCreate, onRefresh, onBack }: Props) {
+export default function DepartmentList({ organization, departments, loading, onSelect, onOpenPeople, onCreate, onRefresh, onBack }: Props) {
   const [summary, setSummary] = useState<FoundationSummary | null>(null);
   const [headNames, setHeadNames] = useState<Record<string, string>>({});
   const [twins, setTwins] = useState<Record<string, DepartmentTwin>>({});
+  const [metrics, setMetrics] = useState<Record<string, DepartmentMetrics>>({});
+  const [support, setSupport] = useState<DepartmentSupport>(NO_SUPPORT);
   const [enrichmentLoading, setEnrichmentLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -145,37 +157,96 @@ export default function DepartmentList({ organization, departments, loading, onS
     numbers the Organization overview publishes, which the browser-side grouping
     could never guarantee.
 
-    Twins are still fetched per department, because fee intelligence genuinely
-    is per unit and has no aggregate endpoint. They stay best-effort: a twin
-    that fails costs that card its fee panel and nothing else.
+    THE SCORE NOW COSTS ONE REQUEST, NOT ONE PER DEPARTMENT.
+
+    This screen used to call `getTwin` once per department to score the cards —
+    `departments.map((d) => deptApi.getTwin(...))`. On Fiber Valley that is 13
+    HTTP round trips, and each twin runs six queries of its own (people,
+    capability assignments, capability proficiency, signals, decisions and an
+    audit-log scan), so a list of 13 units cost roughly 78 queries and 13
+    latencies before the first card could show a number. It is the textbook N+1,
+    moved above the database where a query profiler cannot see it.
+
+    `getIntelligence` is the same facts for every department in one grouped
+    pass, and its cost is flat in the number of departments — pinned by
+    DepartmentIntelligenceMetricsTest, which fails if the query count moves when
+    twenty units are added.
   */
   useEffect(() => {
     let cancelled = false;
     setEnrichmentLoading(true);
+
     Promise.all([
       deptApi.getSummary(organization.tenantId).catch(() => null),
-      Promise.allSettled(departments.map((dept) => deptApi.getTwin(organization.tenantId, dept.id))),
+      deptApi.getIntelligence(organization.tenantId).catch(() => null),
     ])
-      .then(([summaryRow, twinResults]) => {
+      .then(([summaryRow, intelligence]) => {
         if (cancelled) return;
         setSummary((summaryRow as FoundationSummary | null) ?? null);
-        const nextTwins: Record<string, DepartmentTwin> = {};
-        twinResults.forEach((result, index) => {
-          if (result.status === 'fulfilled') nextTwins[departments[index].id] = result.value;
-        });
-        setTwins(nextTwins);
+
+        if (intelligence) {
+          const next: Record<string, DepartmentMetrics> = {};
+          for (const [id, row] of Object.entries(intelligence.departments ?? {})) {
+            next[String(id)] = { ...EMPTY_METRICS, ...(row as Partial<DepartmentMetrics>) };
+          }
+          setMetrics(next);
+          setSupport({ ...NO_SUPPORT, ...(intelligence.support ?? {}) });
+        } else {
+          setMetrics({});
+          setSupport(NO_SUPPORT);
+        }
       })
       .catch(() => {
         if (!cancelled) {
           setSummary(null);
-          setTwins({});
+          setMetrics({});
+          setSupport(NO_SUPPORT);
         }
       })
       .finally(() => {
         if (!cancelled) setEnrichmentLoading(false);
       });
+
     return () => { cancelled = true; };
   }, [organization.tenantId, organization.id, departments]);
+
+  /*
+    FEE INTELLIGENCE, AND ONLY WHERE IT CAN EXIST.
+
+    The fee panel below is genuinely per-unit and has no aggregate endpoint, so
+    it still costs one twin per department. It is fetched ONLY when this
+    organization actually holds student records, because that is the only case
+    where it can return anything: the server derives it from
+    `hpbrain_operational_records` rows in the `school_fee` dataset matched on the
+    department's name, and returns null for every other tenant.
+
+    So a telecom or government organization now issues ZERO twin requests from
+    this screen instead of one per department, and a school keeps its fee panel.
+    It runs after the counts rather than beside them, so the cards paint on the
+    first response either way.
+  */
+  const hasStudents = Number(summary?.students?.total ?? 0) > 0;
+
+  useEffect(() => {
+    if (!hasStudents || departments.length === 0) {
+      setTwins({});
+      return;
+    }
+
+    let cancelled = false;
+
+    Promise.allSettled(departments.map((dept) => deptApi.getTwin(organization.tenantId, dept.id)))
+      .then((results) => {
+        if (cancelled) return;
+        const nextTwins: Record<string, DepartmentTwin> = {};
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') nextTwins[departments[index].id] = result.value;
+        });
+        setTwins(nextTwins);
+      });
+
+    return () => { cancelled = true; };
+  }, [organization.tenantId, departments, hasStudents]);
 
   /*
     Head names, fetched ONE PERSON AT A TIME and only for units that name one.
@@ -215,8 +286,22 @@ export default function DepartmentList({ organization, departments, loading, onS
 
     return departments.map((dept) => {
       const twin = twins[dept.id];
-      const heatmap = twin?.capabilityHeatmap ?? [];
       const fee = twin?.feeIntelligence ?? null;
+
+      /*
+        THE SHARED HEADCOUNT WINS over the metrics row's own. Both come from
+        FoundationCounts on the server, but the summary is what the Organization
+        overview prints, and a screen that prefers a second source is how two
+        pages come to disagree about the same department.
+      */
+      const row = metrics[String(dept.id)] ?? EMPTY_METRICS;
+      const people = perDepartment[dept.id] ?? twin?.personCount ?? row.people ?? null;
+      const departmentMetrics: DepartmentMetrics = {
+        ...row,
+        people: people ?? row.people,
+      };
+
+      const intelligence = departmentScore(departmentMetrics, support);
 
       return {
         ...dept,
@@ -227,15 +312,15 @@ export default function DepartmentList({ organization, departments, loading, onS
           count — which is how this screen came to publish thousands under a
           label the Organization overview used for staff.
         */
-        peopleCount: perDepartment[dept.id] ?? twin?.personCount ?? null,
+        peopleCount: people,
         studentCount: fee?.students ?? null,
         headName: dept.headId ? headNames[String(dept.headId)] ?? null : null,
-        assessedCapabilities: heatmap.filter((cell) => Number(cell.assessedCount ?? 0) > 0).length,
-        atRiskPeople: Number(((fee?.criticalStudents ?? 0) + (fee?.highStudents ?? 0)) || (twin?.openRiskSignalCount ?? 0)),
         feeIntelligence: fee,
+        intelligence,
+        metrics: departmentMetrics,
       };
     });
-  }, [departments, summary, twins]);
+  }, [departments, headNames, summary, twins, metrics, support]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -253,6 +338,14 @@ export default function DepartmentList({ organization, departments, loading, onS
       })
       .sort((a, b) => {
         if (sortKey === 'people') return (b.peopleCount ?? -1) - (a.peopleCount ?? -1);
+        /*
+          UNSCORED UNITS SORT LAST, not first and not as zeros. -1 puts them
+          after every real score in a descending sort, so "which department
+          needs attention" shows the worst MEASURED department at the bottom of
+          the scored run rather than a row of unscorable units pretending to be
+          the organization's weakest.
+        */
+        if (sortKey === 'score') return (b.intelligence.score ?? -1) - (a.intelligence.score ?? -1);
         if (sortKey === 'updated') return (parseDate(b.updatedDate)?.getTime() ?? 0) - (parseDate(a.updatedDate)?.getTime() ?? 0);
         if (sortKey === 'status') return normalized(a.status, 'unknown').localeCompare(normalized(b.status, 'unknown'));
         return a.name.localeCompare(b.name);
@@ -368,6 +461,10 @@ export default function DepartmentList({ organization, departments, loading, onS
 
   const isSchool = model.feeRows.length > 0;
   const unitPlural = isSchool ? 'class sections' : 'departments';
+  // The card says "People in this class section" on a school and "…in this
+  // department" everywhere else, from the same terminology decision as the
+  // headings rather than a second one hard-coded in the card.
+  const unitSingular = isSchool ? 'this class section' : 'this department';
   const memberPlural = isSchool ? 'students' : 'people';
 
   /*
@@ -391,21 +488,33 @@ export default function DepartmentList({ organization, departments, loading, onS
 
   return (
     <div className="dept-intel">
-      <header className="dept-intel__header">
-        <div>
-          <span className="eb-page-kicker">Foundation</span>
-          <h1>Department Performance</h1>
-          <p>How {organization.name} is structured: each unit, who leads it, how many {memberPlural} are in it, and which units need attention.</p>
-        </div>
-        <div className="dept-intel__actions">
-          <button className="dept-intel__ghost" onClick={onBack}>Back to Organization</button>
-          <button onClick={onCreate}>+ New Department</button>
-          <button className="dept-intel__refresh" onClick={refresh} disabled={refreshing || enrichmentLoading}>
-            <RefreshCw size={15} />
-            {refreshing || enrichmentLoading ? 'Refreshing' : 'Refresh'}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        variant="list"
+        icon={<FolderTree />}
+        title="Department Performance"
+        description={`How ${organization.name} is structured, where ${memberPlural} sit, and how each department performs.`}
+        back={{ label: 'Organization', onClick: onBack }}
+        breadcrumbs={[
+          { label: organization.name, onClick: onBack },
+          { label: 'Departments' },
+        ]}
+        actions={(
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-primary" onClick={onCreate}>
+              <Plus size={15} aria-hidden="true" /> New Department
+            </button>
+            <button
+              type="button"
+              className="u-btn u-btn-secondary"
+              onClick={refresh}
+              disabled={refreshing || enrichmentLoading}
+            >
+              <RefreshCw size={15} aria-hidden="true" />
+              {refreshing || enrichmentLoading ? 'Refreshing' : 'Refresh'}
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       {/*
         ZERO IS AN ANSWER, and the empty state states which question it answers.
@@ -456,6 +565,7 @@ export default function DepartmentList({ organization, departments, loading, onS
               </select>
             )}
             <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} aria-label="Sort order">
+              <option value="score">Sort by intelligence score</option>
               <option value="name">Sort by name</option>
               <option value="status">Sort by status</option>
               <option value="people">Sort by size</option>
@@ -569,84 +679,101 @@ export default function DepartmentList({ organization, departments, loading, onS
             {filtered.length === 0 ? (
               <div className="dept-intel__empty">No {unitPlural} match the current filters.</div>
             ) : (
+              /*
+                THREE FACTS PER CARD, AND ONE OF THEM IS ALLOWED TO BE ABSENT.
+
+                A directory answers "which units exist, how big is each, how
+                healthy is each". So the card carries the name, the shared people
+                count and the intelligence score — nothing else. The per-unit
+                findings that used to be inlined here live on the department's
+                own page, which has room to say what each rests on.
+
+                THE WHOLE CARD IS THE CONTROL. It was an <article> with an
+                onClick, which gives a mouse user a target and a keyboard user
+                nothing: no focus stop, no Enter, and no announcement that the
+                region does anything. It is now a <button> wrapping the content,
+                with the People action OUTSIDE it — a button inside a button is
+                invalid HTML and browsers recover from it unpredictably.
+
+                THE SCORE IS A PERCENTAGE, NOT "50 / 100". The fraction read as
+                a mark out of a hundred and invited arithmetic that was not the
+                point; worse, 50 was the exact number the old model produced for
+                every empty department by averaging "nothing here" with "nothing
+                wrong here". A unit that cannot be scored now says so, and says
+                why, instead of publishing a midpoint.
+              */
               <div className="dept-intel__directory-grid">
                 {filtered.map((dept) => {
-                  const status = normalized(dept.status, 'unknown');
+                  const people = dept.peopleCount;
+                  const scored = dept.intelligence;
+
                   return (
-                    <article className="dept-intel__unit-card" key={dept.id}>
-                      <div className="dept-intel__unit-head">
-                        <button className="dept-intel__link" onClick={() => onSelect(dept)}>{dept.name}</button>
-                        <span className="dept-intel__badge" style={{ color: STATUS_COLORS[status] ?? STATUS_COLORS.unknown, backgroundColor: `${STATUS_COLORS[status] ?? STATUS_COLORS.unknown}1f` }}>{displayLabel(status)}</span>
-                      </div>
-                      <div className="dept-intel__unit-meta">
-                        <span>{displayLabel(normalized(dept.departmentType, 'unknown'))}</span>
-                        <span>Updated {formatDate(dept.updatedDate)}</span>
-                      </div>
-                      {dept.description && <p className="dept-intel__unit-desc">{dept.description}</p>}
+                    <article className="dept-card" key={dept.id} data-status={scored.status ?? 'unknown'}>
+                      <button
+                        type="button"
+                        className="dept-card__open"
+                        onClick={() => onSelect(dept)}
+                        aria-label={`Open ${dept.name}`}
+                      >
+                        <span className="dept-card__head">
+                          <span className="dept-card__icon" aria-hidden="true"><FolderTree size={17} /></span>
+                          <span className="dept-card__identity">
+                            <span className="dept-card__name">{dept.name}</span>
+                            {/* The unit's own classification, where the source
+                                system records one. Dropped rather than shown as
+                                "unknown" when it does not. */}
+                            {dept.departmentType && normalized(dept.departmentType, '') !== 'unknown' && (
+                              <span className="dept-card__code">{dept.departmentType}</span>
+                            )}
+                          </span>
+                        </span>
 
-                      {/*
-                        auto-fit, not a fixed three columns. With two stats in a
-                        `repeat(3, 1fr)` grid the third column sat empty on every
-                        card, which is most of what made this screen read as
-                        misaligned. The tiles now fill the row they are given.
-                      */}
-                      <div className="dept-intel__unit-stats">
-                        {dept.studentCount !== null && (
-                          <div>
-                            <strong>{dept.studentCount.toLocaleString()}</strong>
-                            <span>students</span>
-                          </div>
-                        )}
-                        <div>
-                          <strong>{dept.peopleCount === null ? '—' : dept.peopleCount.toLocaleString()}</strong>
-                          <span>people</span>
-                        </div>
-                        {dept.feeIntelligence ? (
-                          <>
-                            <div>
-                              <strong>{formatPercent(dept.feeIntelligence.collectionRate)}</strong>
-                              <span>fees collected</span>
-                            </div>
-                            <div>
-                              <strong>{dept.atRiskPeople.toLocaleString()}</strong>
-                              <span>at-risk students</span>
-                            </div>
-                          </>
-                        ) : (
-                          <div>
-                            <strong>{dept.assessedCapabilities > 0 ? dept.assessedCapabilities.toLocaleString() : '—'}</strong>
-                            <span>capabilities assessed</span>
-                          </div>
-                        )}
-                      </div>
+                        <span className="dept-card__body">
+                          <span className="dept-card__metric">
+                            <span className="dept-card__metric-label">People</span>
+                            <strong className="dept-card__metric-value">
+                              {people === null ? '—' : people.toLocaleString()}
+                            </strong>
+                            <span className="dept-card__metric-hint">
+                              {people === null
+                                ? 'Headcount unavailable'
+                                : people === 0
+                                  ? 'No people currently assigned'
+                                  : `${people === 1 ? 'Person' : 'People'} in ${unitSingular}`}
+                            </span>
+                          </span>
 
-                      {dept.feeIntelligence && (
-                        <div className="dept-intel__unit-meta">
-                          <span>{formatCurrency(dept.feeIntelligence.outstanding)} outstanding</span>
-                          <span>{formatCurrency(dept.feeIntelligence.expectedCollectable)} expected</span>
-                        </div>
-                      )}
+                          <span className="dept-card__score">
+                            <DepartmentScoreRing
+                              score={scored.score}
+                              status={scored.status}
+                              size={72}
+                              emptyLabel="Not scored"
+                            />
+                          </span>
+                        </span>
 
-                      {headsAreRecorded && (
-                        <div className="dept-intel__leadership-line">
-                          {dept.headId ? (
-                            <>
-                              <span className="ok">Head</span>
-                              <em>{dept.headName ?? 'Not in the current people list'}</em>
-                            </>
+                        <span className="dept-card__foot">
+                          {scored.score === null ? (
+                            <span className="dept-card__reason">{scored.unscoredReason}</span>
                           ) : (
                             <>
-                              <span className="gap">No head assigned</span>
-                              <em>Nobody is accountable for this unit</em>
+                              <span className="dept-card__status">{scored.label}</span>
+                              <span className="dept-card__basis">
+                                {scored.measured.length} of {scored.dimensions.length} dimensions measured
+                              </span>
                             </>
                           )}
-                        </div>
-                      )}
+                        </span>
+                      </button>
 
-                      <div className="dept-intel__row-actions">
-                        <button onClick={() => onSelect(dept)}>Open</button>
-                        <button onClick={() => onEdit(dept)}>Edit</button>
-                        <button onClick={() => onArchive(dept)}>Archive</button>
+                      <div className="dept-card__actions">
+                        <button type="button" className="u-btn u-btn-secondary u-btn-sm" onClick={() => onSelect(dept)}>
+                          Open
+                        </button>
+                        <button type="button" className="u-btn u-btn-secondary u-btn-sm" onClick={() => onOpenPeople(dept)}>
+                          People
+                        </button>
                       </div>
                     </article>
                   );

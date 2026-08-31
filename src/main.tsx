@@ -22,6 +22,11 @@ import './shell/shell.css';
 // it has to be able to override both the .eb-* chrome and the per-screen
 // stylesheets Vite injects for each component.
 import './ui/refine.css';
+// The page header system. Genuinely last: refine.css normalises every h1,
+// button and header on the page, and this file describes the one component
+// that has to win inside its own box. Nothing in it is !important — it simply
+// comes after.
+import './ui/pageHeader.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <StrictMode>

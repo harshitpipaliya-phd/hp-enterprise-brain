@@ -23,21 +23,36 @@ import {
   RefreshCw,
   Scale,
   Target,
-  Trash2,
   Upload,
   Users,
   Workflow,
-  X
+  Activity,
+  Timer,
+  Repeat,
+  ListChecks,
+  Layers
 } from 'lucide-react';
 import { api } from '../../api/intelligence';
 import { api as organizationApi } from '../../api/organization';
-import type { DeletionPreview, DeletionResult } from '../../api/organization';
 import { api as capabilityApi } from '../../api/capability';
 import { ingestionApi } from '../../api/ingestion';
+import { operationsApi, count as fmtCount, hours as fmtHours, pct as fmtPct, scoreTone } from '../../api/operations';
+import type { OperationsOverview } from '../../api/operations';
+import {
+  DistributionPanel,
+  ExecutionStrip,
+  InsightsPanel,
+  LifecyclePanel,
+  MeasureTile,
+  NotMeasurable,
+  ScorecardPanel,
+  TrendChart,
+} from './OperationalIntelligencePanels';
 import { LoadingState, ErrorState } from '../shared/States';
 import type { Organization, View } from '../../App';
 import type { OrganizationField } from '../../api/organization';
 import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
+import { HeaderActions, PageHeader } from '../../ui';
 import './CommandCenter.css';
 
 interface CommandCenterProps {
@@ -66,15 +81,20 @@ interface CommandCenterProps {
    */
   onArchive?: () => void;
   /**
-   * The organization was PERMANENTLY deleted. There is no tenant left to
-   * render afterwards, so the caller must clear its selection and leave.
-   */
-  onDeleted?: (organization: Organization, result: DeletionResult) => void;
   /** Open Graph Explorer centred on this organization. Optional: absent in tests. */
   onExploreInGraph?: (label: string, id: string) => void;
 }
 
-type Health = 'good' | 'warn' | 'crit';
+/*
+  'state' IS NEUTRAL, AND IT IS NOT A FOURTH SEVERITY.
+
+  The three original tones all assert something about the organization: healthy,
+  worth watching, wrong. A tile that could not be measured asserts nothing, and
+  colouring it as any of the three is the "absence rendered as a failing grade"
+  defect this pass exists to remove — a grey "Not yet measured" must not read as
+  a red zero. So it gets its own tone rather than borrowing 'warn'.
+*/
+type Health = 'good' | 'warn' | 'crit' | 'state';
 
 /**
  * The shape `GET /workspace/{tenantId}/home-metrics` returns.
@@ -198,10 +218,43 @@ const LOOP_STAGES: Array<{ key: string; label: string; icon: ReactNode; view: Vi
   { key: 'learnings', label: 'Learnings', icon: <GraduationCap size={17} />, view: 'mentalmodels', meaning: 'Reusable knowledge kept from outcomes.' },
 ];
 
-export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onDeleted, onExploreInGraph }: CommandCenterProps) {
+/**
+ * Where each lifecycle stage sends a reader.
+ *
+ * Keyed by the SERVER's stage key rather than by the client's LOOP_STAGES list,
+ * because the panel now renders the server's stages. A key with no entry falls
+ * back to the workspace, so adding a stage on the server cannot produce a dead
+ * tile here.
+ */
+const LOOP_STAGE_VIEWS: Record<string, View> = {
+  signals: 'signals',
+  evidence: 'evidence',
+  cases: 'deliberation',
+  hypotheses: 'deliberation',
+  recommendations: 'deliberation',
+  decisions: 'analytics',
+  executions: 'executions',
+  outcomes: 'executions',
+  learnings: 'mentalmodels',
+};
+
+export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onExploreInGraph }: CommandCenterProps) {
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics | null>(null);
   const [capabilityCount, setCapabilityCount] = useState<number | null>(null);
   const [dataSources, setDataSources] = useState<any[]>([]);
+  /*
+    DERIVED OPERATIONAL INTELLIGENCE — the aggregates over the organization's
+    own imported records.
+
+    LOADED SEPARATELY AND ALLOWED TO FAIL. It is a second request on purpose:
+    the counts above render the page and this fills the analytical half of it.
+    A cold cache on a large organization makes this the slow one, and blocking
+    the whole screen on it would trade a screen that shows numbers in 100ms for
+    one that shows nothing for a minute. Null means "not loaded"; the panels it
+    feeds simply do not render, exactly as they do not for an organization with
+    no operational records.
+  */
+  const [operations, setOperations] = useState<OperationsOverview | null>(null);
   const [structure, setStructure] = useState<any>(null);
 
   const [recordPanel, setRecordPanel] = useState<RecordPanel>('structure');
@@ -215,22 +268,6 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState<OrganizationProfileDraft | null>(null);
 
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState('');
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  // What the deletion would actually destroy, fetched when the dialog opens.
-  // Read-only: opening the dialog must never be able to delete anything.
-  const [deletePreview, setDeletePreview] = useState<DeletionPreview | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  // Set when the server refuses because this tenant holds rows in tables owned
-  // by other applications sharing the database. The administrator has to say so
-  // explicitly; the Brain will not decide that on their behalf.
-  const [acknowledgeSourceData, setAcknowledgeSourceData] = useState(false);
-  const [sourceSystemPrompt, setSourceSystemPrompt] = useState<
-    { message: string; tables: { table: string; rows: number }[]; rows: number } | null
-  >(null);
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,13 +276,15 @@ export default function CommandCenter({ tenantId, organizationName, organization
     const secondary = await Promise.allSettled([
       capabilityApi.listCapabilities(tenantId, organization?.id),
       ingestionApi.listSources(tenantId),
+      operationsApi.getOverview(tenantId),
     ]);
 
-    const [capabilitiesRes, sourceRes] =
+    const [capabilitiesRes, sourceRes, operationsRes] =
       secondary.map((result) => (result.status === 'fulfilled' ? result.value : null));
 
     if (capabilitiesRes) setCapabilityCount(asArray(capabilitiesRes).length);
     if (sourceRes) setDataSources(asArray(sourceRes));
+    if (operationsRes) setOperations(operationsRes as OperationsOverview);
   }, [tenantId, organization?.id]);
 
   const load = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
@@ -353,95 +392,6 @@ export default function CommandCenter({ tenantId, organizationName, organization
     }
   };
 
-  /**
-   * Open the confirmation dialog and load the plan.
-   *
-   * The preview is a GET and writes nothing, so this is safe to run on open —
-   * which matters, because the alternative is asking someone to type an
-   * organization's name to authorise a deletion whose size they cannot see.
-   */
-  const openDeleteDialog = async () => {
-    if (!organization) return;
-    setDeleteOpen(true);
-    setDeleteConfirm('');
-    setDeleteError(null);
-    setAcknowledgeSourceData(false);
-    setSourceSystemPrompt(null);
-    setDeletePreview(null);
-    setPreviewLoading(true);
-    try {
-      setDeletePreview(await organizationApi.getDeletionPreview(organization.tenantId, organization.id));
-    } catch (e: any) {
-      // A preview that fails to load does not block the deletion — the server
-      // re-derives the plan on the real request anyway. It is reported so the
-      // figures being absent does not read as "there is nothing to delete".
-      setDeleteError(e.message || 'Could not load the deletion summary. The counts below are unavailable.');
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  /**
-   * THE ONE CANONICAL NAME, and the only string this dialog may display or
-   * compare against.
-   *
-   * It comes from the deletion preview, which reads it through the same
-   * EntityResolver path TenantPurgeService uses to check the confirmation. That
-   * shared origin is the entire point.
-   *
-   * It is deliberately NOT `organization.name`. That value arrives from the
-   * login payload and is persisted in session state, and for an ARCHIVED
-   * organization it used to be a placeholder the server manufactured
-   * ("Organization 8") rather than the real name ("Lions"). The dialog then
-   * displayed the placeholder, asked the administrator to type the placeholder,
-   * and sent the placeholder to a server that was comparing against the real
-   * name — so the confirmation could never succeed no matter what was typed.
-   *
-   * null until the preview resolves, which is what keeps the confirm button
-   * disabled: with no canonical name there is nothing safe to compare against,
-   * and guessing one is exactly the bug being fixed.
-   */
-  const canonicalName = deletePreview?.organizationName ?? null;
-
-  /**
-   * PERMANENT deletion. Not the archive.
-   *
-   * The button that calls this is disabled until the typed name matches the
-   * canonical name exactly, and the server checks the same thing again — the
-   * disabled button is a courtesy, the server-side compare is the control.
-   */
-  const deletePermanently = async () => {
-    if (!organization || canonicalName === null || deleteConfirm !== canonicalName) return;
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      const result = await organizationApi.deleteOrganizationPermanently(
-        organization.tenantId,
-        deleteConfirm,
-        acknowledgeSourceData,
-      );
-      setDeleteOpen(false);
-      onDeleted?.(organization, result);
-    } catch (e: any) {
-      // ApiError carries the parsed body on responseJson. The top-level
-      // `message` is only the error CODE for these responses, so the readable
-      // sentence has to come off the body or the dialog shows the user a slug.
-      const body = e?.responseJson ?? null;
-      const detail = body?.message || e?.message || 'Unable to delete organization.';
-
-      if (e?.status === 409 && body?.error === 'source_system_data_present') {
-        // Not a failure — a question. The checkbox rendered below is the answer,
-        // and nothing was deleted.
-        setSourceSystemPrompt({ message: detail, tables: body.tables ?? [], rows: body.rows ?? 0 });
-        setDeleteError(null);
-      } else {
-        setDeleteError(detail);
-      }
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   if (loading) return <LoadingState label="Loading this organization…" />;
   if (error && !homeMetrics) return <ErrorState message={error} />;
   if (!homeMetrics) return null;
@@ -498,13 +448,47 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const recordedDetails = organization ? organizationDetailRows(organization) : [];
   const structureFindings = departmentConcentration(structure, memberNoun);
   const loopStagesWithData = LOOP_STAGES.filter((stage) => Number(counts[stage.key] ?? 0) > 0).length;
+
+  /*
+    INTELLIGENCE HEALTH IS NOW A MEASUREMENT, NOT A PROGRESS BAR.
+
+    This tile used to read "loop stages containing tenant data ÷ 9", which is a
+    statement about how far setup has got, presented under a word that reads as
+    a statement about the organization. An operator with every stage populated
+    and a 40% completion rate scored 100%.
+
+    The scorecard replaces it where it is available: a weighted mean over the
+    dimensions this organization's data actually supports, each one explainable
+    and auditable. The loop-coverage figure stays as the fallback for an
+    organization whose operational aggregate has not loaded, and it is labelled
+    as what it measures in that case.
+  */
+  const scorecard = operations?.scorecard ?? null;
   const loopCoverage = Math.round((loopStagesWithData / LOOP_STAGES.length) * 100);
+  const execution = operations?.execution ?? null;
+  const service = operations?.service ?? null;
+  const responsiveness = operations?.responsiveness ?? null;
 
   return (
     <div className="cc-page eb-fade-in">
-      <header className="cc-org-hero">
-        <div className="cc-org-hero__identity">
-          {/*
+      {/*
+        THE ORGANIZATION HEADER — the product's one hero.
+
+        Composed from the shared PageHeader rather than from this screen's own
+        markup, so the organization's command centre and every other screen in
+        the application are the same object with a different amount of context
+        in it. What is specific to an organization is passed as data: the logo
+        plate, the lifecycle status, and the identifier row.
+
+        DELETE IS DELIBERATELY ABSENT. Permanently destroying an organization
+        ends the session and every record in it; it belongs in Settings, in the
+        danger zone, behind a typed confirmation — not one tab-stop away from
+        Refresh.
+      */}
+      <PageHeader
+        variant="organization"
+        icon={
+          /*
             A LOGO THAT DOES NOT LOAD MUST LOOK LIKE NO LOGO, NOT LIKE A FAULT.
 
             The source system stores a bare filename ('1756884159_Sids.jpg'),
@@ -516,59 +500,53 @@ export default function CommandCenter({ tenantId, organizationName, organization
             is driven by whether the image actually loaded rather than by
             guessing at the URL's shape. Reset per organization, so switching to
             one whose logo does resolve shows it.
-          */}
-          <div className="cc-org-hero__icon">
-            {organization?.logo && !logoBroken
-              ? <img src={organization.logo} alt="" onError={() => setLogoBroken(true)} />
-              : <Building2 size={31} />}
-          </div>
-          <div>
-            <div className="cc-org-hero__title">
-              <h1>{organizationName || organization?.name || 'Organization'}</h1>
-              <span className={`eb-badge eb-badge-${String(organization?.status || 'active').toLowerCase() === 'active' ? 'success' : 'warning'}`}>
-                {organization?.status || 'active'}
-              </span>
-            </div>
-            <p className="cc-org-hero__lede">
-              Everything this organization holds, and how far its data has travelled through the intelligence loop.
-            </p>
-            <div className="cc-org-hero__meta" aria-label="Organization identifiers">
-              {organization?.industry && <span><Building2 size={14} /> {organization.industry}</span>}
-              {organization?.orgCode && <span><IdCard size={14} /> {organization.orgCode}</span>}
-              {organization?.country && <span><Globe2 size={14} /> {organization.country}</span>}
-              {organization?.email && <span><Mail size={14} /> {organization.email}</span>}
-              {organization?.phone && <span><Phone size={14} /> {organization.phone}</span>}
-              {organization?.createdDate && <span><Calendar size={14} /> Created {formatShortDate(organization.createdDate)}</span>}
-            </div>
-          </div>
-        </div>
-        <div className="cc-org-hero__actions">
-          {/* The organization is the graph's root, so this opens the default
-              view rather than a focused subgraph — but it goes through the same
-              handler as every other entry point. */}
-          <ExploreInGraphButton
-            label="Organization"
-            id={tenantId}
-            entityName={organizationName || organization?.name}
-            onExplore={onExploreInGraph}
-            className="eb-pill-btn"
-          />
-          <button type="button" onClick={() => onNavigate('ingestion')}>
-            <Upload size={15} /> Open Ingestion Engine <ArrowRight size={15} />
-          </button>
-          <button type="button" className="eb-pill-btn" onClick={beginProfileEdit} disabled={!organization}>
-            <Pencil size={15} /> Edit
-          </button>
-          <button type="button" className="eb-pill-btn" onClick={() => load('refresh')} disabled={refreshing}>
-            <RefreshCw size={15} className={refreshing ? 'cc-spin' : ''} /> Refresh
-          </button>
-          {organization && (
-            <button type="button" className="eb-pill-btn cc-danger-outline" onClick={openDeleteDialog}>
-              <Trash2 size={15} /> Delete
+          */
+          organization?.logo && !logoBroken
+            ? <img src={organization.logo} alt="" onError={() => setLogoBroken(true)} />
+            : <Building2 />
+        }
+        title={organizationName || organization?.name || 'Organization'}
+        status={{
+          label: organization?.status || 'active',
+          tone: String(organization?.status || 'active').toLowerCase() === 'active' ? 'success' : 'warning',
+        }}
+        description="Everything this organization holds, and how far its data has travelled through the intelligence loop."
+        meta={[
+          organization?.industry ? { icon: <Building2 />, label: organization.industry, title: 'Industry' } : null,
+          organization?.orgCode ? { icon: <IdCard />, label: organization.orgCode, title: 'Organization code' } : null,
+          organization?.country ? { icon: <Globe2 />, label: organization.country, title: 'Country' } : null,
+          organization?.email ? { icon: <Mail />, label: organization.email, title: 'Contact email' } : null,
+          organization?.phone ? { icon: <Phone />, label: organization.phone, title: 'Contact number' } : null,
+          organization?.createdDate
+            ? { icon: <Calendar />, label: `Created ${formatShortDate(organization.createdDate)}` }
+            : null,
+        ]}
+        actions={(
+          <HeaderActions>
+            {/* The primary: the workflow everything else on this screen depends
+                on having been run. */}
+            <button type="button" className="u-btn u-btn-primary" onClick={() => onNavigate('ingestion')}>
+              <Upload size={15} aria-hidden="true" /> Open Ingestion Engine <ArrowRight size={15} aria-hidden="true" />
             </button>
-          )}
-        </div>
-      </header>
+            {/* The organization is the graph's root, so this opens the default
+                view rather than a focused subgraph — but it goes through the
+                same handler as every other entry point. */}
+            <ExploreInGraphButton
+              label="Organization"
+              id={tenantId}
+              entityName={organizationName || organization?.name}
+              onExplore={onExploreInGraph}
+              className="u-btn u-btn-secondary"
+            />
+            <button type="button" className="u-btn u-btn-secondary" onClick={beginProfileEdit} disabled={!organization}>
+              <Pencil size={15} aria-hidden="true" /> Edit
+            </button>
+            <button type="button" className="u-btn u-btn-secondary" onClick={() => load('refresh')} disabled={refreshing}>
+              <RefreshCw size={15} className={refreshing ? 'cc-spin' : ''} aria-hidden="true" /> Refresh
+            </button>
+          </HeaderActions>
+        )}
+      />
 
       <section className="cc-kpi-grid" aria-label="What this organization contains">
         <OverviewKpi
@@ -625,12 +603,27 @@ export default function CommandCenter({ tenantId, organizationName, organization
             describe a population it is not counting. The old detail read
             "N without a manager" from an ERP-wide figure while the count came
             from the visibility-scoped list — 15 without a manager, out of 5. */}
+        {/*
+          "0" WAS THE WRONG THING TO DRAW HERE.
+
+          A capability count of zero was rendered as a large numeral under the
+          word "Capabilities", which reads as a finding about the organization —
+          that it has none. It says nothing of the sort: it says nobody has
+          recorded any. Those are different statements and only one of them is
+          about the business.
+
+          The tile now says "Not yet measured" and the reason, in the same
+          language the scorecard uses for every dimension its data cannot
+          support. The number is shown when there IS a number.
+        */}
         <OverviewKpi
           icon={<Target />}
           label="Capabilities"
-          value={capabilityCount === null ? 'Unavailable' : capabilityCount}
-          detail={capabilityCount === 0 ? 'None defined yet' : 'Defined for this organization'}
-          tone={capabilityCount === 0 ? 'warn' : 'good'}
+          value={capabilityCount === null ? 'Unavailable' : capabilityCount === 0 ? 'Not yet measured' : capabilityCount}
+          detail={capabilityCount === 0
+            ? 'No capability assignments are connected — assign capabilities to unlock skill-gap intelligence'
+            : 'Defined for this organization'}
+          tone={capabilityCount === 0 ? 'state' : 'good'}
           onClick={() => onNavigate('capabilities')}
         />
         {/*
@@ -672,11 +665,34 @@ export default function CommandCenter({ tenantId, organizationName, organization
         <OverviewKpi
           icon={<Network />}
           label="Intelligence health"
-          value={`${loopCoverage}%`}
-          detail={`${loopStagesWithData} of ${LOOP_STAGES.length} loop stages contain tenant data`}
-          tone={loopStagesWithData >= 4 ? 'good' : loopStagesWithData > 0 ? 'warn' : 'crit'}
+          value={scorecard?.overall !== null && scorecard?.overall !== undefined ? `${scorecard.overall}%` : `${loopCoverage}%`}
+          detail={scorecard
+            ? `${scorecard.measuredDimensions} measured dimensions · ${scorecard.band ?? ''}`
+            : `${loopStagesWithData} of ${LOOP_STAGES.length} loop stages contain tenant data`}
+          tone={scorecard ? scoreTone(scorecard.overall) : loopStagesWithData >= 4 ? 'good' : loopStagesWithData > 0 ? 'warn' : 'crit'}
           onClick={() => onNavigate('signals')}
         />
+        {/*
+          OPERATIONAL HEALTH — completion against work the source systems
+          actually recorded a status for.
+
+          Rendered only when the aggregate has loaded and the organization's
+          status vocabulary resolved. There is no zero fallback: an organization
+          whose datasets carry no status has no completion rate, and the tile is
+          absent rather than reporting one.
+        */}
+        {execution && (
+          <OverviewKpi
+            icon={<Activity />}
+            label="Operational health"
+            value={execution.supported ? fmtPct(execution.completionRate) : 'Not measurable'}
+            detail={execution.supported
+              ? `${fmtCount(execution.completed)} of ${fmtCount(execution.classified)} records complete`
+              : (execution.reason ?? 'No resolvable status vocabulary')}
+            tone={execution.supported ? scoreTone(Math.round((execution.completionRate ?? 0) * 100)) : 'state'}
+            onClick={() => onNavigate('analytics')}
+          />
+        )}
       </section>
 
       {/*
@@ -694,39 +710,203 @@ export default function CommandCenter({ tenantId, organizationName, organization
         land on an empty pane, which reads as a broken product rather than as a
         permission boundary.
       */}
-      <section className="cc-flow" aria-label="Progress through the intelligence loop">
-        <div className="cc-section-head">
-          <div>
-            <span className="cc-kicker">Intelligence loop</span>
-            <h2>How far this organization&apos;s data has travelled</h2>
+      {/*
+        THE INTELLIGENCE LOOP, WITH THE REASON EACH EMPTY STAGE IS EMPTY.
+
+        The strip below used to print nine raw counts, six of which were zero on
+        an organization mid-way through its first week — and six zeroes in a row
+        read as a broken product rather than as a correct report about a loop
+        that has not been walked yet. Every one of those zeroes was explainable:
+        no recommendation existed because no investigation had reached a
+        hypothesis, no decision existed because there was nothing to decide on.
+
+        LifecyclePanel renders the server's stage state and message, so an empty
+        stage says "Ready for deliberation" or "No approved decisions yet —
+        nothing has been recommended to decide on". The counts are unchanged.
+        Nothing is invented to fill a stage.
+
+        The raw strip remains as the fallback while the aggregate is loading, so
+        the screen never has a hole in it.
+      */}
+      {operations ? (
+        <LifecyclePanel
+          stages={operations.lifecycle}
+          onOpen={(key) => onNavigate(LOOP_STAGE_VIEWS[key] ?? 'workspace')}
+        />
+      ) : (
+        <section className="cc-flow" aria-label="Progress through the intelligence loop">
+          <div className="cc-section-head">
+            <div>
+              <span className="cc-kicker">Intelligence loop</span>
+              <h2>How far this organization&apos;s data has travelled</h2>
+            </div>
           </div>
-        </div>
-        <div className="cc-flow__track">
-          {LOOP_STAGES.map((stage) => {
-            const value = Number(counts[stage.key] ?? 0);
-            return (
-              <button
-                key={stage.key}
-                type="button"
-                className="cc-flow__stage"
-                data-health={value > 0 ? 'good' : 'warn'}
-                onClick={() => onNavigate(stage.view)}
-                title={stage.meaning}
-              >
-                <span className="cc-flow__icon">{stage.icon}</span>
-                <strong>{stage.label}</strong>
-                <em>{value.toLocaleString()}</em>
-              </button>
-            );
-          })}
-        </div>
-        {homeMetrics.pipeline && (
-          <p className="cc-flow__note">
-            <strong>Next:</strong> {homeMetrics.pipeline.nextAction}
-            {homeMetrics.pipeline.blocker ? ` ${homeMetrics.pipeline.blocker}` : ''}
-          </p>
-        )}
-      </section>
+          <div className="cc-flow__track">
+            {LOOP_STAGES.map((stage) => {
+              const value = Number(counts[stage.key] ?? 0);
+              return (
+                <button
+                  key={stage.key}
+                  type="button"
+                  className="cc-flow__stage"
+                  data-health={value > 0 ? 'good' : 'warn'}
+                  onClick={() => onNavigate(stage.view)}
+                  title={stage.meaning}
+                >
+                  <span className="cc-flow__icon">{stage.icon}</span>
+                  <strong>{stage.label}</strong>
+                  <em>{value.toLocaleString()}</em>
+                </button>
+              );
+            })}
+          </div>
+          {homeMetrics.pipeline && (
+            <p className="cc-flow__note">
+              <strong>Next:</strong> {homeMetrics.pipeline.nextAction}
+              {homeMetrics.pipeline.blocker ? ` ${homeMetrics.pipeline.blocker}` : ''}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/*
+        ─────────────────────────────────────────────────────────────────────
+        DERIVED OPERATIONAL INTELLIGENCE.
+
+        Everything below is an aggregate over this organization's own imported
+        records. It renders only when there are records to aggregate, and every
+        panel inside it renders its own reason rather than a zero when the
+        connected data cannot support the measure. See
+        OperationalIntelligencePanels.tsx and the server's
+        App\Domain\Operations namespace.
+      */}
+      {operations?.available && (
+        <>
+          {scorecard && <ScorecardPanel scorecard={scorecard} />}
+
+          <section className="opsi-tile-grid" aria-label="Derived operational measures">
+            <MeasureTile
+              icon={<ListChecks size={16} />}
+              label="Completion"
+              value={fmtPct(execution?.completionRate, 1)}
+              detail={execution ? `${fmtCount(execution.completed)} complete of ${fmtCount(execution.classified)} classified` : ''}
+              supported={execution?.supported ?? false}
+              reason={execution?.reason}
+              tone={scoreTone(Math.round((execution?.completionRate ?? 0) * 100))}
+            />
+            <MeasureTile
+              icon={<Layers size={16} />}
+              label="Backlog"
+              value={fmtCount(execution?.backlog)}
+              detail={execution ? `${fmtPct(execution.backlogRate, 1)} of classified work is still open` : ''}
+              supported={execution?.supported ?? false}
+              reason={execution?.reason}
+              tone={(execution?.backlogRate ?? 0) > 0.35 ? 'warn' : 'good'}
+            />
+            <MeasureTile
+              icon={<Timer size={16} />}
+              label="Average turnaround"
+              value={fmtHours(responsiveness?.averageHours)}
+              detail={responsiveness?.supported
+                ? `${fmtPct(responsiveness.withinDayRate, 1)} closed within a day, over ${fmtCount(responsiveness.measured)} measured`
+                : ''}
+              supported={responsiveness?.supported ?? false}
+              reason={responsiveness?.reason}
+              tone={(responsiveness?.withinDayRate ?? 0) >= 0.5 ? 'good' : 'warn'}
+            />
+            <MeasureTile
+              icon={<Repeat size={16} />}
+              label="Repeat activity"
+              value={fmtPct(service?.repeatRate, 1)}
+              detail={service?.supported
+                ? `${fmtCount(service.repeatedSubjects)} of ${fmtCount(service.subjects)} subjects recur`
+                : ''}
+              supported={service?.supported ?? false}
+              reason={service?.reason}
+              tone={(service?.repeatRate ?? 0) > 0.25 ? 'warn' : 'good'}
+            />
+            <MeasureTile
+              icon={<Database size={16} />}
+              label="Cancellation"
+              value={fmtPct(execution?.cancellationRate, 1)}
+              detail={execution ? `${fmtCount(execution.cancelled)} records ended cancelled` : ''}
+              supported={execution?.supported ?? false}
+              reason={execution?.reason}
+              tone={(execution?.cancellationRate ?? 0) > 0.15 ? 'warn' : 'good'}
+            />
+            <MeasureTile
+              icon={<Boxes size={16} />}
+              label="Datasets analysed"
+              value={fmtCount(operations.headline.datasets?.value)}
+              detail={operations.headline.datasets?.detail ?? ''}
+              supported
+              tone="good"
+            />
+          </section>
+
+          {execution?.supported && (
+            <section className="opsi-panel" aria-label="Workflow state distribution">
+              <div className="opsi-head">
+                <div>
+                  <span className="opsi-kicker">Every record whose status resolves to a workflow state</span>
+                  <h2>Where the organization&apos;s recorded work stands</h2>
+                </div>
+              </div>
+              <ExecutionStrip
+                completed={execution.completed}
+                inProgress={execution.inProgress}
+                open={execution.open}
+                cancelled={execution.cancelled}
+              />
+            </section>
+          )}
+
+          <InsightsPanel insights={operations.insights} />
+
+          {operations.trend.supported && (
+            <TrendChart
+              points={operations.trend.points}
+              momentum={operations.trend.momentum}
+              title="Recorded activity by month"
+            />
+          )}
+
+          <div className="opsi-grid-2">
+            <DistributionPanel
+              title="Where the work sits"
+              rows={operations.rankings.departments}
+              concentration={operations.rankings.concentration?.departments}
+              empty="Imported records do not name an owning unit, so work cannot be attributed to a department."
+            />
+            <DistributionPanel
+              title="What the work is about"
+              rows={operations.rankings.categories}
+              concentration={operations.rankings.concentration?.categories}
+              empty="No imported record carries a category, so activity cannot be grouped by type."
+            />
+            <DistributionPanel
+              title="Where activity is recorded"
+              rows={operations.rankings.zones}
+              concentration={operations.rankings.concentration?.zones}
+              empty="No imported record carries a geographic tag."
+            />
+            <DistributionPanel
+              title="What has been ingested"
+              rows={operations.rankings.datasets}
+              concentration={operations.rankings.concentration?.datasets}
+              empty="Nothing has been ingested for this organization."
+            />
+          </div>
+
+          {capabilityCount === 0 && (
+            <NotMeasurable
+              title="Capability coverage"
+              reason="No capability assignments are currently connected for this organization, so skill coverage and skill gaps are not measured."
+              nextStep="Assign capabilities to departments and employees to unlock skill-gap intelligence."
+            />
+          )}
+        </>
+      )}
 
       <div className="cc-main-grid">
         <section className="cc-panel cc-attention" aria-labelledby="cc-attention">
@@ -898,123 +1078,6 @@ export default function CommandCenter({ tenantId, organizationName, organization
           {!recordLoading && !recordError && recordPanel === 'quality' && <QualityPanel data={recordData} />}
           {!recordLoading && !recordError && recordPanel === 'audit' && <AuditPanel data={recordData} />}
         </section>
-      )}
-
-      {organization && deleteOpen && (
-        <div className="cc-modal-backdrop" role="presentation">
-          <div className="cc-delete-modal" role="dialog" aria-modal="true" aria-labelledby="cc-delete-title">
-            <button
-              type="button"
-              className="cc-modal-close"
-              aria-label="Close"
-              onClick={() => { setDeleteOpen(false); setDeleteError(null); }}
-              disabled={deleting}
-            >
-              <X size={18} />
-            </button>
-            <div className="cc-delete-modal__head">
-              <span><AlertTriangle size={26} /></span>
-              <div>
-                <h2 id="cc-delete-title">Delete Organization?</h2>
-                {/* The canonical name, never the session's copy — see canonicalName. */}
-                <p>
-                  Are you sure you want to permanently delete{' '}
-                  <strong>{canonicalName ?? '…'}</strong>?
-                </p>
-              </div>
-            </div>
-            <p className="cc-delete-modal__warning">
-              This will permanently delete the organization and all of its associated tenant data,
-              including users and organization-specific records. This action cannot be undone.
-            </p>
-
-            {/* What is actually about to be destroyed. Loaded from a read-only
-                preview endpoint when the dialog opened — asking someone to type
-                an organization's name to authorise a deletion whose size they
-                cannot see is a confirmation in form only. */}
-            {previewLoading && <p className="cc-delete-modal__counts">Calculating what will be deleted…</p>}
-            {deletePreview && (
-              <div className="cc-delete-modal__counts">
-                <p>
-                  <strong>{deletePreview.totals.rows.toLocaleString()}</strong> record
-                  {deletePreview.totals.rows === 1 ? '' : 's'} across{' '}
-                  <strong>{deletePreview.totals.tables}</strong> table
-                  {deletePreview.totals.tables === 1 ? '' : 's'} will be destroyed:
-                </p>
-                <ul>
-                  <li>{deletePreview.totals.identity.toLocaleString()} organization, people and login records</li>
-                  <li>{deletePreview.totals.brain.toLocaleString()} intelligence, ingestion and configuration records</li>
-                  {deletePreview.totals.sourceSystem > 0 && (
-                    <li>{deletePreview.totals.sourceSystem.toLocaleString()} records held by other connected systems</li>
-                  )}
-                </ul>
-                <p className="cc-delete-modal__note">
-                  Everyone in this organization will lose access immediately. Other organizations are not affected.
-                </p>
-              </div>
-            )}
-
-            {/* The tenant owns rows in tables belonging to other applications on
-                this shared database. The server refused rather than guess, and
-                this is where the administrator answers. */}
-            {sourceSystemPrompt && (
-              <div className="cc-delete-modal__ack">
-                <p>{sourceSystemPrompt.message}</p>
-                <ul>
-                  {sourceSystemPrompt.tables.slice(0, 8).map((t) => (
-                    <li key={t.table}><code>{t.table}</code> — {t.rows.toLocaleString()} rows</li>
-                  ))}
-                  {sourceSystemPrompt.tables.length > 8 && (
-                    <li>…and {sourceSystemPrompt.tables.length - 8} more</li>
-                  )}
-                </ul>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={acknowledgeSourceData}
-                    onChange={(event) => setAcknowledgeSourceData(event.target.checked)}
-                    disabled={deleting}
-                  />
-                  Also permanently delete these {sourceSystemPrompt.rows.toLocaleString()} records
-                </label>
-              </div>
-            )}
-
-            {/* The string shown here and the string compared below are the same
-                variable. They cannot drift apart, which is the whole fix. */}
-            <label className="cc-delete-modal__confirm">
-              {canonicalName === null
-                ? 'Loading the organization name…'
-                : <>To confirm, type <strong>{canonicalName}</strong> below.</>}
-              <input
-                value={deleteConfirm}
-                onChange={(event) => setDeleteConfirm(event.target.value)}
-                placeholder="Type organization name"
-                disabled={deleting || canonicalName === null}
-                autoComplete="off"
-              />
-            </label>
-            {deleteError && <p className="cc-record__error">{deleteError}</p>}
-            <div className="cc-delete-modal__actions">
-              <button type="button" className="eb-pill-btn" onClick={() => setDeleteOpen(false)} disabled={deleting}>Cancel</button>
-              <button
-                type="button"
-                className="cc-delete-submit"
-                disabled={
-                  // No canonical name yet means nothing safe to compare against.
-                  canonicalName === null
-                  || deleteConfirm !== canonicalName
-                  || deleting
-                  // Blocked until the extra records are explicitly accepted.
-                  || (sourceSystemPrompt !== null && !acknowledgeSourceData)
-                }
-                onClick={deletePermanently}
-              >
-                <Trash2 size={15} /> {deleting ? 'Deleting…' : 'Delete Permanently'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       <p className="cc-hint">
