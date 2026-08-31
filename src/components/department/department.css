@@ -46,11 +46,24 @@
    ============================================================================= */
 
 .dept-ring {
-  position: relative;
   display: inline-grid;
-  place-items: center;
-  width: var(--dept-ring-size, 76px);
+  justify-items: center;
+  gap: 7px;
+  /* The DIAL is a fixed square; the legend under it may be wider than the dial
+     and must not be clipped to it, so the component floors at the dial's width
+     rather than being pinned to it. */
+  min-width: var(--dept-ring-size, 76px);
   flex: 0 0 auto;
+}
+
+/* The square the arc and the figure share. `position: relative` lives here and
+   not on `.dept-ring`, so `.dept-ring__center` centres on the DIAL rather than
+   on the dial plus the legend — which is what pulled the percentage off centre
+   whenever a label was supplied. */
+.dept-ring__dial {
+  position: relative;
+  width: var(--dept-ring-size, 76px);
+  height: var(--dept-ring-size, 76px);
 }
 
 .dept-ring svg { display: block; }
@@ -105,9 +118,6 @@
 }
 
 .dept-ring__legend {
-  position: absolute;
-  top: 100%;
-  margin-top: 6px;
   display: grid;
   gap: 2px;
   text-align: center;
@@ -127,6 +137,42 @@
   color: var(--content-secondary);
 }
 
+/*
+  THE RING INSIDE A PAGE HEADER READS ON THE HEADER'S OWN GROUND.
+
+  `--content-primary` is the page's ink — near-black on the light app surface.
+  The detail header is a dark espresso panel, so the percentage rendered in that
+  ink came out as dark grey on dark brown: technically present, practically
+  unreadable, which is what made the figure look washed out beside a fully
+  saturated gold arc.
+
+  The header already publishes the inks that belong on its own surface — it uses
+  them for its title, description and back button — so the ring borrows those
+  rather than picking a second set that would drift the first time the header is
+  re-lit. Outside a header the fallbacks are the values that were always used,
+  so the directory card is untouched.
+*/
+.u-ph .dept-ring__value {
+  color: var(--ph-title-ink, var(--content-primary));
+}
+
+.u-ph .dept-ring__value small,
+.u-ph .dept-ring__empty,
+.u-ph .dept-ring__caption {
+  color: var(--ph-desc-ink, var(--content-secondary));
+}
+
+/* The unfilled remainder of the arc: `--border-subtle` is tuned for hairlines on
+   a light card and all but vanishes on the dark panel, which left the ring
+   reading as a floating arc with no track behind it.
+
+   Excluded for `settings`, the one header variant painted on a light card. The
+   inks above need no such exclusion — they follow `--ph-*-ink`, which every
+   variant already sets to something legible on its own ground. */
+.u-ph:not([data-variant='settings']) .dept-ring__track {
+  stroke: rgba(255, 248, 232, .20);
+}
+
 /* =============================================================================
    THE DIRECTORY CARD
 
@@ -138,6 +184,7 @@
 .dept-card {
   display: flex;
   flex-direction: column;
+  min-height: 228px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--surface-card);
@@ -175,8 +222,10 @@
 
 .dept-card__open {
   display: grid;
+  grid-template-rows: 46px 78px minmax(42px, 1fr);
   gap: var(--space-3, 12px);
   width: 100%;
+  flex: 1 1 auto;
   padding: var(--space-4, 16px) var(--space-4, 16px) var(--space-3, 12px);
   border: 0;
   background: none;
@@ -248,6 +297,7 @@
   display: grid;
   gap: 1px;
   min-width: 0;
+  max-width: calc(100% - 88px);
 }
 
 .dept-card__metric-label {
@@ -271,9 +321,37 @@
   font-size: var(--fs-tiny);
   line-height: 1.35;
   color: var(--content-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.dept-card__score { flex: 0 0 auto; }
+/*
+  The unit's recorded workload, under the headcount rather than instead of it.
+
+  Deliberately quieter than `--metric-value`: it is a second fact about the
+  unit, not a second headline. When the card showed this number in the People
+  slot at full weight, two cards side by side put a workload and a population
+  in the same position at the same size.
+*/
+.dept-card__metric-work {
+  font-size: var(--fs-tiny);
+  line-height: 1.35;
+  color: var(--content-secondary);
+  opacity: 0.85;
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dept-card__score {
+  display: flex;
+  flex: 0 0 78px;
+  justify-content: flex-end;
+}
 
 /* ---- the status line ---- */
 .dept-card__foot {
@@ -308,6 +386,7 @@
 .dept-card__actions {
   display: flex;
   gap: 8px;
+  margin-top: auto;
   padding: 0 var(--space-4, 16px) var(--space-4, 16px);
 }
 
@@ -474,12 +553,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
-}
-
-/* The ring's legend is absolutely positioned under it, so the grid cell needs
-   room for it or the label collides with whatever follows. */
-.di-health__body > .dept-ring {
-  margin-bottom: 34px;
 }
 
 .di-insights {

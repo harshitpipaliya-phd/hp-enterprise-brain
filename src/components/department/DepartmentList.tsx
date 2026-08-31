@@ -706,6 +706,35 @@ export default function DepartmentList({ organization, departments, loading, onS
                 {filtered.map((dept) => {
                   const people = dept.peopleCount;
                   const scored = dept.intelligence;
+                  const workItems = dept.metrics.operationalRecords;
+                  const hasWorkItems = workItems !== null && workItems > 0;
+
+                  /*
+                    PEOPLE IS ALWAYS THE PRIMARY METRIC.
+
+                    This card used to relabel itself "Work items" whenever a unit's
+                    headcount was 0 or null, so the same position on two cards side
+                    by side meant two different things — 7,217 imported records next
+                    to 24 people — and reading down the grid compared populations
+                    against workloads. A unit with nobody assigned is a finding
+                    worth reading, and substituting a large unrelated number hid
+                    precisely the thing worth seeing.
+
+                    The work figure is kept, underneath, as its own labelled line:
+                    headcount and recorded work diverge routinely here because the
+                    ERP assigns staff to some units and books work against others,
+                    so it is real information — it just is not a headcount, and it
+                    no longer stands in for one.
+
+                    `null` still prints as an em dash rather than 0. "We do not know
+                    this unit's headcount" and "this unit has nobody" are different
+                    findings, and only the second one is a zero.
+                  */
+                  const peopleHint = people === null
+                    ? 'Headcount unavailable'
+                    : people === 0
+                      ? 'No people currently assigned'
+                      : `${people === 1 ? 'Person' : 'People'} in ${unitSingular}`;
 
                   return (
                     <article className="dept-card" key={dept.id} data-status={scored.status ?? 'unknown'}>
@@ -735,12 +764,13 @@ export default function DepartmentList({ organization, departments, loading, onS
                               {people === null ? '—' : people.toLocaleString()}
                             </strong>
                             <span className="dept-card__metric-hint">
-                              {people === null
-                                ? 'Headcount unavailable'
-                                : people === 0
-                                  ? 'No people currently assigned'
-                                  : `${people === 1 ? 'Person' : 'People'} in ${unitSingular}`}
+                              {peopleHint}
                             </span>
+                            {hasWorkItems && (
+                              <span className="dept-card__metric-work">
+                                {workItems.toLocaleString()} imported {workItems === 1 ? 'record names' : 'records name'} this unit
+                              </span>
+                            )}
                           </span>
 
                           <span className="dept-card__score">

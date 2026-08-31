@@ -47,12 +47,16 @@
  *    redistributed across what remains — the same rule the Organization
  *    Intelligence engine already applies to its loop dimensions.
  *
- * 3. TOO LITTLE LEFT MEANS NO COMPOSITE.
- *    One measurable dimension is not an intelligence score. An organization
- *    where only record completeness can be measured would otherwise publish
- *    "Department Intelligence 100%" on the strength of everyone having a job
- *    title. Below MIN_SCORED_DIMENSIONS the composite is null and the UI says
- *    what is missing, by name.
+ * 3. NOTHING MEASURABLE MEANS NO COMPOSITE.
+ *    Only a unit with ZERO measurable dimensions goes unscored. A unit with one
+ *    is scored on that one and says so — `1 of 7 dimensions measured` under the
+ *    ring, with the six absences named in the breakdown.
+ *
+ *    This floor was two, on the reasoning that one dimension is not an
+ *    intelligence score. On a register that splits each unit into a staffed row
+ *    and a worked row — see MIN_SCORED_DIMENSIONS — that withheld a score from
+ *    every department that has people, which is the opposite of the intent. A
+ *    thin score labelled as thin beats no score labelled as nothing.
  *
  * SIZE IS NOT A DIMENSION. It is reported — headcount, rank, share, median —
  * in the comparison block, as facts. It is never scored.
@@ -235,12 +239,34 @@ export function statusLabel(status: ScoreStatus): string {
 /**
  * Below this many measurable dimensions, no composite is published.
  *
- * Two rather than one, and the difference is not pedantry: record completeness
- * is measurable for every staffed department on every tenant, so a floor of one
- * would publish a confident percentage for an organization about which the only
- * known fact is that its staff have job titles recorded.
+ * ONE, NOT TWO — AND THE TRADE IS DELIBERATE.
+ *
+ * This was two, to stop an organization publishing a confident percentage when
+ * the only thing known about it is that its staff have job titles recorded. The
+ * risk is real and has not gone away. It was the wrong lever, though, because
+ * of what it does on a register like Fiber Valley's, where the source system
+ * carries two rows for each unit — `Sales` and `Sales - FVCPL` — with the
+ * workforce on one and the imported work booked against the other.
+ *
+ * The staffed half of every pair then measures exactly one dimension, because
+ * this organization records no capability assessment, signal, evidence or
+ * decision, and its operational records name the OTHER row. So a floor of two
+ * withheld a score from every unit that has people — `Sales - FVCPL` and its
+ * 768 staff read `Not scored` — while the unstaffed halves scored 47% to 79%.
+ * The rule meant to prevent a thin score was, on this data, suppressing every
+ * score a reader would actually go looking for.
+ *
+ * A one-dimension composite is thin, and the card says so in the same breath:
+ * it prints `1 of 7 dimensions measured` beneath the ring, and the dimension
+ * breakdown names the six that could not be measured and why. That is the
+ * honest form of this — publish what was measured, and be explicit about how
+ * little it rests on. Withholding the number entirely told the reader less, not
+ * more, and told them nothing about the six missing dimensions either.
+ *
+ * Zero measurable dimensions is still no score. That is a genuine absence and
+ * is reported as one.
  */
-export const MIN_SCORED_DIMENSIONS = 2;
+export const MIN_SCORED_DIMENSIONS = 1;
 
 /* ========================================================================== */
 /*  DIMENSIONS                                                                */
@@ -533,16 +559,20 @@ export function departmentScore(
     return unscored('No people are assigned to this unit and no imported record names it, so there is nothing to measure.');
   }
 
-  /* RULE 3 — too little measurable to publish a composite. */
+  /*
+    RULE 3 — nothing measurable at all means no composite.
+
+    The message names what is missing rather than saying "no data": on this
+    organization the absences ARE the finding, and a reader who is told which
+    six dimensions are unrecorded knows what to go and record.
+  */
   if (measured.length < MIN_SCORED_DIMENSIONS) {
     const missing = dimensions
       .filter((d) => d.score === null)
       .map((d) => d.label.toLowerCase());
 
     return unscored(
-      measured.length === 0
-        ? 'Nothing about this unit can be measured yet.'
-        : `Only ${measured[0].label.toLowerCase()} can be measured here — ${missing.join(', ')} ${plural(missing.length, 'is', 'are')} not recorded for this organization.`,
+      `Nothing about this unit can be measured yet — ${missing.join(', ')} ${plural(missing.length, 'is', 'are')} not recorded for this organization.`,
     );
   }
 

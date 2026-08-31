@@ -117,17 +117,43 @@ describe('an absent dimension leaves the composite rather than scoring zero', ()
   });
 });
 
-describe('too little measurable means no score at all', () => {
-  it('refuses to publish a composite built on record completeness alone', () => {
+describe('a single measurable dimension is scored, and labelled as one', () => {
+  it('publishes a composite built on record completeness alone', () => {
     // A young organization: a staffed unit, and nothing else recorded anywhere.
+    // The score rests on one dimension, which the card states outright — see
+    // MIN_SCORED_DIMENSIONS for why withholding it entirely was worse.
     const result = departmentScore(
       metrics({ people: 10, peopleWithRole: 10, peopleWithContact: 10, peopleWithReference: 10 }),
       NO_SUPPORT,
     );
 
     expect(result.measured).toHaveLength(1);
+    expect(result.measured[0].key).toBe('completeness');
+    expect(result.score).not.toBeNull();
+    expect(result.unscoredReason).toBeNull();
+  });
+
+  it('scores the roster it actually has rather than the one it wishes for', () => {
+    // Fiber Valley's shape: every person carries an email, none carries a job
+    // title or an external reference. A single-dimension score must still
+    // discriminate — if this came out at 100 the dimension would be worthless.
+    const result = departmentScore(
+      metrics({ people: 770, peopleWithRole: 0, peopleWithContact: 770, peopleWithReference: 0 }),
+      NO_SUPPORT,
+    );
+
+    expect(result.score).not.toBeNull();
+    expect(result.score as number).toBeLessThan(50);
+  });
+
+  it('still withholds a score when nothing at all can be measured', () => {
+    const result = departmentScore(
+      metrics({ people: 0, operationalRecords: 0 }),
+      NO_SUPPORT,
+    );
+
     expect(result.score).toBeNull();
-    expect(result.unscoredReason).toMatch(/only record completeness can be measured/i);
+    expect(result.unscoredReason).not.toBeNull();
   });
 
   it('publishes once a second dimension becomes measurable', () => {

@@ -427,6 +427,21 @@ export default function DepartmentIntelligence({
               tone={scored.status === 'attention' ? 'crit' : scored.status === 'watch' ? 'warn' : 'good'}
             />
 
+            {support.operational && (
+              <DepartmentStat
+                label="Work items"
+                value={ownMetrics.operationalRecords}
+                hint={ownMetrics.operationalCompletionRate === null
+                  ? 'Imported records attributed to this unit'
+                  : `${Math.round(ownMetrics.operationalCompletionRate * 100)}% completed`}
+                emptyHint="No imported work"
+                tone={ownMetrics.operationalCompletionRate === null
+                  ? 'state'
+                  : ownMetrics.operationalCompletionRate >= 0.75 ? 'good'
+                    : ownMetrics.operationalCompletionRate >= 0.55 ? 'warn' : 'crit'}
+              />
+            )}
+
             {support.capability && (
               <DepartmentStat
                 label="Capability coverage"

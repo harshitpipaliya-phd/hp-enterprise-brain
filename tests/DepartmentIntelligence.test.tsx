@@ -119,8 +119,8 @@ describe('a dimension with no input leaves the score', () => {
     // Capability, cases and decisions are unsupported on this fixture, so three
     // of the five dimensions cannot be measured — and the score is the weighted
     // mean of the two that can, never two fifths of it.
-    await waitFor(() => expect(within(panel).getByText(/3 of 5 dimensions measured/)).toBeTruthy());
-    expect(within(panel).getAllByText('Not measured').length).toBe(2);
+    await waitFor(() => expect(within(panel).getByText(/3 of 7 dimensions measured/)).toBeTruthy());
+    expect(within(panel).getAllByText('Not measured').length).toBe(4);
 
     // And the reason each is unmeasured is stated rather than left implied.
     expect(within(panel).getByText(/has not recorded any capability assessment/i)).toBeTruthy();
@@ -143,7 +143,7 @@ describe('a dimension with no input leaves the score', () => {
     render(<DepartmentIntelligence tenantId="4" departmentId="2" />);
 
     const panel = await screen.findByLabelText('Department intelligence');
-    await waitFor(() => expect(within(panel).getByText(/4 of 5 dimensions measured/)).toBeTruthy());
+    await waitFor(() => expect(within(panel).getByText(/4 of 7 dimensions measured/)).toBeTruthy());
     expect(within(panel).getByText(/12 of 24 assessed/)).toBeTruthy();
 
     // The capability name is resolved, not printed as its id.

@@ -106,6 +106,15 @@ export interface PersonDepartment {
  */
 let restorePending = true;
 
+/**
+ * The largest roster this screen will hold in memory at once.
+ *
+ * Above it the screen shows the server's first page; below it, the whole
+ * roster, so the filters and the summary tiles describe the organization
+ * rather than a page of it. Fiber Valley's 201 staff sit far inside it.
+ */
+const ROSTER_CAP = 2000;
+
 export default function PersonApp({
   organization,
   initialDepartmentId,
@@ -163,11 +172,36 @@ export default function PersonApp({
     setLoading(true);
     setError(null);
     try {
-      const [peopleData, departmentData] = await Promise.all([
-        api.listPeople(organization.tenantId, organization.id),
+      /*
+        THE WHOLE ROSTER, NOT THE FIRST PAGE OF IT.
+
+        This asked for `perPage: 25` and handed the result to PersonList, which
+        does its own filtering, sorting and paging over the array it is given —
+        so the screen could never show a 26th person, no filter could reach one,
+        and every tile above the table (`People`, `Departments in use`, `Without
+        a department`, `Without a role`) counted those 25 rows and published the
+        answer as the organization's. The tiles were not blank, which is worse:
+        they were confidently wrong.
+
+        `listPeople` is the unpaged endpoint and returns the whole roster. It is
+        taken ONLY when the server's own COUNT says the roster fits inside
+        ROSTER_CAP, because the reason this screen was paged at all is a tenant
+        with a six-figure workforce, and downloading that so the browser can
+        count blank email columns is exactly what the paging was protecting
+        against. Above the cap the screen keeps the server's first page and
+        behaves as it does today.
+      */
+      const [firstPage, departmentData] = await Promise.all([
+        api.listPeoplePage(organization.tenantId, { page: 1, perPage: 100 }),
         departmentApi.listDepartments(organization.tenantId, organization.id),
       ]);
-      const rows: Person[] = Array.isArray(peopleData) ? peopleData : [];
+
+      const firstRows: Person[] = Array.isArray((firstPage as any)?.people) ? (firstPage as any).people : [];
+      const total = Number((firstPage as any)?.total ?? firstRows.length);
+
+      const rows: Person[] = total > firstRows.length && total <= ROSTER_CAP
+        ? ((await api.listPeople(organization.tenantId)) as Person[])
+        : firstRows;
       setPeople(rows);
       setDepartments(Array.isArray(departmentData) ? departmentData : []);
       return rows;

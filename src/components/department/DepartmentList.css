@@ -42,9 +42,6 @@
   align-items: center;
   gap: var(--space-2-5);
   flex-wrap: wrap;
-}/* Actions stay on one line and right-aligned even when the heading wraps {
-  justify-content: flex-end;
-  flex: 0 0 auto;
 }
 .dept-intel__ghost {
   display: inline-flex;

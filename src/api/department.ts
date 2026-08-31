@@ -39,6 +39,7 @@ export interface DepartmentIntelligenceResponse {
     cases: boolean;
     decisions: boolean;
     activity: boolean;
+    operational: boolean;
   };
   tenant: {
     departments: number;

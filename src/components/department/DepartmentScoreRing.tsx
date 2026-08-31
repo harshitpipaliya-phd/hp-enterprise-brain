@@ -44,34 +44,43 @@ export function DepartmentScoreRing({
 
   return (
     <div className="dept-ring" data-status={status ?? 'unknown'} style={{ ['--dept-ring-size' as string]: `${size}px` }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" focusable="false">
-        <circle
-          className="dept-ring__track"
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none" strokeWidth={stroke}
-        />
-        {score !== null && (
+      {/* The dial is its own box so the legend below can sit in NORMAL FLOW.
+          It used to be absolutely positioned at `top: 100%`, which put the
+          status word and caption outside the component's own height — they hung
+          past the bottom of whatever contained the ring, and the detail header
+          had to be given 34px of dead margin to stop them colliding with the
+          next block. Anything measuring this component got the dial's height and
+          none of the text under it. */}
+      <div className="dept-ring__dial">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" focusable="false">
           <circle
-            className="dept-ring__fill"
+            className="dept-ring__track"
             cx={size / 2} cy={size / 2} r={radius}
-            fill="none" strokeWidth={stroke} strokeLinecap="round"
-            strokeDasharray={`${filled} ${circumference - filled}`}
-            // Start at twelve o'clock rather than three, which is where a
-            // reader expects a gauge to begin.
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            fill="none" strokeWidth={stroke}
           />
-        )}
-      </svg>
+          {score !== null && (
+            <circle
+              className="dept-ring__fill"
+              cx={size / 2} cy={size / 2} r={radius}
+              fill="none" strokeWidth={stroke} strokeLinecap="round"
+              strokeDasharray={`${filled} ${circumference - filled}`}
+              // Start at twelve o'clock rather than three, which is where a
+              // reader expects a gauge to begin.
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          )}
+        </svg>
 
-      <div className="dept-ring__center">
-        {score === null ? (
-          <span className="dept-ring__empty">{emptyLabel}</span>
-        ) : (
-          <span className="dept-ring__value">
-            {score}
-            <small>%</small>
-          </span>
-        )}
+        <div className="dept-ring__center">
+          {score === null ? (
+            <span className="dept-ring__empty">{emptyLabel}</span>
+          ) : (
+            <span className="dept-ring__value">
+              {score}
+              <small>%</small>
+            </span>
+          )}
+        </div>
       </div>
 
       {(label || caption) && (

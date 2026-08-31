@@ -15,6 +15,7 @@ import PersonApp from '../src/components/person/PersonApp';
 const getSummary = vi.fn();
 const listDepartments = vi.fn();
 const listPeople = vi.fn();
+const listPeoplePage = vi.fn();
 
 vi.mock('../src/api/department', () => ({
   api: {
@@ -26,6 +27,7 @@ vi.mock('../src/api/department', () => ({
 vi.mock('../src/api/person', () => ({
   api: {
     listPeople: (...args: unknown[]) => listPeople(...args),
+    listPeoplePage: (...args: unknown[]) => listPeoplePage(...args),
   },
 }));
 
@@ -56,6 +58,16 @@ beforeEach(() => {
   vi.clearAllMocks();
   listDepartments.mockResolvedValue([]);
   listPeople.mockResolvedValue([]);
+  /*
+    PersonApp asks for a page first and only then decides whether to pull the
+    whole roster, so the paged endpoint has to answer for whatever the test set
+    on `listPeople`. Deriving the envelope from that one fixture keeps each test
+    setting a single source of truth, as they did before the screen was paged.
+  */
+  listPeoplePage.mockImplementation(async () => {
+    const rows = await listPeople();
+    return { people: rows, total: rows.length, page: 1, perPage: 100, pages: 1 };
+  });
 });
 
 describe('People population switcher', () => {
