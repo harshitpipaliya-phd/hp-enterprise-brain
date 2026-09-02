@@ -1,0 +1,613 @@
+/* ==========================================================================
+ *  KNOWLEDGE LIBRARY + ORGANIZATIONAL MEMORY
+ *
+ *  EB-DLS tokens only. Every colour, space, radius and size resolves to a
+ *  variable in design-tokens/, so both themes are correct by construction
+ *  rather than by a second hand-maintained set of overrides.
+ *
+ *  The look these screens are aiming for is a reference work, not a dashboard:
+ *  quiet surfaces, one accent, hairline rules, and density that rewards
+ *  scanning. Decoration is what makes a tool look like a demo.
+ * ========================================================================== */
+
+.kb {
+  padding: var(--space-6) var(--space-6) var(--space-12);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ------------------------------------------------------------ counters ---- */
+
+.kb-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.kb-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3-5) var(--space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  text-align: left;
+  min-width: 0;
+}
+
+.kb-stat--action {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.kb-stat--action:hover { border-color: var(--border-strong); }
+
+.kb-stat--action[aria-pressed='true'] {
+  border-color: var(--accent-intelligence);
+  background: var(--action-subtle);
+}
+
+.kb-stat--action:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.kb-stat__l {
+  font-size: var(--fs-caption);
+  color: var(--content-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kb-stat__v {
+  font-size: var(--fs-h2);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  color: var(--content-primary);
+}
+
+.kb-stat__v[data-tone='good'] { color: var(--status-good); }
+.kb-stat__v[data-tone='warn'] { color: var(--status-warn); }
+.kb-stat__v[data-tone='crit'] { color: var(--status-crit); }
+
+.kb-stat__h {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-snug);
+  color: var(--content-tertiary);
+}
+
+/* ------------------------------------------------------------- filters ---- */
+
+.kb-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.kb-search {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.kb-search:focus-within { border-color: var(--accent-intelligence); }
+
+.kb-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--content-primary);
+  font: inherit;
+  font-size: var(--fs-small);
+  outline: none;
+}
+
+.kb-select {
+  font: inherit;
+  font-size: var(--fs-caption);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-card);
+  color: var(--content-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  max-width: 200px;
+}
+
+.kb-select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+.kb-clear {
+  font: inherit;
+  font-size: var(--fs-caption);
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-intelligence);
+  cursor: pointer;
+}
+
+.kb-clear:hover { text-decoration: underline; }
+
+.kb-resultline {
+  font-size: var(--fs-caption);
+  color: var(--content-tertiary);
+  margin: 0 0 var(--space-3);
+}
+
+/* ---------------------------------------------------------- the shelf ----- */
+
+.kb-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.kb-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2-5);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.kb-card:hover { border-color: var(--border-strong); }
+
+.kb-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.kb-type {
+  font-size: var(--fs-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-intelligence-deep);
+  font-weight: 600;
+}
+
+.kb-card__t { margin: 0; font-size: var(--fs-card-title); line-height: var(--lh-snug); }
+
+.kb-card__t button {
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--content-primary);
+  cursor: pointer;
+}
+
+.kb-card__t button:hover { color: var(--accent-intelligence-deep); }
+.kb-card__t button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-xs); }
+
+.kb-card__p {
+  margin: 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-snug);
+  color: var(--content-secondary);
+}
+
+.kb-card__p--none { color: var(--content-tertiary); font-style: italic; }
+
+.kb-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2-5) 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.kb-meta dt {
+  font-size: var(--fs-caption);
+  color: var(--content-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kb-meta dd {
+  margin: 2px 0 0;
+  font-size: var(--fs-caption);
+  color: var(--content-primary);
+  overflow-wrap: anywhere;
+}
+
+.kb-none { color: var(--content-tertiary); font-style: italic; }
+
+.kb-tags { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
+
+.kb-tag {
+  font-size: var(--fs-caption);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+  color: var(--content-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.kb-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.kb-card__grades { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.kb-card__acts { display: flex; align-items: center; gap: var(--space-3); }
+
+.kb-conn { font-size: var(--fs-caption); color: var(--content-tertiary); }
+
+.kb-open, .kb-link {
+  font: inherit;
+  font-size: var(--fs-caption);
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-intelligence);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.kb-open:hover, .kb-link:hover { text-decoration: underline; }
+.kb-open:focus-visible, .kb-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-xs); }
+
+/* -------------------------------------------------------------- badges ---- */
+
+.kb-badge__sub { margin-left: var(--space-1-5); opacity: 0.75; font-variant-numeric: tabular-nums; }
+
+.kb-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+  margin-right: var(--space-1-5);
+}
+
+.kb-prov {
+  font-size: var(--fs-caption);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-xs);
+  border: 1px dashed var(--border-default);
+  color: var(--content-tertiary);
+  white-space: nowrap;
+}
+
+/* Seeded rows are marked, never disguised — but the mark is a note, not an
+   alarm: the row is still the best thing on the shelf. */
+.kb-prov[data-state='seeded'] {
+  border-color: var(--feedback-warning-border);
+  color: var(--feedback-warning-content);
+}
+
+.kb-prov[data-state='observed'] {
+  border-style: solid;
+  border-color: var(--feedback-success-border);
+  color: var(--feedback-success-content);
+}
+
+.kb-mag { display: flex; flex-direction: column; gap: 1px; }
+
+.kb-mag b { font-size: var(--fs-emphasis); color: var(--content-primary); text-transform: capitalize; }
+.kb-mag span { font-size: var(--fs-caption); color: var(--content-tertiary); }
+
+.kb-mag[data-state='undetermined'] b {
+  color: var(--content-secondary);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.kb-mag[data-state='measured'] b { color: var(--status-good); }
+
+/* -------------------------------------------------------------- detail ---- */
+
+.kb-detail, .mem-detail { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.kb-detail__grades { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+
+.kb-detail__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
+.kb-body {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: 1.65;
+  color: var(--content-primary);
+  max-width: 74ch;
+  white-space: pre-wrap;
+}
+
+.kb-basis {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-caption);
+  line-height: var(--lh-snug);
+  color: var(--content-tertiary);
+}
+
+.kb-fields { margin: 0; display: flex; flex-direction: column; gap: var(--space-2-5); }
+
+.kb-fields > div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.kb-fields dt { font-size: var(--fs-caption); color: var(--content-tertiary); }
+.kb-fields dd { margin: 0; font-size: var(--fs-small); color: var(--content-primary); overflow-wrap: anywhere; }
+
+.kb-sub {
+  margin: var(--space-3) 0 var(--space-1-5);
+  font-size: var(--fs-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--content-tertiary);
+}
+
+.kb-sub:first-child { margin-top: 0; }
+
+.kb-rel { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1-5); }
+
+.kb-rel li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); font-size: var(--fs-small); }
+
+.kb-rel__sub { font-size: var(--fs-caption); color: var(--content-tertiary); }
+.kb-rel__none { margin: 0; font-size: var(--fs-caption); }
+
+/* --------------------------------------------------------- memory feed ---- */
+
+.mem-feed { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.mem-card {
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.mem-card:hover { border-color: var(--border-strong); }
+
+.mem-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.mem-card__t { margin: 0 0 var(--space-1-5); font-size: var(--fs-card-title); }
+
+.mem-card__t button {
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--content-primary);
+  cursor: pointer;
+}
+
+.mem-card__t button:hover { color: var(--accent-intelligence-deep); }
+.mem-card__t button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-xs); }
+
+.mem-card__sub { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; font-size: var(--fs-caption); }
+
+/* The three-step spine on a card. The left rule is the chain: it makes the
+   sequence readable without a diagram. */
+.mem-chain {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0 0 0 var(--space-4);
+  border-left: 2px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mem-step { position: relative; display: flex; flex-direction: column; gap: var(--space-1); }
+
+.mem-step::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--space-4) * -1 - 5px);
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.mem-step[data-step='learning']::before { background: var(--accent-intelligence); }
+
+.mem-step__k {
+  font-size: var(--fs-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--content-tertiary);
+}
+
+.mem-step__b { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.mem-step__b p { margin: 0; font-size: var(--fs-small); line-height: var(--lh-snug); color: var(--content-secondary); }
+
+.mem-step__m { font-size: var(--fs-caption); color: var(--content-tertiary); }
+
+.mem-step__none { margin: 0; font-size: var(--fs-caption); color: var(--content-tertiary); font-style: italic; }
+
+.mem-lesson { color: var(--content-primary) !important; font-weight: 500; }
+
+.mem-card__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ------------------------------------------------------ the full chain ---- */
+
+.chain { list-style: none; margin: 0; padding: 0; }
+
+.chain__step { display: grid; grid-template-columns: 32px 1fr; gap: var(--space-4); }
+
+.chain__rail { display: flex; flex-direction: column; align-items: center; }
+
+.chain__dot {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--content-secondary);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-default);
+}
+
+/* The connector is drawn on the rail, not between cards, so a step whose body
+   is a single "not recorded" line still shows the chain running through it. */
+.chain__step:not(:last-child) .chain__rail::after {
+  content: '';
+  flex: 1;
+  width: 2px;
+  background: var(--border-subtle);
+  margin: var(--space-1) 0;
+}
+
+.chain__step[data-kind='learning'] .chain__dot {
+  background: var(--action-subtle);
+  border-color: var(--accent-intelligence);
+  color: var(--accent-intelligence-deep);
+}
+
+.chain__body { padding-bottom: var(--space-5); min-width: 0; }
+
+.chain__t {
+  margin: 4px 0 var(--space-2);
+  font-size: var(--fs-card-title);
+  color: var(--content-primary);
+}
+
+.chain__body > p { margin: 0 0 var(--space-2); font-size: var(--fs-small); line-height: var(--lh-snug); color: var(--content-secondary); max-width: 78ch; }
+
+.chain__m {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--fs-caption);
+  color: var(--content-tertiary);
+  margin-top: var(--space-2);
+}
+
+.ev-list, .ex-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+
+.ev, .ex {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+}
+
+.ev__h { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.ev__src { font-size: var(--fs-label); font-weight: 600; color: var(--content-primary); }
+.ev__s { margin: var(--space-1-5) 0 0; font-size: var(--fs-small); color: var(--content-secondary); }
+.ev__m { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-top: var(--space-2); font-size: var(--fs-caption); color: var(--content-tertiary); }
+
+.ex__n { font-size: var(--fs-label); font-weight: 600; color: var(--content-primary); margin-right: var(--space-2); }
+.ex__note { margin: var(--space-1-5) 0 0; font-size: var(--fs-small); color: var(--content-secondary); }
+.ex__err { margin: var(--space-1-5) 0 0; font-size: var(--fs-small); color: var(--feedback-error-content); }
+
+/* --------------------------------------------------------- data notice ---- */
+
+/* Shown when the shelf or feed is entirely seeded. It is a statement about the
+   data, not an error, so it is toned as information and never blocks the view. */
+.kb-notice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3-5) var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--feedback-warning-surface);
+  border: 1px solid var(--feedback-warning-border);
+}
+
+.kb-notice b { font-size: var(--fs-label); color: var(--feedback-warning-content); }
+
+.kb-notice p {
+  margin: var(--space-1-5) 0 0;
+  font-size: var(--fs-caption);
+  line-height: var(--lh-snug);
+  color: var(--content-secondary);
+  max-width: 88ch;
+}
+
+/* ----------------------------------------------------------- paginator ---- */
+
+.kb-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.kb-pager button {
+  font: inherit;
+  font-size: var(--fs-caption);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+
+.kb-pager button:disabled { opacity: 0.45; cursor: default; }
+.kb-pager button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.kb-pager__n { font-size: var(--fs-caption); color: var(--content-tertiary); }
+
+/* ---------------------------------------------------------- responsive ---- */
+
+@media (max-width: 900px) {
+  .kb { padding: var(--space-4) var(--space-4) var(--space-8); }
+  .kb-shelf { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .kb-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kb-meta { grid-template-columns: minmax(0, 1fr); gap: var(--space-1-5); }
+  .kb-fields > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .kb-controls { flex-direction: column; align-items: stretch; }
+  .kb-select { max-width: none; }
+  .chain__step { grid-template-columns: 22px 1fr; gap: var(--space-3); }
+  .chain__dot { width: 22px; height: 22px; }
+  .mem-card__head { flex-direction: column; gap: var(--space-2); }
+}

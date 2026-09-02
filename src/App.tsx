@@ -149,6 +149,16 @@ function AuthenticatedApp() {
     the correct default.
   */
   const [graphFocus, setGraphFocus] = useState<GraphFocus | null>(null);
+  /**
+   * The ESO a recommendation asked to open, carried across the navigation.
+   *
+   * Same shape of problem as graphFocus: the ESO Library is a separate view, so
+   * "View ESO" on a recommendation is a navigation plus a selection, and the
+   * selection has nowhere to live but here. Cleared on every navigation away,
+   * so returning to the library later opens on its own first entry rather than
+   * on whatever was last followed from somewhere else.
+   */
+  const [esoFocus, setEsoFocus] = useState<string | null>(null);
   const [peopleDepartmentId, setPeopleDepartmentId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
@@ -414,6 +424,7 @@ function AuthenticatedApp() {
     // graph — the sidebar, the command palette, a reload — opens on the
     // organization.
     setGraphFocus(v === 'graph' ? (focus ?? null) : null);
+    if (v !== 'esolibrary') setEsoFocus(null);
 
     saveSession({ organization: scopedNextOrg, view: v });
   };
@@ -427,6 +438,20 @@ function AuthenticatedApp() {
    * tenant simply does not resolve, and the graph opens on the organization.
    */
   const exploreInGraph = (label: string, id: string) => navigate('graph', selected ?? undefined, { label, id });
+
+  /**
+   * Open one executable object from wherever it was referenced.
+   *
+   * Passed only to screens that render recommendations. A recommendation
+   * carries an esoId only where an ESO in this tenant's catalogue declares its
+   * finding, so this is never called with an id the library cannot resolve —
+   * and if it somehow is, the library falls back to its first entry rather than
+   * showing an empty detail pane.
+   */
+  const viewEso = (esoId: string) => {
+    setEsoFocus(esoId);
+    navigate('esolibrary', selected ?? undefined);
+  };
 
   /**
    * @param revokeOnServer POST /auth/logout to revoke the refresh token.
@@ -655,6 +680,10 @@ function AuthenticatedApp() {
                     setPeopleDepartmentId(departmentId);
                   },
                   onExploreInGraph: exploreInGraph,
+                  // The department intelligence screen's blind-spot fixes route
+                  // out of Departments entirely — into Ingestion, Signals or
+                  // Capabilities — so they need the shell's own navigator.
+                  onNavigate: (view: string) => navigate(view as View, selected),
                 }}
               />
             )}
@@ -662,7 +691,7 @@ function AuthenticatedApp() {
               <LazyView
                 label="People"
                 loader={PERSON_APP}
-                props={{ organization: selected, initialDepartmentId: peopleDepartmentId, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph }}
+                props={{ organization: selected, initialDepartmentId: peopleDepartmentId, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph, onNavigate: (v: string) => navigate(v as View, selected) }}
               />
             )}
             {view === 'capabilities' && selected && (
@@ -687,10 +716,10 @@ function AuthenticatedApp() {
               />
             )}
             {view === 'analytics' && selected && (
-              <LazyView label="Analytics" loader={DECISION_ANALYTICS_PANEL} props={{ tenantId: selected.tenantId }} />
+              <LazyView label="Analytics" loader={DECISION_ANALYTICS_PANEL} props={{ tenantId: selected.tenantId, onViewEso: viewEso }} />
             )}
             {view === 'executive' && selected && (
-              <LazyView label="Executive Dashboard" loader={EXECUTIVE_DASHBOARD} props={{ tenantId: selected.tenantId }} />
+              <LazyView label="Executive Dashboard" loader={EXECUTIVE_DASHBOARD} props={{ tenantId: selected.tenantId, onViewEso: viewEso }} />
             )}
             {view === 'graph' && selected && (
               <LazyView
@@ -752,7 +781,7 @@ function AuthenticatedApp() {
               <LazyView label="Executions" loader={EXECUTION_CENTER} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'knowledgelibrary' && selected && (
-              <LazyView label="Knowledge Library" loader={KNOWLEDGE_LIBRARY} props={{ tenantId: selected.tenantId }} />
+              <LazyView label="Knowledge Library" loader={KNOWLEDGE_LIBRARY} props={{ tenantId: selected.tenantId, onNavigate: (v: string) => navigate(v as View, selected) }} />
             )}
             {view === 'ingestion' && selected && (
               <LazyView
@@ -762,13 +791,13 @@ function AuthenticatedApp() {
               />
             )}
             {view === 'memory' && selected && (
-              <LazyView label="Memory" loader={MEMORY_SCREEN} props={{ tenantId: selected.tenantId }} />
+              <LazyView label="Memory" loader={MEMORY_SCREEN} props={{ tenantId: selected.tenantId, onNavigate: (v: string) => navigate(v as View, selected) }} />
             )}
             {/* Now takes a tenant: the catalogue it renders is per-organization,
                 where before it rendered the same two hardcoded definitions for
                 everyone. */}
             {view === 'esolibrary' && selected && (
-              <LazyView label="ESO Library" loader={ESO_LIBRARY_SCREEN} props={{ tenantId: selected.tenantId }} />
+              <LazyView label="ESO Library" loader={ESO_LIBRARY_SCREEN} props={{ tenantId: selected.tenantId, focusEsoId: esoFocus }} />
             )}
             {view === 'kasbaexplorer' && selected && (
               <LazyView label="KASBA" loader={KASBA_EXPLORER} props={{ tenantId: selected.tenantId, organizationName: selected.name }} />

@@ -37,7 +37,7 @@ import { InsightsPanel, ScorecardPanel, TrendChart } from './OperationalIntellig
  * recommendations, each derived from a specific detected gap or risk, each carrying
  * its evidence, its confidence, a labelled benefit and one next action.
  */
-export default function ExecutiveDashboard({ tenantId }: { tenantId: string }) {
+export default function ExecutiveDashboard({ tenantId, onViewEso }: { tenantId: string; onViewEso?: (esoId: string) => void }) {
   const [state, setState] = useState<OrganizationalState | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationsResponse | null>(null);
   const [gaps, setGaps] = useState<GapsResponse | null>(null);
@@ -315,7 +315,7 @@ export default function ExecutiveDashboard({ tenantId }: { tenantId: string }) {
             ) : (
               <div className="oi-recs">
                 {recommendations.recommendations.slice(0, 12).map((r) => (
-                  <RecommendationCard recommendation={r} key={r.id} />
+                  <RecommendationCard recommendation={r} key={r.id} onViewEso={onViewEso} />
                 ))}
                 {recommendations.total > 12 && (
                   <p className="bc-note">

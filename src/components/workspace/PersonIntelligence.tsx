@@ -2,11 +2,31 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Archive, FileSearch, RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { api as personApi } from '../../api/person';
-import { api as departmentApi } from '../../api/department';
 import { LoadingState, ErrorState } from '../shared/States';
 import './PersonProfile.css';
 import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
 import { HeaderActions, HeaderOverflowMenu, PageHeader } from '../../ui';
+import { personIntelligenceApi } from '../../api/personIntelligence';
+import type { PersonIntelligence as PersonIntel } from '../../api/personIntelligence';
+import { PanelSkeleton, Pill } from '../intelligence/parts';
+import { ConfidenceRing, StandingChips, StandingVerdict } from '../person/intelligence/Hero';
+import {
+  MetricCards,
+  RecommendationPanel,
+  SinceRefreshStrip,
+  WhereTheyStand,
+} from '../person/intelligence/Overview';
+import type { OverviewActions } from '../person/intelligence/Overview';
+import {
+  Anomalies,
+  BlindSpotsFold,
+  CapabilityProfile,
+  LoopStrip,
+  Patterns,
+  ScoreExplainFold,
+} from '../person/intelligence/Intelligence';
+import { MismatchBanner } from '../person/intelligence/Records';
+import '../person/intelligence/personIntelligence.css';
 
 /**
  * The person profile.
@@ -235,6 +255,12 @@ export interface PersonProfileActions {
    * embed — renders no button rather than a dead one.
    */
   onExploreInGraph?: (label: string, id: string) => void;
+  /**
+   * Move to another top-level screen. Used by the unlock actions beside every
+   * UNDETERMINED value. Absent in hosts with no navigation, and then those
+   * actions render as the reason alone rather than as a button to nowhere.
+   */
+  onNavigate?: (view: string) => void;
 }
 
 /* ──────────────────────────────── formatting ─────────────────────────────── */
@@ -350,9 +376,84 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
+/* ─────────────────────────────── timeline shaping ────────────────────────── */
+
+const TIMELINE_CHIPS: Array<{ key: TimelineFilter; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'attendance', label: 'Attendance' },
+  { key: 'checkin', label: 'Check-in' },
+  { key: 'anomalies', label: 'Anomalies' },
+  { key: 'hr', label: 'HR' },
+];
+
+/** Which chip a timeline event answers to. Read from its own words, not guessed. */
+function eventKind(text: string): Exclude<TimelineFilter, 'all' | 'anomalies'> | 'other' {
+  const t = text.toLowerCase();
+  if (t.includes('check-in') || t.includes('checkin')) return 'checkin';
+  if (t.includes('attendance')) return 'attendance';
+  if (
+    t.includes('leave') || t.includes('appraisal') || t.includes('expense') ||
+    t.includes('shift') || t.includes('feedback') || t.includes('employee')
+  ) return 'hr';
+  return 'other';
+}
+
+interface GroupedEvent {
+  at: string;
+  title: string;
+  detail: string | null;
+  source: string;
+  amount: number | null;
+  currency: string | null;
+  kind: string;
+  /** How many further identical-type events shared this date. */
+  extra: number;
+  mismatch: boolean;
+}
+
+/**
+ * COLLAPSE THE REPEATS, KEEP THE COUNT.
+ *
+ * A field day produces a dozen check-ins, and twelve identical rows push the
+ * one thing that actually happened that day off the screen. Same date and same
+ * type become one row carrying "+ 11 × check-in", so the count survives while
+ * the noise does not.
+ */
+function groupTimeline(events: any[], mismatchDates: Set<string>): GroupedEvent[] {
+  const out: GroupedEvent[] = [];
+
+  for (const e of events) {
+    const day = typeof e.at === 'string' ? e.at.slice(0, 10) : '';
+    const kind = eventKind(`${e.title ?? ''} ${e.detail ?? ''}`);
+    const last = out[out.length - 1];
+
+    if (last && last.at.slice(0, 10) === day && last.kind === kind && kind !== 'other') {
+      last.extra += 1;
+      continue;
+    }
+
+    out.push({
+      at: e.at,
+      title: e.title,
+      detail: e.detail ?? null,
+      source: e.source,
+      amount: e.amount ?? null,
+      currency: e.currency ?? null,
+      kind,
+      extra: 0,
+      mismatch: mismatchDates.has(day),
+    });
+  }
+
+  return out;
+}
+
 /* ──────────────────────────────── the screen ─────────────────────────────── */
 
 type Tab = 'overview' | 'finance' | 'records' | 'intelligence' | 'timeline';
+
+/** Timeline chips. Client-side, over the events already fetched. */
+type TimelineFilter = 'all' | 'attendance' | 'checkin' | 'anomalies' | 'hr';
 
 export default function PersonIntelligence({
   tenantId,
@@ -363,12 +464,31 @@ export default function PersonIntelligence({
   onArchive,
   onViewSourceRecord,
   onExploreInGraph,
+  onNavigate,
 }: { tenantId: string; personId: string } & PersonProfileActions) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
-  const [openRecord, setOpenRecord] = useState<string | null>(null);
+
+  /*
+    THE STANDING ARRIVES SEPARATELY, AND MAY NOT ARRIVE AT ALL.
+
+    The profile and the intelligence payload are two endpoints with two failure
+    modes. Held apart so a scoring outage degrades the screen to the facts —
+    the person's record, their attached rows, their timeline — instead of
+    taking the whole page down with a retry button. Each intelligence section
+    renders its own skeleton while this is in flight, so nothing on the page
+    moves when it lands.
+  */
+  const [intel, setIntel] = useState<PersonIntel | null>(null);
+  const [intelLoading, setIntelLoading] = useState(true);
+  const [intelError, setIntelError] = useState<string | null>(null);
+
+  // Records tab: a client-side filter over the rows already on screen. It
+  // narrows what is shown; it never changes what was counted.
+  const [mismatchOnly, setMismatchOnly] = useState(false);
+  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('all');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -377,11 +497,62 @@ export default function PersonIntelligence({
       .then((data: Profile) => setProfile(data))
       .catch((e: any) => setError(e?.message ?? 'Could not load this person.'))
       .finally(() => setLoading(false));
+
+    setIntelLoading(true);
+    setIntelError(null);
+    personIntelligenceApi.get(tenantId, personId)
+      .then((data) => setIntel(data))
+      .catch((e: any) => setIntelError(e?.message ?? 'Could not compute this person’s standing.'))
+      .finally(() => setIntelLoading(false));
   }, [tenantId, personId]);
 
   // Re-runs whenever the person or the organization changes, so navigating from
   // one person straight to another cannot leave the previous one on screen.
   useEffect(() => { load(); }, [load]);
+
+  /*
+    THE RECORDS TABLE PAGES ON THE SERVER.
+
+    Its page is fetched through the same intelligence endpoint, so the rows and
+    the mismatch marks on them are decided in one place. Asking the browser to
+    work out which dates contradict each other would need every dataset for
+    this person in memory, and would be a second definition of "mismatch".
+  */
+  const [recordsPage, setRecordsPage] = useState(1);
+  const [pagedRecords, setPagedRecords] = useState<PersonIntel['recordsPage'] | null>(null);
+
+  useEffect(() => {
+    if (recordsPage === 1) { setPagedRecords(null); return; }
+    let live = true;
+    personIntelligenceApi.get(tenantId, personId, { page: recordsPage })
+      .then((data) => { if (live) setPagedRecords(data.recordsPage); })
+      .catch(() => { if (live) setPagedRecords(null); });
+    return () => { live = false; };
+  }, [tenantId, personId, recordsPage]);
+
+  /*
+    THE UNLOCK ACTIONS.
+
+    Every UNDETERMINED value on this screen is paired with the one action that
+    would make it measurable, and each of these routes to a real screen. An
+    action with nowhere to go is left undefined rather than wired to a stub —
+    the components render no button at all when the handler is absent, which is
+    honest, where a button that does nothing is not.
+  */
+  const intelActions: OverviewActions = useMemo(() => ({
+    /*
+      NO "ASSIGN ROLE" BUTTON, DELIBERATELY.
+
+      A person's role is owned by the source HR system and is read-only in the
+      Brain — PersonEdit says so on its own form. There is therefore no screen
+      an "Assign role" click could open, so the row renders the reason without
+      a button. Wiring it to the contact-details editor would send the reader
+      to a form that cannot fix the thing it was offered to fix.
+    */
+    onAssignRole: undefined,
+    onScheduleAssessment: onNavigate ? () => onNavigate('capabilities') : undefined,
+    onCreatePlan: undefined,
+  }), [onNavigate]);
 
   // A person with no fee records is not a school student, and a fees tab that
   // can only ever be empty is noise. Tabs follow the data.
@@ -405,6 +576,41 @@ export default function PersonIntelligence({
   if (!profile) return null;
 
   const { person, organization, academic, contacts, finance, activity, intelligence, linkage, timeline } = profile;
+
+  /*
+    THE RECORDS ON SCREEN.
+
+    `pagedRecords` holds a later page once the reader asks for one; page 1 is
+    already in the intelligence payload, so opening the tab costs no second
+    request. The empty fallback keeps the table's shape when the intelligence
+    endpoint is unavailable, rather than leaving `records` undefined.
+  */
+  const records: PersonIntel['recordsPage'] =
+    pagedRecords ?? intel?.recordsPage ?? { page: 1, pageSize: 25, total: 0, items: [] };
+
+  /*
+    THE FILTER NARROWS WHAT IS SHOWN, NOT WHAT WAS COUNTED. The banner's count
+    is the server's, over every record; this filter is over the current page.
+    The note under the table says which of the two the reader is looking at, so
+    a page with no contradicted rows cannot read as "the mismatches are gone".
+  */
+  const visibleRecords = mismatchOnly ? records.items.filter((r) => r.mismatch) : records.items;
+  const sourceFile = records.items.find((r) => r.sourceFile)?.sourceFile ?? null;
+
+  /*
+    The contradicted dates the server reported, plus any on the page in hand.
+    Marks on the timeline therefore only ever claim a day the backend named —
+    the browser never decides for itself that two records disagree.
+  */
+  const mismatchDates = new Set<string>([
+    ...(intel?.consistency.mismatches.sampleDates ?? []).map((d) => d.slice(0, 10)),
+    ...records.items.filter((r) => r.mismatch && r.date).map((r) => (r.date as string).slice(0, 10)),
+  ]);
+
+  const groupedTimeline = groupTimeline(timeline.events, mismatchDates);
+  const shownTimeline = groupedTimeline.filter((e) =>
+    timelineFilter === 'all' ? true : timelineFilter === 'anomalies' ? e.mismatch : e.kind === timelineFilter,
+  );
   const name = person.displayName ?? `Person ${person.id}`;
   const currency = finance?.currency ?? null;
 
@@ -452,6 +658,9 @@ export default function PersonIntelligence({
           person.externalRef ? { label: `Ref ${person.externalRef}`, title: 'Source system reference' } : null,
           academic?.academicYear ? { label: `Academic year ${academic.academicYear}` } : null,
         ]}
+        aside={
+          intelLoading ? null : intel ? <ConfidenceRing confidence={intel.confidence} /> : null
+        }
         actions={(
           <HeaderActions>
             <ExploreInGraphButton
@@ -481,7 +690,21 @@ export default function PersonIntelligence({
             />
           </HeaderActions>
         )}
-      />
+      >
+        {/*
+          THE VERDICT LEADS, AND IT NAMES ITS OWN BASIS.
+
+          A band and a number alone would be an assertion. The sentence under
+          them says which measured dimensions produced it, so a reader can
+          disagree with the finding on its evidence rather than on its colour.
+        */}
+        {intel && (
+          <>
+            <StandingChips person={intel.person} />
+            <StandingVerdict standing={intel.standing} />
+          </>
+        )}
+      </PageHeader>
 
       {tabs.length > 1 && (
         <div className="pp-tabs" role="tablist">
@@ -496,8 +719,36 @@ export default function PersonIntelligence({
 
       {tab === 'overview' && (
         <>
-          <Highlights profile={profile} />
-          <Standing profile={profile} tenantId={tenantId} />
+          {/*
+            THE MEASURED READING COMES FIRST, THE RECORD SECOND.
+
+            What replaced the old highlight tiles and standing panel: those
+            compared this person against department averages the browser had
+            fetched and re-averaged itself, which meant two screens could
+            disagree about what a unit's average was. Everything here is the
+            server's own arithmetic, from the same scoring config the
+            department health screen reads.
+          */}
+          {intelLoading && !intel ? (
+            <>
+              <PanelSkeleton rows={2} />
+              <PanelSkeleton rows={4} />
+            </>
+          ) : intelError && !intel ? (
+            <Panel title="Standing">
+              <Empty
+                headline="This person’s standing could not be computed."
+                explain={`${intelError} The record below is unaffected — it comes from a different endpoint. Use Refresh to try again.`}
+              />
+            </Panel>
+          ) : intel ? (
+            <>
+              <SinceRefreshStrip data={intel.sinceRefresh} />
+              <MetricCards data={intel} />
+              <WhereTheyStand data={intel} actions={intelActions} />
+              <RecommendationPanel data={intel} actions={intelActions} />
+            </>
+          ) : null}
 
           <div className="pp-grid">
             <Panel title="Profile">
@@ -505,7 +756,17 @@ export default function PersonIntelligence({
                 rows={[
                   ['Full name', name],
                   ['Reference', person.externalRef, true],
-                  ['Role', person.role],
+                  [
+                    'Role',
+                    intel && !intel.person.roleAssigned ? (
+                      <span className="pi-cmp__r" style={{ justifyContent: 'flex-start' }}>
+                        {person.role ?? 'Not assigned'}
+                        <Pill tone="warn">blocks 2 dimensions</Pill>
+                      </span>
+                    ) : (
+                      person.role
+                    ),
+                  ],
                   ['Job title', person.jobTitle],
                   [person.role?.toLowerCase() === 'student' ? 'Class section' : 'Department', person.departmentName],
                   ['Email', person.email && <a href={`mailto:${person.email}`}>{person.email}</a>],
@@ -750,7 +1011,25 @@ export default function PersonIntelligence({
 
       {tab === 'records' && (
         <>
-          {activity.datasets.length > 0 && (
+          {/*
+            THE TILES COME FROM THE SAME PAYLOAD AS THE ROWS.
+
+            recordsSummary and recordsPage are counted by one query in one
+            service, so the tiles and the table can never describe different
+            sets of records.
+          */}
+          {intel && intel.recordsSummary.length > 0 ? (
+            <div className="pp-stats">
+              {intel.recordsSummary.map((d) => (
+                <Stat
+                  key={d.type}
+                  label={d.type}
+                  value={d.count.toLocaleString()}
+                  hint={d.from && d.to ? `${fmtDate(d.from)} – ${fmtDate(d.to)}` : null}
+                />
+              ))}
+            </div>
+          ) : activity.datasets.length > 0 ? (
             <div className="pp-stats">
               {activity.datasets.map((d) => (
                 <Stat
@@ -761,75 +1040,139 @@ export default function PersonIntelligence({
                 />
               ))}
             </div>
+          ) : null}
+
+          {intel && (
+            <MismatchBanner
+              mismatches={intel.consistency.mismatches}
+              filtered={mismatchOnly}
+              onToggle={() => setMismatchOnly((v) => !v)}
+            />
           )}
 
           <Panel title="Imported records">
-            {activity.records.length === 0 ? (
+            {intelLoading && !intel ? (
+              <PanelSkeleton rows={6} />
+            ) : records.total === 0 ? (
               <Empty
                 headline="No imported records reference this person."
                 explain="Records arrive through the Ingestion screen. Once an import contains this person’s reference or name, its rows appear here."
               />
             ) : (
               <>
-                {activity.total > activity.shown && (
-                  <p className="pp-note">
-                    Showing the {activity.shown} most recent of {activity.total.toLocaleString()} records
-                    attached to this person.
-                  </p>
-                )}
+                <p className="pp-note">
+                  {mismatchOnly
+                    ? `Showing the ${visibleRecords.length} row${visibleRecords.length === 1 ? '' : 's'} on this page whose date is contradicted by another dataset, of ${records.items.length} on the page.`
+                    : `Showing ${records.items.length} of ${records.total.toLocaleString()} records attached to this person.`}
+                </p>
                 <div className="pp-table-wrap">
                   <table className="pp-table">
                     <thead>
                       <tr>
                         <th>Date</th><th>Record</th><th>Type</th><th>Status</th>
-                        <th className="pp-num">Amount</th><th>Attached as</th><th />
+                        <th className="pp-num">Amount</th><th>Attached as</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {activity.records.map((r) => (
-                        <tr key={r.id}>
-                          <td>{fmtDate(r.occurredAt) ?? '—'}</td>
+                      {visibleRecords.map((r) => (
+                        <tr key={r.id} data-mismatch={r.mismatch ? 'true' : undefined}>
                           <td>
-                            <div>{r.category ?? r.datasetLabel}</div>
-                            {r.reference && <div className="pp-mono pp-timeline-source">{r.reference}</div>}
-                            {openRecord === r.id && r.detail.length > 0 && (
-                              <div className="pp-record-detail" style={{ marginTop: 10 }}>
-                                {r.detail.map((d) => (
-                                  <span key={d.label}><b>{d.label}</b><span>{d.value}</span></span>
-                                ))}
-                                {r.source.file && (
-                                  <span><b>Imported from</b><span>{r.source.file}{r.source.row ? ` row ${r.source.row}` : ''}</span></span>
-                                )}
-                              </div>
-                            )}
+                            {fmtDate(r.date) ?? '—'}
+                            {r.mismatch && <div className="pi-flag">mismatch day</div>}
                           </td>
-                          <td>{r.datasetLabel}</td>
+                          <td>
+                            <div>{r.category ?? r.type}</div>
+                            {r.recordKey && <div className="pp-mono pp-timeline-source">{r.recordKey}</div>}
+                          </td>
+                          <td>{r.type}</td>
                           <td>{r.status ? <span className={badgeClass(r.status)}>{r.status}</span> : '—'}</td>
                           <td className="pp-num">{r.amount === null ? '—' : money(r.amount, r.currency)}</td>
-                          <td className="pp-timeline-source">{r.linkedBy.join(', ') || '—'}</td>
-                          <td>
-                            {r.detail.length > 0 && (
-                              <button
-                                className="pp-disclosure"
-                                aria-expanded={openRecord === r.id}
-                                onClick={() => setOpenRecord(openRecord === r.id ? null : r.id)}
-                              >
-                                {openRecord === r.id ? 'Hide' : 'Details'}
-                              </button>
-                            )}
-                          </td>
+                          <td className="pp-timeline-source">{r.matchedBy.join(', ') || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+
+                {visibleRecords.length === 0 && (
+                  <p className="pp-note">
+                    None of the rows on this page falls on a contradicted date. The mismatch days are spread
+                    across the full set of {records.total.toLocaleString()} records.
+                  </p>
+                )}
+
+                {records.total > records.pageSize && (
+                  <div className="pi-filters" style={{ marginTop: 12, marginBottom: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => setRecordsPage((n) => Math.max(1, n - 1))}
+                      disabled={records.page <= 1}
+                    >
+                      ← Previous
+                    </button>
+                    <button type="button" aria-pressed="true">
+                      Page {records.page} of {Math.max(1, Math.ceil(records.total / records.pageSize))}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRecordsPage((n) => n + 1)}
+                      disabled={records.page >= Math.ceil(records.total / records.pageSize)}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+
+                {sourceFile && <p className="pp-note">Imported from {sourceFile}.</p>}
               </>
             )}
           </Panel>
         </>
       )}
 
-      {tab === 'intelligence' && <IntelligenceTab intelligence={intelligence} personName={name} />}
+      {tab === 'intelligence' && (
+        intelLoading && !intel ? (
+          <>
+            <PanelSkeleton rows={5} />
+            <PanelSkeleton rows={3} />
+          </>
+        ) : intel ? (
+          <>
+            <CapabilityProfile data={intel} actions={intelActions} />
+
+            <div className="pp-grid">
+              <Patterns data={intel} />
+              <Anomalies
+                data={intel}
+                onOpenMismatches={
+                  intel.consistency.mismatches.count > 0
+                    ? () => { setMismatchOnly(true); setRecordsPage(1); setTab('records'); }
+                    : undefined
+                }
+              />
+            </div>
+
+            <LoopStrip loop={intel.loop} />
+            <ScoreExplainFold data={intel} />
+            <BlindSpotsFold
+              spots={intel.blindSpots}
+              onFix={(route) => {
+                /*
+                  Blind-spot fixes are server-authored routes. Only the ones
+                  this SPA actually has a screen for are followed; the rest
+                  would be a click that changes nothing, so they do not become
+                  buttons at all.
+                */
+                if (route.startsWith('/capabilities')) onNavigate?.('capabilities');
+                else if (route.startsWith('/settings')) onNavigate?.('ingestion');
+                else if (route.startsWith('/people')) setTab('records');
+              }}
+            />
+          </>
+        ) : (
+          <IntelligenceTab intelligence={intelligence} personName={name} />
+        )
+      )}
 
       {tab === 'timeline' && (
         <Panel title="Timeline">
@@ -840,35 +1183,64 @@ export default function PersonIntelligence({
             />
           ) : (
             <>
+              <div className="pi-filters" role="group" aria-label="Filter timeline by event type">
+                {TIMELINE_CHIPS.map((c) => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    aria-pressed={timelineFilter === c.key}
+                    onClick={() => setTimelineFilter(c.key)}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+
               {(timeline.total > timeline.events.length || timeline.bounded) && (
                 <p className="pp-note">
                   Showing the {timeline.events.length} most recent events
                   {timeline.bounded ? ', drawn from the most recent records attached to this person' : ''}.
                 </p>
               )}
-              <div className="pp-timeline">
-                {timeline.events.map((event, i) => (
-                  <div key={`${event.at}-${i}`} className="eb-timeline-item">
-                    <span className="eb-timeline-rail">
-                      <span className="eb-timeline-dot" />
-                      {i < timeline.events.length - 1 && <span className="eb-timeline-line" />}
-                    </span>
-                    <span className="pp-timeline-date">{fmtDate(event.at)}</span>
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <div className="eb-timeline-text">
-                        {event.title}
-                        {event.amount !== null && (
-                          <span className="pp-mono" style={{ marginInlineStart: 8, color: 'var(--content-primary)' }}>
-                            {money(event.amount, event.currency)}
-                          </span>
-                        )}
-                      </div>
-                      {event.detail && <div className="eb-timeline-meta">{event.detail}</div>}
-                    </span>
-                    <span className="pp-timeline-source">{event.source}</span>
-                  </div>
-                ))}
-              </div>
+
+              {shownTimeline.length === 0 ? (
+                <p className="pp-note">
+                  No events of this kind among the {groupedTimeline.length} shown. Clear the filter to see the rest.
+                </p>
+              ) : (
+                <div className="pp-timeline">
+                  {shownTimeline.map((event, i) => (
+                    <div key={`${event.at}-${i}`} className="eb-timeline-item">
+                      <span className="eb-timeline-rail">
+                        <span
+                          className="eb-timeline-dot"
+                          style={event.mismatch ? { background: 'var(--status-warn)' } : undefined}
+                        />
+                        {i < shownTimeline.length - 1 && <span className="eb-timeline-line" />}
+                      </span>
+                      <span className="pp-timeline-date">{fmtDate(event.at)}</span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <div className="eb-timeline-text">
+                          {event.title}
+                          {event.extra > 0 && (
+                            <span className="pp-timeline-source" style={{ marginInlineStart: 8 }}>
+                              + {event.extra} × {event.kind === 'checkin' ? 'check-in' : event.kind}
+                            </span>
+                          )}
+                          {event.amount !== null && (
+                            <span className="pp-mono" style={{ marginInlineStart: 8, color: 'var(--content-primary)' }}>
+                              {money(event.amount, event.currency)}
+                            </span>
+                          )}
+                          {event.mismatch && <span className="pi-flag" style={{ marginInlineStart: 8 }}>mismatch day</span>}
+                        </div>
+                        {event.detail && <div className="eb-timeline-meta">{event.detail}</div>}
+                      </span>
+                      <span className="pp-timeline-source">{event.source}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </Panel>
@@ -907,245 +1279,6 @@ export default function PersonIntelligence({
  * assessment gets no strengths and no gaps — not empty ones — and the panel
  * says which import would produce them.
  */
-/** A payload field that should be a list, treated as one whatever arrives. */
-function asArray(value: unknown): any[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function Standing({ profile, tenantId }: { profile: Profile; tenantId: string }) {
-  const { intelligence, person } = profile;
-  const [departmentAverages, setDepartmentAverages] = useState<Record<string, number> | null>(null);
-  const [departmentName, setDepartmentName] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const unit = person.departmentId;
-    if (!unit) { setDepartmentAverages(null); return; }
-
-    departmentApi.getTwin(tenantId, String(unit))
-      .then((twin: any) => {
-        if (cancelled) return;
-        const averages: Record<string, number> = {};
-        for (const cell of asArray(twin?.capabilityHeatmap)) {
-          const level = Number(cell?.averageLevel);
-          if (cell?.capabilityId && Number.isFinite(level)) averages[String(cell.capabilityId)] = level;
-        }
-        setDepartmentAverages(averages);
-        setDepartmentName(twin?.department?.name ? String(twin.department.name) : null);
-      })
-      // A failed peer lookup degrades the panel to "own capabilities only".
-      // It must never blank a profile that is otherwise complete.
-      .catch(() => { if (!cancelled) setDepartmentAverages(null); });
-
-    return () => { cancelled = true; };
-  }, [tenantId, person.departmentId]);
-
-  const scored = intelligence.capabilities
-    .map((capability) => {
-      const values = Object.values(capability.scores).filter((v): v is number => typeof v === 'number');
-      const level = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
-      const peer = departmentAverages?.[capability.capabilityId] ?? null;
-      return { capability, level, peer, delta: level !== null && peer !== null ? level - peer : null };
-    })
-    .filter((row) => row.level !== null);
-
-  if (scored.length === 0 && intelligence.signals.length === 0) {
-    return null;
-  }
-
-  const ranked = [...scored].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
-  // "Strong" is relative to the unit where there is a unit to be relative to,
-  // and relative to this person's own spread where there is not.
-  const strengths = ranked.filter((r) => (r.delta !== null ? r.delta >= 0.5 : (r.level ?? 0) >= 3.5)).slice(0, 3);
-  const weak = [...ranked].reverse()
-    .filter((r) => (r.delta !== null ? r.delta <= -0.5 : (r.level ?? 0) < 2.5))
-    .slice(0, 3);
-
-  const gaps = intelligence.capabilities
-    .flatMap((c) => c.gaps.map((g) => ({ ...g, capabilityName: c.capabilityName })))
-    .filter((g) => g.gap > 0)
-    .sort((a, b) => b.gap - a.gap)
-    .slice(0, 3);
-
-  const openSignals = intelligence.signals.filter(
-    (sig) => !['resolved', 'closed', 'dismissed'].includes(String(sig.status ?? '').toLowerCase()),
-  );
-
-  const ownAverage = scored.length > 0
-    ? scored.reduce((sum, r) => sum + (r.level ?? 0), 0) / scored.length
-    : null;
-  const peerAverage = scored.filter((r) => r.peer !== null).length > 0
-    ? scored.filter((r) => r.peer !== null).reduce((sum, r) => sum + (r.peer as number), 0)
-      / scored.filter((r) => r.peer !== null).length
-    : null;
-
-  return (
-    <Panel title="Where this person stands">
-      <div className="pp-standing">
-        <div>
-          <h4>Strengths</h4>
-          {strengths.length === 0 ? (
-            <p className="pp-note">
-              {scored.length === 0
-                ? 'No capability has been assessed for this person, so nothing can be called a strength yet.'
-                : 'Nothing assessed stands clearly above the rest.'}
-            </p>
-          ) : (
-            <ul>
-              {strengths.map((row) => (
-                <li key={row.capability.capabilityId}>
-                  <strong>{row.capability.capabilityName}</strong>
-                  <small>
-                    {(row.level as number).toFixed(1)} of 5
-                    {row.delta !== null && ` — ${row.delta.toFixed(1)} above the ${departmentName ?? 'department'} average`}
-                  </small>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div>
-          <h4>Attention areas</h4>
-          {weak.length === 0 && gaps.length === 0 && openSignals.length === 0 ? (
-            <p className="pp-note">
-              Nothing assessed falls behind, and no unresolved signal names this person.
-            </p>
-          ) : (
-            <ul>
-              {weak.map((row) => (
-                <li key={row.capability.capabilityId}>
-                  <strong>{row.capability.capabilityName}</strong>
-                  <small>
-                    {(row.level as number).toFixed(1)} of 5
-                    {row.delta !== null && ` — ${Math.abs(row.delta).toFixed(1)} below the ${departmentName ?? 'department'} average`}
-                  </small>
-                </li>
-              ))}
-              {gaps.map((gap) => (
-                <li key={`${gap.capabilityName}-${gap.dimension}`}>
-                  <strong>{gap.capabilityName} · {gap.dimension}</strong>
-                  <small>
-                    At {gap.currentLevel ?? 0} against a target of {gap.targetLevel} — a gap of {gap.gap}.
-                  </small>
-                </li>
-              ))}
-              {openSignals.length > 0 && (
-                <li>
-                  <strong>{openSignals.length} unresolved {openSignals.length === 1 ? 'signal' : 'signals'}</strong>
-                  <small>{openSignals.slice(0, 2).map((sig) => sig.title || sig.ruleKey || 'Untitled').join(' · ')}</small>
-                </li>
-              )}
-            </ul>
-          )}
-        </div>
-
-        <div>
-          <h4>Compared with</h4>
-          {ownAverage === null ? (
-            <p className="pp-note">A comparison needs at least one assessed capability.</p>
-          ) : (
-            <dl className="pp-compare">
-              <div>
-                <dt>This person</dt>
-                <dd>{ownAverage.toFixed(1)} / 5</dd>
-              </div>
-              {peerAverage !== null && (
-                <div>
-                  <dt>{departmentName ?? 'Their department'}</dt>
-                  <dd>{peerAverage.toFixed(1)} / 5</dd>
-                </div>
-              )}
-              <div>
-                <dt>Assessed capabilities</dt>
-                <dd>{scored.length}</dd>
-              </div>
-            </dl>
-          )}
-          {/*
-            THE SCORE, WITH ITS ARITHMETIC SHOWN.
-
-            The profile score used to appear as a bare number in a tile, which
-            is exactly the "unexplained number" this screen is not allowed to
-            print. Its own breakdown is published beside it, so listing the
-            parts costs nothing and makes the total checkable.
-          */}
-          {intelligence.score.score !== null && (
-            <div className="pp-score-breakdown">
-              <h5>Profile score {intelligence.score.score}</h5>
-              <ul>
-                {Object.entries(intelligence.score.breakdown)
-                  .filter(([, value]) => value !== null)
-                  .map(([label, value]) => (
-                    <li key={label}><span>{label.replace(/[._]/g, ' ')}</span><strong>{value}</strong></li>
-                  ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
-function Highlights({ profile }: { profile: Profile }) {
-  const { finance, academic, activity, intelligence, person } = profile;
-  const currency = finance?.currency ?? null;
-  const tiles: Array<{ label: string; value: string; hint?: string | null }> = [];
-
-  if (finance) {
-    tiles.push({
-      label: 'Outstanding',
-      value: money(finance.outstanding, currency),
-      hint: finance.overdue > 0 ? `${money(finance.overdue, currency)} overdue` : 'Nothing overdue',
-    });
-    if (finance.collectedPct !== null) {
-      tiles.push({ label: 'Fees collected', value: `${finance.collectedPct}%`, hint: `${money(finance.paid, currency)} of ${money(finance.net, currency)}` });
-    }
-    tiles.push({ label: 'Invoices', value: finance.records.toLocaleString(), hint: finance.lastPayment ? `Last paid ${fmtDate(finance.lastPayment.date)}` : 'No payment recorded' });
-  }
-
-  if (academic?.attendancePct !== undefined) {
-    tiles.push({ label: 'Attendance', value: `${academic.attendancePct}%`, hint: 'As recorded on the latest fee record' });
-  }
-  if (academic?.examAveragePct !== undefined) {
-    tiles.push({ label: 'Term average', value: `${academic.examAveragePct}%`, hint: 'As recorded on the latest fee record' });
-  }
-
-  if (!finance && activity.total > 0) {
-    tiles.push({ label: 'Records attached', value: activity.total.toLocaleString(), hint: activity.datasets.map((d) => d.label).join(', ') });
-  }
-
-  if (intelligence.signalCount > 0) {
-    tiles.push({ label: 'Signals', value: String(intelligence.signalCount), hint: `${intelligence.evidenceCount} pieces of evidence` });
-  }
-  if (intelligence.capabilities.length > 0) {
-    tiles.push({ label: 'Capabilities assessed', value: String(intelligence.capabilities.length), hint: intelligence.score.score !== null ? `Profile score ${intelligence.score.score}` : null });
-  }
-  if (intelligence.decisions.total > 0) {
-    tiles.push({ label: 'Decisions', value: String(intelligence.decisions.total), hint: `${intelligence.decisions.approved} approved` });
-  }
-
-  if (tiles.length === 0) {
-    return (
-      <div style={{ marginBottom: 'var(--space-5)' }}>
-        <Empty
-          headline={`Nothing measurable has been recorded for ${person.displayName ?? 'this person'} yet.`}
-          explain="Their source record exists, but no imported records reference them and the intelligence loop has produced nothing about them. Importing data that carries their reference is what fills this page."
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="pp-stats">
-      {tiles.map((t) => <Stat key={t.label} {...t} />)}
-    </div>
-  );
-}
-
-/* ───────────────────────────── intelligence tab ──────────────────────────── */
-
 const KASBA = [
   { key: 'knowledge', letter: 'K', name: 'Knowledge' },
   { key: 'ability', letter: 'A', name: 'Ability' },

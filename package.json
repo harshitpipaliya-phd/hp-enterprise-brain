@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "audit:header": "node scripts/audit-header-cascade.mjs"
+    "audit:header": "node scripts/audit-header-cascade.mjs",
+    "lint": "eslint src tests"
   },
   "dependencies": {
     "d3-hierarchy": "^3.1.2",
@@ -19,6 +20,7 @@
     "recharts": "^3.9.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/d3-hierarchy": "^3.1.7",
@@ -26,8 +28,12 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.12.0",
     "jsdom": "^29.1.1",
     "typescript": "^5.5.0",
+    "typescript-eslint": "^8.69.0",
     "vite": "^5.4.0",
     "vitest": "^4.1.10"
   }

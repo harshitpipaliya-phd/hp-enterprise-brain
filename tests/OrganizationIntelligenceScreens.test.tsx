@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
 import MentalModelBrowser from '../src/components/workspace/MentalModelBrowser';
 import DecisionIntelligence from '../src/components/workspace/DecisionIntelligence';
 import ExecutiveDashboard from '../src/components/workspace/ExecutiveDashboard';
 import EsoLibraryScreen from '../src/components/workspace/EsoLibraryScreen';
+import { clearRequestCache } from '../src/api/client';
 
 /**
  * The three intelligence screens, rendered against RESPONSES CAPTURED FROM THE
@@ -78,6 +79,11 @@ function mockApi(bundle: Bundle) {
 
 beforeEach(() => {
   sessionStorage.setItem('accessToken', 'test-token');
+  // The api client caches GET responses by token+url for a short TTL. Two tests
+  // in this file request the same catalogue URL expecting different fixtures,
+  // and without this the second silently reads the first one's answer — the
+  // failure looks like a broken screen and is nothing of the kind.
+  clearRequestCache();
 });
 
 afterEach(() => {
@@ -277,9 +283,88 @@ describe('Executive Dashboard', () => {
 
 /* ─────────────────────────── ESO Library ─────────────────────────── */
 
+/**
+ * A catalogue with one real, runnable capability.
+ *
+ * Built here rather than in a fixture file because the assertions below are
+ * about the SHAPE the server now sends — a readiness block, an evidence list,
+ * an efficacy list that is allowed to be empty — and a reader of this test
+ * should be able to see that shape without opening another file.
+ */
+const runnableEso = {
+  id: 'eso-1',
+  esoCode: 'ESO-FEE-REMIND',
+  name: 'Targeted fee reminder',
+  purpose: 'Collection has fallen behind the agreed cadence.',
+  objective: 'PERFORM',
+  category: 'Capability',
+  status: 'published',
+  version: 1,
+  owner: 'ops@school',
+  trustLevel: 'approve',
+  allowedExecutorClasses: ['human'],
+  gapTypes: ['loop_never_closed'],
+  whenToUse: ['Collection rate has fallen for two consecutive months.'],
+  inputs: [{ name: 'departmentId', type: 'string' }],
+  preconditions: ['The unit lead has been briefed.'],
+  prerequisites: [],
+  executionSteps: [{ order: 1, method: 'Review the current distribution.' }],
+  expectedOutput: [{ name: 'outcome', type: 'string' }],
+  readiness: {
+    runnable: true,
+    blockers: [],
+    executorClasses: ['human'],
+    executorClassRestricted: true,
+    trustLevel: 'approve',
+    trustLevelNote: 'Trust level governs autonomy for a non-human executor.',
+    requiredInputs: [{ name: 'departmentId', type: 'string', required: true, description: null }],
+    optionalInputs: [],
+    unverifiableInputs: [],
+    preconditions: ['The unit lead has been briefed.'],
+    preconditionsRequireAcknowledgement: true,
+    preconditionNote: 'These preconditions cannot be verified from records.',
+  },
+  relatedKnowledge: { knowledgeAssets: [], memory: [] },
+  relatedRecommendations: [],
+  // One run, no outcome. This is the state the efficacy rule exists for.
+  runs: 1,
+  lastRun: '2026-08-01 09:00:00',
+  outcomes: 0,
+  outcomeStatus: 'Outcome evidence unavailable — efficacy not measurable.',
+  efficacy: [],
+  // One completed run, no outcome. The server refuses to score it and says why,
+  // per execution — this is the shape the UI must render without a percentage.
+  efficacyAnalysis: {
+    status: 'INSUFFICIENT_EVIDENCE',
+    message: 'Outcome evidence unavailable — efficacy not measurable.',
+    explanation: 'No execution of this ESO carries the before-and-after evidence a score needs. 1 execution: outcome not yet recorded.',
+    score: null,
+    verdict: null,
+    sampleSize: 0,
+    executionsConsidered: 1,
+    confidence: null,
+    metric: null,
+    contributions: [],
+  },
+  efficacyMessage: 'Outcome evidence unavailable — efficacy not measurable.',
+  executionHistory: [{
+    id: 'x-1', decisionId: 'd-1', status: 'completed', executedBy: 'ops@school',
+    executorType: 'human', error: null, startedDate: '2026-08-01 09:00:00',
+    completedDate: '2026-08-02 09:00:00', createdDate: '2026-08-01 09:00:00',
+  }],
+  outcomeHistory: [],
+  evidence: [],
+};
+
+const esoCatalogue = {
+  definitions: [runnableEso],
+  totals: { definitions: 1, active: 1, withEfficacy: 0, executions: 1, measurableOutcomes: 0 },
+};
+
 describe('ESO Library', () => {
   it('shows an empty catalogue as an empty catalogue, with no placeholder definitions', async () => {
     mockApi({
+      '/runnable-decisions': { decisions: [] },
       '/eso-definitions': tenant7.esoDefinitions,
       '/recommendations': tenant7.recommendations,
     });
@@ -300,6 +385,7 @@ describe('ESO Library', () => {
 
   it('names the execution capability each detected action is waiting on', async () => {
     mockApi({
+      '/runnable-decisions': { decisions: [] },
       '/eso-definitions': tenant7.esoDefinitions,
       '/recommendations': tenant7.recommendations,
     });
@@ -307,15 +393,133 @@ describe('ESO Library', () => {
     render(<EsoLibraryScreen tenantId="7" />);
 
     await waitFor(() =>
-      expect(screen.getByText('What the organization needs to be able to run')).toBeTruthy());
+      expect(screen.getByText('What the organization has been advised to do')).toBeTruthy());
 
     const types = new Set(
       (tenant7.recommendations.recommendations as { esoType: string }[]).map((r) => r.esoType),
     );
     expect(types.size).toBeGreaterThan(0);
 
+    // Each class is named by the demand summary, which is computed over EVERY
+    // recommendation — not only the ones listed individually below it. The
+    // question "which capabilities is this organization missing" has to be
+    // answered over the whole set or it is not answered at all.
     for (const type of types) {
       expect(screen.getAllByText(type).length).toBeGreaterThan(0);
     }
+  });
+
+  /**
+   * No recommendation in this fixture carries an esoId, and none may therefore
+   * offer a Run button. A screen that shows one anyway is claiming the
+   * organization can execute something it cannot.
+   */
+  it('offers no ESO action for a recommendation with no real binding', async () => {
+    mockApi({
+      '/runnable-decisions': { decisions: [] },
+      '/eso-definitions': tenant7.esoDefinitions,
+      '/recommendations': tenant7.recommendations,
+    });
+
+    render(<EsoLibraryScreen tenantId="7" />);
+
+    await waitFor(() =>
+      expect(screen.getByText('What the organization has been advised to do')).toBeTruthy());
+
+    expect(
+      (tenant7.recommendations.recommendations as { esoId: string | null }[]).every((r) => r.esoId === null),
+    ).toBe(true);
+    expect(screen.queryByText('View ESO')).toBeNull();
+    expect(screen.queryByText('Run ESO')).toBeNull();
+  });
+
+  /**
+   * EFFICACY IS NOT COMPLETION. One completed run and no outcome must produce
+   * the unmeasurable sentence and NO rate, score or percentage anywhere near it.
+   */
+  it('says efficacy is not measurable when runs exist but outcome evidence does not', async () => {
+    mockApi({
+      '/runnable-decisions': { decisions: [] },
+      '/eso-definitions/7/eso-1': runnableEso,
+      '/eso-definitions': esoCatalogue,
+      '/recommendations': tenant7.recommendations,
+    });
+
+    render(<EsoLibraryScreen tenantId="7" />);
+
+    await waitFor(() => expect(screen.getByText('Has it worked before?')).toBeTruthy());
+
+    expect(
+      screen.getAllByText(/Outcome evidence unavailable — efficacy not measurable\./).length,
+    ).toBeGreaterThan(0);
+
+    // No invented figure IN THE TRACK-RECORD BLOCK. Scoped to that block on
+    // purpose: recommendations elsewhere on the page legitimately quote
+    // percentages from the organization's own records, and a page-wide ban on
+    // digits would assert something this rule never claimed. What must not
+    // exist is a rate standing where efficacy would go.
+    const track = screen.getByText('Has it worked before?').closest('.eso-block') as HTMLElement;
+
+    expect(within(track).queryByText(/\d+(\.\d+)?\s*%/)).toBeNull();
+    expect(within(track).getByText(/no\s+success rate is shown/)).toBeTruthy();
+  });
+
+  /**
+   * The run panel is the only place an execution can start, and it must ask for
+   * the things the server enforces — an approved decision above all. With none
+   * available it says so rather than offering a button that cannot succeed.
+   */
+  it('refuses to offer a run when no approved decision is waiting', async () => {
+    mockApi({
+      '/runnable-decisions': { decisions: [] },
+      '/eso-definitions/7/eso-1': runnableEso,
+      '/eso-definitions': esoCatalogue,
+      '/recommendations': tenant7.recommendations,
+    });
+
+    render(<EsoLibraryScreen tenantId="7" />);
+
+    await waitFor(() => expect(screen.getByText('Run this ESO')).toBeTruthy());
+
+    expect(screen.getByText(/an approved decision waiting to be executed/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Run ESO/ })).toBeNull();
+  });
+
+  /**
+   * The decision picker exists because the previous build asked for a decision
+   * UUID in a text box, which nobody outside the repository can supply.
+   */
+  it('offers the approved decisions a run can be started against', async () => {
+    mockApi({
+      '/runnable-decisions': {
+        decisions: [{
+          id: 'd-9',
+          title: 'Reinstate the fee reminder cadence',
+          rationale: 'Approved after reviewing the ledger.',
+          category: 'intervene',
+          priority: 'high',
+          recommendationId: 'r-9',
+          boundEsoId: 'eso-1',
+          approvedBy: 'head@school',
+          approvedDate: '2026-08-20 09:00:00',
+          hasMeasurementPlan: true,
+          measurementPlan: { id: 'p-1', baselineMetric: 'collection rate', measurementWindowDays: 14 },
+        }],
+      },
+      '/eso-definitions/7/eso-1': runnableEso,
+      '/eso-definitions': esoCatalogue,
+      '/recommendations': tenant7.recommendations,
+    });
+
+    render(<EsoLibraryScreen tenantId="7" />);
+
+    await waitFor(() => expect(screen.getByText('Run this ESO')).toBeTruthy());
+
+    expect(screen.getByText(/Reinstate the fee reminder cadence/)).toBeTruthy();
+    // The plan already exists, so the screen must not ask for one again.
+    expect(screen.queryByText(/What will this run be judged on/)).toBeNull();
+    // A declared input and a declared precondition are both demanded.
+    expect(screen.getAllByText(/departmentId/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/I confirm the preconditions/)).toBeTruthy();
   });
 });

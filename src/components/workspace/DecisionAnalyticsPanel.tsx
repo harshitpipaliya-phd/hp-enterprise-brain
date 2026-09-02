@@ -60,7 +60,7 @@ type Profile = {
 
 type Filter = 'all' | 'category' | 'risk' | 'gap' | 'recommendation';
 
-export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string }) {
+export default function DecisionAnalyticsPanel({ tenantId, onViewEso }: { tenantId: string; onViewEso?: (esoId: string) => void }) {
   const [decisions, setDecisions] = useState<DecisionIntelligenceData | null>(null);
   const [state, setState] = useState<OrganizationalState | null>(null);
   const [gaps, setGaps] = useState<GapsResponse | null>(null);
@@ -598,7 +598,7 @@ export default function DecisionAnalyticsPanel({ tenantId }: { tenantId: string 
           ) : (
             <div className="oi-recs">
               {visibleRecommendations.slice(0, 5).map((recommendation) => (
-                <RecommendationCard recommendation={recommendation} key={recommendation.id} />
+                <RecommendationCard recommendation={recommendation} key={recommendation.id} onViewEso={onViewEso} />
               ))}
             </div>
           )}

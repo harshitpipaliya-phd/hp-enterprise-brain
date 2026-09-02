@@ -85,6 +85,8 @@ describe('LazyView', () => {
 
     // Mounting nothing must not fetch the chunk — this is what keeps
     // DecisionIntelligence (and recharts) out of the initial load.
+    // The constant `false` is the test: LazyView must not be mounted at all.
+    // eslint-disable-next-line no-constant-binary-expression -- deliberate: asserts the unmounted path
     render(<div>{false && <LazyView label="Test" loader={loader} props={{}} />}</div>);
 
     expect(loader).not.toHaveBeenCalled();

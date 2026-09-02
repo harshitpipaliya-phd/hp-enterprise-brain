@@ -1,182 +1,371 @@
-import { useState, useEffect } from 'react';
-import { Database } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Database, Search } from 'lucide-react';
 import { PageHeader } from '../../ui';
-import { api } from '../../api/intelligence.js';
-import { reasoningEngineApi } from '../../api/reasoning-engine.js';
-import { useToast } from '../Toast';
-
-interface Learning {
-  id: string;
-  outcome_id: string;
-  mental_model_id: string;
-  pattern: string;
-  description: string;
-  domain: string;
-  confidence: number;
-  reusable: boolean;
-  created_by: string;
-  created_date: string;
-}
-
-interface GroundingEvent {
-  id: string;
-  entity_id: string;
-  correlation_id: string;
-  payload: string;
-  created_at: string;
-}
-
-interface CompoundingStats {
-  learningsWritten: number;
-  learningsReusable: number;
-  reuseRate: number | null;
-}
+import { organizationalMemoryApi } from '../../api/organizationalMemory';
+import type {
+  MemoryDetailData,
+  MemoryFilters,
+  MemoryPage,
+  MemorySummary,
+} from '../../api/organizationalMemory';
+import { PanelSkeleton } from '../intelligence/parts';
+import { EmptyState } from '../states/EmptyState';
+import { ErrorState } from '../states/ErrorState';
+import { StatTile } from '../knowledge/badges';
+import { MemoryCard } from '../knowledge/MemoryCard';
+import { MemoryDetail } from '../knowledge/MemoryDetail';
+import '../knowledge/knowledge.css';
 
 /**
- * Memory screen (Product Bible §5.5).
+ * ORGANIZATIONAL MEMORY — the LEARN surface.
  *
- * Answers one question: what did we learn?
+ * ═══════════════════════════════════════════════════════════════════════════
+ * NOT A DOCUMENT LIBRARY. THE LOOP, MADE LEGIBLE.
  *
- * Every learning links back to its originating outcome and forward to what
- * it influenced. Nothing dead-ends.
+ *   evidence → decision → execution → outcome → learning → reuse
+ *
+ * Each card renders that chain in order, and each step is allowed to say it is
+ * empty. A screen where the chain always looks complete teaches the reader
+ * nothing about the times it wasn't — and the broken ones are the ones worth
+ * their attention.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHAT THIS SCREEN WILL NOT DO
+ *
+ * Every outcome in this installation is stored as result="improved". Most
+ * carry metrics of {baseline:0, observed:0, changePercent:0} and no evidence
+ * rows. The previous screen would have rendered that as a success with a
+ * confidence percentage beside it. The server grades those as UNDETERMINED and
+ * this screen prints the word — an intervention nobody measured is not a
+ * success, and counting it as one is how a tool starts lying to its owner.
+ *
+ * The old implementation also called `fetch('/api/v1/events?type=...&limit=500')`
+ * directly, with no tenant in the request: it pulled every tenant's grounding
+ * events and filtered them in the browser by id. That call is gone. Scope is
+ * decided server-side now, in OrganizationalMemoryController.
  */
-export default function MemoryScreen({ tenantId }: { tenantId: string }) {
-  const { showToast } = useToast();
-  const [learnings, setLearnings] = useState<Learning[]>([]);
-  const [stats, setStats] = useState<CompoundingStats | null>(null);
-  const [groundingEvents, setGroundingEvents] = useState<GroundingEvent[]>([]);
+export default function MemoryScreen({
+  tenantId,
+  onNavigate,
+}: {
+  tenantId: string;
+  onNavigate?: (view: string) => void;
+}) {
+  const [summary, setSummary] = useState<MemorySummary | null>(null);
+  const [page, setPage] = useState<MemoryPage | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedLearningId, setSelectedLearningId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const [filters, setFilters] = useState<MemoryFilters>({ page: 1 });
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<MemoryDetailData | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setFilters((f) => (f.q === (searchTerm || undefined) ? f : { ...f, q: searchTerm || undefined, page: 1 }));
+    }, 250);
+
+    return () => window.clearTimeout(id);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    let live = true;
+
+    organizationalMemoryApi
+      .summary(tenantId)
+      .then((data) => { if (live) setSummary(data); })
+      .catch(() => { if (live) setSummary(null); });
+
+    return () => { live = false; };
+  }, [tenantId]);
+
+  const filterKey = JSON.stringify(filters);
+
+  useEffect(() => {
+    let live = true;
     setLoading(true);
-    try {
-      const [learningsData, statsData, eventsData] = await Promise.all([
-        api.listLearnings(tenantId),
-        reasoningEngineApi.memoryStats(tenantId),
-        fetch(`/api/v1/events?type=LearningGrounded&limit=500`).then((r) => r.json()),
-      ]);
-      setLearnings(learningsData);
-      setStats(statsData);
-      setGroundingEvents(Array.isArray(eventsData) ? eventsData : []);
-    } catch (e: any) {
-      showToast('error', e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setError(null);
 
-  useEffect(() => { load(); }, [tenantId]);
+    organizationalMemoryApi
+      .list(tenantId, filters)
+      .then((data) => { if (live) setPage(data); })
+      .catch((e: unknown) => {
+        if (live) setError(e instanceof Error ? e.message : 'Organizational memory could not be loaded.');
+      })
+      .finally(() => { if (live) setLoading(false); });
 
-  const groundedEntitiesFor = (learningId: string): GroundingEvent[] => {
-    return groundingEvents.filter((e) => e.entity_id === learningId);
-  };
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, filterKey]);
 
-  const renderReuseRate = (rate: number | null) => {
-    if (rate === null) {
-      return <span style={{ color: 'var(--content-tertiary)' }}>not yet measurable</span>;
-    }
-    const pct = `${(rate * 100).toFixed(0)}%`;
-    return <span>{pct}</span>;
-  };
+  useEffect(() => {
+    if (!openId) { setDetail(null); setDetailError(null); return; }
+
+    let live = true;
+    setDetailLoading(true);
+    setDetailError(null);
+
+    organizationalMemoryApi
+      .detail(tenantId, openId)
+      .then((data) => { if (live) setDetail(data); })
+      .catch((e: unknown) => {
+        if (live) setDetailError(e instanceof Error ? e.message : 'This memory could not be opened.');
+      })
+      .finally(() => { if (live) setDetailLoading(false); });
+
+    return () => { live = false; };
+  }, [tenantId, openId]);
+
+  const set = useCallback((patch: Partial<MemoryFilters>) => {
+    setFilters((f) => ({ ...f, ...patch, page: patch.page ?? 1 }));
+  }, []);
+
+  const activeFilters = useMemo(
+    () => Object.entries(filters).filter(([k, v]) => k !== 'page' && v !== undefined && v !== '').length,
+    [filters],
+  );
+
+  /* ---------------------------------------------------------- detail view -- */
+
+  if (openId) {
+    return (
+      <div className="kb">
+        <PageHeader
+          variant="detail"
+          icon={<Database />}
+          eyebrow="Organizational Memory"
+          title={detail?.title ?? 'Memory'}
+          back={{ label: '← Back to Memory', onClick: () => setOpenId(null) }}
+        />
+        {detailLoading && !detail ? (
+          <PanelSkeleton rows={8} />
+        ) : detailError ? (
+          <ErrorState message={detailError} onRetry={() => setOpenId(openId)} />
+        ) : detail ? (
+          <MemoryDetail
+            memory={detail}
+            actions={{
+              onDecision: onNavigate ? () => onNavigate('decisionintel') : undefined,
+              onEvidence: onNavigate ? () => onNavigate('evidence') : undefined,
+              onExecution: onNavigate ? () => onNavigate('esolibrary') : undefined,
+              onOpenMemory: (id) => setOpenId(id),
+            }}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  /* ------------------------------------------------------------- the feed -- */
+
+  const items = page?.items ?? [];
+  const total = page?.total ?? 0;
+  const allSeeded = summary !== null && summary.total > 0 && summary.observed === 0;
 
   return (
-    <div style={{ fontFamily: 'var(--sans)', maxWidth: 1200, margin: '0 auto', padding: 24, backgroundColor: 'var(--surface-ground)', color: 'var(--content-primary)', minHeight: '100vh' }}>
+    <div className="kb">
       <PageHeader
         variant="list"
         icon={<Database />}
         title="Organizational Memory"
-        description="What the Brain has retained between sessions, and how much of it has been used again."
+        description="What the organization has learned from experience."
       />
 
-      {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
-          <div style={{ padding: 14, borderRadius: 8, border: '1px solid var(--border-default)', backgroundColor: 'var(--surface-card)' }}>
-            <div style={{ fontSize: 11, color: 'var(--content-tertiary)', textTransform: 'uppercase' }}>Learnings Written</div>
-            <div style={{ fontSize: 24, fontWeight: 600, color: 'var(--content-primary)' }}>{stats.learningsWritten}</div>
-          </div>
-          <div style={{ padding: 14, borderRadius: 8, border: '1px solid var(--border-default)', backgroundColor: 'var(--surface-card)' }}>
-            <div style={{ fontSize: 11, color: 'var(--content-tertiary)', textTransform: 'uppercase' }}>Reusable</div>
-            <div style={{ fontSize: 24, fontWeight: 600, color: 'var(--content-primary)' }}>{stats.learningsReusable}</div>
-          </div>
-          <div style={{ padding: 14, borderRadius: 8, border: '1px solid var(--border-default)', backgroundColor: 'var(--surface-card)' }}>
-            <div style={{ fontSize: 11, color: 'var(--content-tertiary)', textTransform: 'uppercase' }}>Reuse Rate</div>
-            <div style={{ fontSize: 24, fontWeight: 600, color: 'var(--content-primary)' }}>{renderReuseRate(stats.reuseRate)}</div>
+      {summary && (
+        <div className="kb-stats">
+          <StatTile
+            label="Memories"
+            value={summary.total.toLocaleString()}
+            hint="learnings written from recorded outcomes"
+            onClick={() => { setFilters({ page: 1 }); setSearchTerm(''); }}
+            active={activeFilters === 0}
+          />
+          <StatTile
+            label="Worked"
+            value={summary.successfulInterventions.toLocaleString()}
+            hint="outcomes that improved AND were measured"
+            tone={summary.successfulInterventions > 0 ? 'good' : 'neutral'}
+          />
+          <StatTile
+            label="Failed"
+            value={summary.failedInterventions.toLocaleString()}
+            hint="outcomes recorded as a regression"
+            tone={summary.failedInterventions > 0 ? 'crit' : 'neutral'}
+          />
+          {/*
+            THE COUNTER THAT KEEPS THE OTHER TWO HONEST.
+
+            Without it, seven outcomes labelled "improved" with zero metrics
+            would have to land somewhere — and wherever they landed they would
+            be wrong. They are neither successes nor failures; they are
+            interventions nobody measured, and that is its own finding.
+          */}
+          <StatTile
+            label="Unmeasured"
+            value={summary.unmeasuredInterventions.toLocaleString()}
+            hint="labelled, but no metric or evidence behind it"
+            tone={summary.unmeasuredInterventions > 0 ? 'warn' : 'neutral'}
+          />
+          <StatTile
+            label="Reused learnings"
+            value={summary.reusedLearnings.toLocaleString()}
+            hint="reached again from a separate outcome"
+            onClick={() => set({ reusable: true })}
+            active={filters.reusable === true}
+          />
+          <StatTile
+            label="Recent"
+            value={summary.recentLearning.toLocaleString()}
+            hint="written in the last 30 days"
+          />
+        </div>
+      )}
+
+      {allSeeded && (
+        <div className="kb-notice" role="status">
+          <div>
+            <b>All {summary.total} memories here are demonstration data</b>
+            <p>
+              Every learning below was written by a seeder rather than produced by this organization's own
+              loop. The chain, the grading and the evidence links are live against the database — but nothing
+              here is yet a record of something your teams lived through. Run the loop to record real
+              outcomes, and real memory will replace this.
+            </p>
           </div>
         </div>
       )}
 
-      {loading ? (
-        <div>Loading...</div>
-      ) : learnings.length === 0 ? (
-        <p style={{ color: 'var(--content-tertiary)' }}>No learnings yet. The loop must run, record an outcome, and the outbox consumer must write a learning before memory has anything to show.</p>
-      ) : (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {learnings.map((l) => {
-            const grounded = groundedEntitiesFor(l.id);
-            const isSelected = selectedLearningId === l.id;
-            return (
-              <div
-                key={l.id}
-                style={{
-                  padding: 14,
-                  borderRadius: 8,
-                  border: `1px solid ${isSelected ? 'var(--action-primary)' : 'var(--border-default)'}`,
-                  backgroundColor: 'var(--surface-card)',
-                  cursor: 'pointer',
-                }}
-                onClick={() => setSelectedLearningId(isSelected ? null : l.id)}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                      <strong style={{ color: 'var(--content-primary)' }}>{l.pattern}</strong>
-                      {l.reusable ? (
-                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, backgroundColor: 'var(--feedback-success-surface)', color: 'var(--feedback-success-solid)' }}>Reusable</span>
-                      ) : (
-                        <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, backgroundColor: 'var(--surface-inset)', color: 'var(--content-tertiary)' }}>Not reusable</span>
-                      )}
-                    </div>
-                    {l.description && (
-                      <p style={{ fontSize: 13, color: 'var(--content-tertiary)', margin: '4px 0' }}>{l.description}</p>
-                    )}
-                    <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--content-tertiary)', marginTop: 6 }}>
-                      {l.domain && <span>Domain: {l.domain}</span>}
-                      <span>Confidence: {(l.confidence * 100).toFixed(0)}%</span>
-                      <span>Outcome: {l.outcome_id?.slice(0, 8)}...</span>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--content-tertiary)', textAlign: 'right' }}>
-                    {l.created_date?.slice(0, 10)}
-                  </div>
-                </div>
+      <div className="kb-controls">
+        <label className="kb-search">
+          <Search size={15} aria-hidden="true" />
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search lessons, patterns and domains…"
+            aria-label="Search memory"
+          />
+        </label>
 
-                {isSelected && (
-                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Grounded on ({grounded.length})</div>
-                    {grounded.length === 0 ? (
-                      <p style={{ fontSize: 12, color: 'var(--content-tertiary)' }}>Not yet grounded on any later entity.</p>
-                    ) : (
-                      <div style={{ display: 'grid', gap: 6 }}>
-                        {grounded.map((g) => {
-                          const payload = JSON.parse(g.payload || '{}');
-                          return (
-                            <div key={g.id} style={{ fontSize: 12, padding: 8, borderRadius: 6, backgroundColor: 'var(--surface-ground)', border: '1px solid var(--border-subtle)' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>{payload.groundedEntityType || 'Unknown'}: {g.correlation_id?.slice(0, 8)}...</span>
-                                <span style={{ color: 'var(--content-tertiary)' }}>{g.created_at?.slice(0, 10)}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <select
+          className="kb-select"
+          value={filters.domain ?? ''}
+          onChange={(e) => set({ domain: e.target.value || undefined })}
+          aria-label="Filter by domain"
+        >
+          <option value="">All domains</option>
+          {summary?.domains.map((d) => (
+            <option key={d.value} value={d.value}>
+              {d.value} ({d.count})
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="kb-select"
+          value={filters.pattern ?? ''}
+          onChange={(e) => set({ pattern: e.target.value || undefined })}
+          aria-label="Filter by pattern"
+        >
+          <option value="">All patterns</option>
+          {summary?.patterns.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.value.replace(/[_-]+/g, ' ')} ({p.count})
+            </option>
+          ))}
+        </select>
+
+        {activeFilters > 0 && (
+          <button type="button" className="kb-clear" onClick={() => { setFilters({ page: 1 }); setSearchTerm(''); }}>
+            Clear {activeFilters} filter{activeFilters === 1 ? '' : 's'}
+          </button>
+        )}
+      </div>
+
+      {loading && !page ? (
+        <div className="mem-feed">
+          <PanelSkeleton rows={5} />
+          <PanelSkeleton rows={5} />
         </div>
+      ) : error ? (
+        <ErrorState message={error} onRetry={() => setFilters((f) => ({ ...f }))} />
+      ) : items.length === 0 ? (
+        activeFilters > 0 ? (
+          <EmptyState
+            icon="search"
+            title="No memories match these filters"
+            description={`Memory holds ${summary?.total ?? 0} learning${(summary?.total ?? 0) === 1 ? '' : 's'}, but none match what you have narrowed to.`}
+            action={
+              <button type="button" className="u-btn u-btn-secondary" onClick={() => { setFilters({ page: 1 }); setSearchTerm(''); }}>
+                Clear filters
+              </button>
+            }
+          />
+        ) : (
+          /*
+            AN EMPTY MEMORY IS EXPLAINED BY THE LOOP THAT FILLS IT.
+
+            "No learnings yet" tells the reader nothing they can act on. A
+            learning exists only after a decision has been executed and its
+            outcome recorded, so the empty state names that sequence and points
+            at the step where their organization currently stands.
+          */
+          <EmptyState
+            icon="inbox"
+            title="This organization has not recorded a learning yet"
+            description="A memory is written when a decision is executed and its outcome is recorded — evidence, decision, execution, outcome, then learning. Nothing is inferred on the organization's behalf, so until that sequence completes at least once, this screen is honestly empty."
+            action={
+              onNavigate ? (
+                <button type="button" className="u-btn u-btn-primary" onClick={() => onNavigate('decisionintel')}>
+                  Open Decision Intelligence
+                </button>
+              ) : undefined
+            }
+          />
+        )
+      ) : (
+        <>
+          <p className="kb-resultline">
+            Showing {items.length} of {total.toLocaleString()} memor{total === 1 ? 'y' : 'ies'}
+            {filters.q && <> matching “{filters.q}”</>}.
+            {summary && summary.distinctPatterns > 0 && (
+              <>
+                {' '}
+                Across {summary.distinctPatterns} distinct pattern{summary.distinctPatterns === 1 ? '' : 's'}.
+              </>
+            )}
+          </p>
+
+          <div className="mem-feed">
+            {items.map((memory) => (
+              <MemoryCard
+                key={memory.id}
+                memory={memory}
+                onOpen={() => setOpenId(memory.id)}
+                onDecision={onNavigate ? () => onNavigate('decisionintel') : undefined}
+                onEvidence={onNavigate ? () => onNavigate('evidence') : undefined}
+              />
+            ))}
+          </div>
+
+          {page && page.pages > 1 && (
+            <div className="kb-pager">
+              <button type="button" onClick={() => set({ page: page.page - 1 })} disabled={page.page <= 1}>
+                ← Previous
+              </button>
+              <span className="kb-pager__n">
+                Page {page.page} of {page.pages}
+              </span>
+              <button type="button" onClick={() => set({ page: page.page + 1 })} disabled={page.page >= page.pages}>
+                Next →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

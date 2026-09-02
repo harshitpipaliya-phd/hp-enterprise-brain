@@ -15,12 +15,64 @@ import PersonIntelligence from '../src/components/workspace/PersonIntelligence';
  */
 
 const getProfile = vi.fn();
+const getIntelligence = vi.fn();
 
 vi.mock('../src/api/person', () => ({
   api: {
     getProfile: (...args: unknown[]) => getProfile(...args),
   },
 }));
+
+/*
+  THE SECOND ENDPOINT THE REDESIGNED SCREEN READS.
+
+  Standing, confidence and the metric cards come from
+  GET /people/{tenant}/{id}/intelligence, which is a separate call with its own
+  failure mode — held apart deliberately so a scoring outage degrades the screen
+  to the facts instead of taking the page down. Mocked here so both halves are
+  under test rather than one of them throwing into a catch.
+*/
+vi.mock('../src/api/personIntelligence', () => ({
+  personIntelligenceApi: {
+    get: (...args: unknown[]) => getIntelligence(...args),
+  },
+  isUndetermined: (v: unknown) => v === 'UNDETERMINED',
+  UNDETERMINED: 'UNDETERMINED',
+}));
+
+/**
+ * A person nothing can be measured on.
+ *
+ * The band is `undetermined` and the score is null — the shape the service
+ * returns when no component is measurable. The screen must render the WORD and
+ * the reason, never a zero standing in for an unmeasured one.
+ */
+function undeterminedIntelligence(name: string) {
+  return {
+    person: {
+      id: '77', name, firstName: name.split(' ')[0], lastName: name.split(' ')[1] ?? '',
+      email: null, phone: null, gender: null, role: null, roleAssigned: false,
+      departmentId: null, departmentName: null, departmentCode: null,
+      orgName: null, recordCreated: null, recordCount: 0,
+    },
+    standing: {
+      band: 'undetermined', score: null, deltaSinceRefresh: null,
+      reason: 'Nothing this person is measured on is on file yet.',
+    },
+    confidence: { pct: 0, measurableDimensions: 0, totalDimensions: 7, undetermined: [] },
+    sinceRefresh: { supported: false, changes: [], reason: 'first measured refresh' },
+    contribution: { handledTotal: 0, handled30d: 0, weeklyTrend: [0, 0, 0, 0, 0, 0, 0, 0], teamSharePct: null, highLoad: false, supervisedCount: 0 },
+    presence: { attendancePct: null, streakDays: 0, absencePattern: 'none', recurringDay: null, avgHours: null, weeklyHours: [], longHoursFlag: false, longHoursWeeks: 0 },
+    consistency: { mismatches: { count: 0, windowDays: 0, sampleDates: [], likelyCause: '' }, cleared: [] },
+    capability: { name: null, score: null, of: 5, kasba: { knowledge: null, ability: null, skill: null, behaviour: null, attitude: null }, assessedAt: null, vsTeam: null, vsRole: 'UNDETERMINED', trajectory: 'UNDETERMINED', unlock: null },
+    loop: { signals: 0, cases: 0, decisions: 0, executions: 0 },
+    recordsSummary: [],
+    recordsPage: { page: 1, pageSize: 25, total: 0, items: [] },
+    blindSpots: [],
+    scoreExplain: { components: [], penalty: null, total: null, note: 'Only measured things count.' },
+    recommendation: { title: 'Schedule an assessment', body: 'Nothing is measurable yet.', confidence: 0.5, rootCause: 'UNDETERMINED', meta: null, createPlanRoute: null },
+  };
+}
 
 /** A student with fee records, as the school tenant actually stores them. */
 function studentProfile(over: Record<string, unknown> = {}) {
@@ -136,7 +188,11 @@ async function renderProfile(payload: unknown, props: Record<string, unknown> = 
 }
 
 describe('Person profile', () => {
-  beforeEach(() => { getProfile.mockReset(); });
+  beforeEach(() => {
+    getProfile.mockReset();
+    getIntelligence.mockReset();
+    getIntelligence.mockResolvedValue(undeterminedIntelligence('Priya Nair'));
+  });
 
   it('reads the person from the tenant and person it was given', async () => {
     await renderProfile(studentProfile());
@@ -158,14 +214,26 @@ describe('Person profile', () => {
   it('shows only the figures the API sent, in the currency the record used', async () => {
     await renderProfile(studentProfile());
 
-    // Outstanding, from finance.outstanding — formatted, never recomputed.
+    // Academic attendance, from academic.attendancePct — formatted, not derived.
+    expect(screen.getAllByText('95.2%').length).toBeGreaterThan(0);
+
+    /*
+      THE MONEY LIVES ON ITS OWN TAB SINCE THE REDESIGN.
+
+      The overview used to carry a strip of finance tiles alongside the
+      academic ones. It now leads with the measured standing, and the finance
+      figures are on the tab that is about finance — so the assertion follows
+      them there rather than being deleted.
+    */
+    expect(screen.queryByText(/14,464/)).toBeNull();
+
+    await act(async () => {
+      screen.getByRole('tab', { name: /Fees/ }).click();
+    });
+
+    // Outstanding and collected, exactly as the API sent them.
     expect(screen.getAllByText(/14,464/).length).toBeGreaterThan(0);
     expect(screen.getAllByText('92.8%').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('95.2%').length).toBeGreaterThan(0);
-    // And nothing the API did not send: 201156 - 186692 is 14464, but a screen
-    // that derived it would also happily derive a figure the engine disagrees
-    // with. Only the sent value appears.
-    expect(screen.queryByText(/220,176/)).toBeNull();
   });
 
   /**
@@ -185,7 +253,16 @@ describe('Person profile', () => {
   it('says nothing has been recorded rather than showing a zero, for a person with no data', async () => {
     await renderProfile(bareProfile());
 
-    expect(screen.getByText(/Nothing measurable has been recorded for Priya Nair yet/)).toBeTruthy();
+    /*
+      UNDETERMINED IS RENDERED AS THE WORD.
+
+      The standing for a person with nothing on file is not a low score — it is
+      no score, and the band says so in the hero beside the sentence explaining
+      what is missing. A 0/100 here would be a measurement nobody took.
+    */
+    expect(screen.getAllByText(/UNDETERMINED/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Nothing this person is measured on is on file yet/)).toBeTruthy();
+
     // No fee tab at all: a fees section that can only ever be empty is noise.
     expect(screen.queryByRole('tab', { name: /Fees/ })).toBeNull();
   });
@@ -211,8 +288,16 @@ describe('Person profile', () => {
 
     act(() => { screen.getByRole('tab', { name: /Intelligence/ }).click(); });
 
-    expect(screen.getByText(/No intelligence has been generated for Priya Nair yet/)).toBeTruthy();
-    expect(screen.getByText(/when a capability is assigned to them and assessed/)).toBeTruthy();
+    /*
+      The redesigned tab leads with the capability panel, which states what is
+      missing and what would make it measurable — rather than four counters
+      reading zero, which is a measurement nobody took.
+    */
+    expect(screen.getByText(/Capability is not measurable yet/)).toBeTruthy();
+    expect(screen.getByText(/No KASBA assessment has been recorded for this person/)).toBeTruthy();
+
+    // The loop strip states what each count means instead of leaving bare zeros.
+    expect(screen.getByText(/patterns the system raised that name this person/)).toBeTruthy();
   });
 
   it('renders each attachment rule so a reader can see why a record is here', async () => {

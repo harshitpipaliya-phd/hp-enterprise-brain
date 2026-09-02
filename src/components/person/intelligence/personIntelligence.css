@@ -1,0 +1,548 @@
+/* ==========================================================================
+ *  PERSON PROFILE — INTELLIGENCE SECTIONS
+ *
+ *  EB-DLS tokens only. Every colour, space, radius and size below resolves to
+ *  a variable defined in design-tokens/, so both themes are correct by
+ *  construction rather than by a second set of overrides maintained by hand.
+ * ========================================================================== */
+
+/* ---------------------------------------------------------------- hero ---- */
+
+.pi-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.pi-chip {
+  font-size: var(--fs-caption);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--verdict-surface-2);
+  background: var(--verdict-surface-2);
+  color: var(--verdict-content-muted);
+  white-space: nowrap;
+}
+
+/* An unassigned role is a gap in the model, not a neutral label — it reads as
+   one, because it is the reason two dimensions cannot be scored. */
+.pi-chip[data-assigned='no'] {
+  border-style: dashed;
+  border-color: var(--feedback-warning-border);
+  color: var(--feedback-warning-content);
+  background: transparent;
+}
+
+.pi-verdict { margin-top: var(--space-3); }
+
+.pi-verdict__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.pi-verdict__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+  margin-right: var(--space-1-5);
+}
+
+.pi-verdict__score {
+  font-size: var(--fs-h2);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  color: var(--verdict-content);
+}
+
+.pi-verdict__score small {
+  font-size: var(--fs-body);
+  font-weight: 400;
+  color: var(--verdict-content-muted);
+}
+
+.pi-verdict__undet {
+  font-size: var(--fs-card-title);
+  letter-spacing: 0.04em;
+  color: var(--verdict-content-muted);
+}
+
+.pi-verdict__delta {
+  font-size: var(--fs-caption);
+  color: var(--verdict-content-muted);
+}
+
+.pi-verdict__reason {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-snug);
+  color: var(--verdict-content-muted);
+  max-width: 62ch;
+}
+
+.pi-conf {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--accent-intelligence);
+}
+
+.pi-conf__t {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pi-conf__t b {
+  font-size: var(--fs-label);
+  color: var(--verdict-content);
+}
+
+.pi-conf__t span {
+  font-size: var(--fs-caption);
+  color: var(--verdict-content-muted);
+}
+
+/* ------------------------------------------------------- since refresh ---- */
+
+.pi-since {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.pi-since__cell {
+  display: flex;
+  gap: var(--space-2-5);
+  align-items: flex-start;
+  padding: var(--space-3);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.pi-since__cell b {
+  display: block;
+  font-size: var(--fs-label);
+  color: var(--content-primary);
+}
+
+.pi-since__cell span {
+  font-size: var(--fs-caption);
+  color: var(--content-tertiary);
+}
+
+.pi-since__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex: none;
+  background: var(--content-tertiary);
+}
+
+.pi-since__dot[data-direction='up'] { background: var(--status-good); }
+.pi-since__dot[data-direction='down'] { background: var(--status-crit); }
+.pi-since__dot[data-direction='flat'] { background: var(--accent-intelligence); }
+
+.pi-since__none {
+  margin: 0 0 var(--space-4);
+  font-size: var(--fs-caption);
+  color: var(--content-tertiary);
+}
+
+/* -------------------------------------------------------- metric cards ---- */
+
+.pi-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.pi-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.pi-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.pi-card__head h4 {
+  margin: 0;
+  font-size: var(--fs-label);
+  font-weight: 500;
+  color: var(--content-secondary);
+}
+
+.pi-card__v {
+  font-size: var(--fs-h2);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  color: var(--content-primary);
+}
+
+.pi-card__v small {
+  font-size: var(--fs-body);
+  font-weight: 400;
+  color: var(--content-tertiary);
+}
+
+/* "not measured" is the value, so it sits in the value's slot at the value's
+   size — shrinking it to a footnote would hide the finding. */
+.pi-card__none {
+  font-size: var(--fs-card-title);
+  font-weight: 500;
+  color: var(--content-tertiary);
+}
+
+.pi-card__sub {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-snug);
+  color: var(--content-tertiary);
+}
+
+.pi-warn-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+  color: var(--feedback-warning-content);
+}
+
+.pi-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--status-warn);
+}
+
+.pi-dot[data-tone='good'] { background: var(--status-good); }
+.pi-dot[data-tone='crit'] { background: var(--status-crit); }
+
+/* THE SOURCE CAPTION. Small, quiet, and on every figure — the reader who
+   wants to check a number has to be told where it came from. */
+.pi-src {
+  display: block;
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--content-tertiary);
+}
+
+/* ---------------------------------------------------------- comparison ---- */
+
+.pi-cmp {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pi-cmp:first-of-type { border-top: 0; }
+
+.pi-cmp__l { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pi-cmp__lab { font-size: var(--fs-label); color: var(--content-primary); }
+.pi-cmp__ref { font-size: var(--fs-caption); color: var(--content-tertiary); }
+
+.pi-cmp__r {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.pi-cmp__r .dv-dual { flex: 1; max-width: 260px; }
+
+.pi-cmp__v {
+  font-size: var(--fs-emphasis);
+  font-weight: 600;
+  color: var(--content-primary);
+  white-space: nowrap;
+}
+
+.pi-cmp__v small { font-weight: 400; color: var(--content-tertiary); }
+
+.pi-undet {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.pi-undet b {
+  font-size: var(--fs-caption);
+  letter-spacing: 0.06em;
+  color: var(--content-secondary);
+  background: var(--surface-inset);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-xs);
+  padding: 2px var(--space-2);
+}
+
+.pi-undet__why {
+  font-size: var(--fs-caption);
+  color: var(--content-tertiary);
+  max-width: 42ch;
+}
+
+.pi-unlock {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--accent-intelligence);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pi-unlock:hover { text-decoration: underline; }
+.pi-unlock:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-xs); }
+
+.pi-foot {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-caption);
+  line-height: var(--lh-snug);
+  color: var(--content-tertiary);
+}
+
+/* ------------------------------------------------------ recommendation ---- */
+
+.pi-rec {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-intelligence);
+  background: var(--action-subtle);
+}
+
+.pi-rec h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-card-title);
+  color: var(--content-primary);
+}
+
+.pi-rec p {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-snug);
+  color: var(--content-secondary);
+  max-width: 72ch;
+}
+
+.pi-rec__meta {
+  font-size: var(--fs-caption) !important;
+  color: var(--content-tertiary) !important;
+}
+
+/* -------------------------------------------------------------- kasba ----- */
+
+.pi-kasba { display: flex; flex-direction: column; gap: var(--space-2-5); margin-bottom: var(--space-4); }
+
+.pi-kasba__row {
+  display: grid;
+  grid-template-columns: 90px 1fr 34px;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pi-kasba__lab { font-size: var(--fs-label); color: var(--content-secondary); }
+.pi-kasba__v { font-size: var(--fs-label); font-weight: 600; color: var(--content-primary); text-align: right; }
+.pi-kasba__why { grid-column: 2 / -1; font-size: var(--fs-caption); color: var(--content-tertiary); font-style: italic; }
+
+/* ------------------------------------------------------------ patterns ---- */
+
+.pi-pattern { padding: var(--space-3) 0; border-top: 1px solid var(--border-subtle); }
+.pi-pattern:first-of-type { border-top: 0; padding-top: 0; }
+
+.pi-pattern p {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-snug);
+  color: var(--content-primary);
+}
+
+.pi-pattern__f { display: flex; align-items: center; gap: var(--space-2-5); flex-wrap: wrap; }
+
+.pi-anom {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--feedback-warning-surface);
+  border: 1px solid var(--feedback-warning-border);
+}
+
+.pi-anom__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.pi-anom__head b { font-size: var(--fs-label); color: var(--feedback-warning-content); }
+.pi-anom__dates { margin: var(--space-2) 0 0; font-size: var(--fs-caption); color: var(--content-secondary); }
+.pi-anom__cause { margin: var(--space-1) 0 0; font-size: var(--fs-caption); color: var(--content-tertiary); }
+
+.pi-clean { margin: 0; font-size: var(--fs-small); color: var(--content-tertiary); }
+
+.pi-cleared { display: flex; gap: var(--space-2-5); align-items: flex-start; padding-top: var(--space-3); }
+.pi-cleared b { display: block; font-size: var(--fs-label); color: var(--content-primary); }
+.pi-cleared span { font-size: var(--fs-caption); color: var(--content-tertiary); }
+
+/* ------------------------------------------------------------- the loop --- */
+
+.pi-loop { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); }
+
+.pi-loop__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  min-width: 0;
+}
+
+.pi-loop__n { font-size: var(--fs-h3); font-weight: 600; color: var(--content-primary); line-height: var(--lh-tight); }
+.pi-loop__cell b { font-size: var(--fs-label); color: var(--content-secondary); }
+.pi-loop__c { font-size: var(--fs-caption); line-height: var(--lh-snug); color: var(--content-tertiary); }
+
+/* ------------------------------------------------------------- tables ----- */
+
+.pi-table-wrap { overflow-x: auto; }
+
+.pi-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+
+.pi-table th {
+  text-align: left;
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  color: var(--content-tertiary);
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.pi-table td {
+  padding: var(--space-2-5) var(--space-2) var(--space-2-5) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--content-primary);
+  vertical-align: top;
+}
+
+.pi-table .pi-num { text-align: right; font-variant-numeric: tabular-nums; }
+.pi-table__pen td { color: var(--feedback-warning-content); }
+.pi-table__total td { font-weight: 600; border-bottom: 0; }
+
+.pi-blind {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.pi-blind b { display: block; font-size: var(--fs-label); color: var(--content-primary); }
+.pi-blind span { font-size: var(--fs-caption); color: var(--content-tertiary); }
+
+/* ------------------------------------------------------ records banner ---- */
+
+.pi-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3-5) var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--feedback-warning-surface);
+  border: 1px solid var(--feedback-warning-border);
+}
+
+.pi-banner b { font-size: var(--fs-label); color: var(--feedback-warning-content); }
+
+.pi-banner p {
+  margin: var(--space-1-5) 0 0;
+  font-size: var(--fs-caption);
+  line-height: var(--lh-snug);
+  color: var(--content-secondary);
+  max-width: 74ch;
+}
+
+/* A contradicting row is tinted so it can be found by eye, and still carries
+   its own "mismatch" word in the table — the tint is a hint, not the message. */
+.pp-table tr[data-mismatch='true'] > td { background: var(--feedback-warning-surface); }
+
+.pi-flag {
+  font-size: var(--fs-caption);
+  color: var(--feedback-warning-content);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------- filter chips ----- */
+
+.pi-filters { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+
+.pi-filters button {
+  font: inherit;
+  font-size: var(--fs-caption);
+  padding: var(--space-1-5) var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+
+.pi-filters button[aria-pressed='true'] {
+  background: var(--action-subtle);
+  border-color: var(--accent-intelligence);
+  color: var(--accent-intelligence-deep);
+}
+
+.pi-filters button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* ---------------------------------------------------------- responsive ---- */
+
+@media (max-width: 900px) {
+  .pi-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pi-loop { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .pi-cards { grid-template-columns: minmax(0, 1fr); }
+  .pi-loop { grid-template-columns: minmax(0, 1fr); }
+
+  /* The strip scrolls rather than wrapping into a column, so "since refresh"
+     stays one readable row on a phone. */
+  .pi-since {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-bottom: var(--space-2);
+  }
+
+  .pi-since__cell { flex: 0 0 78%; scroll-snap-align: start; }
+
+  .pi-cmp { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .pi-cmp__r { justify-content: flex-start; width: 100%; }
+  .pi-undet { justify-content: flex-start; text-align: left; }
+  .pi-banner { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .pi-blind { flex-direction: column; gap: var(--space-2); }
+  .pi-kasba__row { grid-template-columns: 74px 1fr 28px; gap: var(--space-2); }
+}

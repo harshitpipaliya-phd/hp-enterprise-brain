@@ -8,10 +8,9 @@ import DepartmentCreate from './DepartmentCreate';
 import DepartmentEdit from './DepartmentEdit';
 import DepartmentDetails from './DepartmentDetails';
 import DepartmentArchiveConfirm from './DepartmentArchiveConfirm';
-import DepartmentIntelligence from '../workspace/DepartmentIntelligence';
+import DepartmentIntelligenceScreen from './intelligence/DepartmentIntelligenceScreen';
 import PersonIntelligence from '../workspace/PersonIntelligence';
 import { api } from '../../api/department';
-import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
 
 export type DepartmentView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
 
@@ -46,11 +45,19 @@ export default function DepartmentApp({
   onBack,
   onOpenPeople,
   onExploreInGraph,
+  onNavigate,
 }: {
   organization: Organization;
   onBack: () => void;
   onOpenPeople?: (departmentId: string) => void;
   onExploreInGraph?: (label: string, id: string) => void;
+  /**
+   * Leaves the Departments area entirely — used by the intelligence screen's
+   * blind-spot fixes, each of which routes into the screen that closes it
+   * (Ingestion, Signals, Capabilities). Passing the shell's own navigator keeps
+   * those buttons pointing at the real screens rather than at dead ends.
+   */
+  onNavigate?: (view: string) => void;
 }) {
   const [view, setView] = useState<DepartmentView>('list');
   const [selected, setSelected] = useState<Department | null>(null);
@@ -145,24 +152,36 @@ export default function DepartmentApp({
           onBack={() => setViewingPersonId(null)}
           backLabel={`Back to ${selected.name}`}
           onExploreInGraph={onExploreInGraph}
+          onNavigate={onNavigate}
         />
       )}
+      {/*
+        THE ACTION ROW IS GONE FROM HERE.
+
+        Explore-in-graph, Edit and Refresh now live in the intelligence screen's
+        own organization band, where they sit beside the organization they act
+        on. A second floating row above the page put four unlabelled controls in
+        the reader's eyeline before the verdict they came for. Archive and the
+        raw-details view stay reachable from the list, which is where a
+        destructive action belongs.
+      */}
       {view === 'intelligence' && selected && !viewingPersonId && (
-        <div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: -4, justifyContent: 'flex-end' }}>
-            <ExploreInGraphButton
-              label="Department"
-              id={selected.id}
-              entityName={selected.name}
-              onExplore={onExploreInGraph}
-              className="eb-pill-btn"
-            />
-            <button className="eb-pill-btn" onClick={() => navigate('details', selected)}>Raw Details</button>
-            <button className="eb-pill-btn" onClick={() => navigate('edit', selected)}>Edit</button>
-            <button className="eb-pill-btn" onClick={() => navigate('archive', selected)}>Archive</button>
-          </div>
-          <DepartmentIntelligence tenantId={organization.tenantId} departmentId={selected.id} onBack={() => navigate('list')} onSelectPerson={setViewingPersonId} />
-        </div>
+        <DepartmentIntelligenceScreen
+          tenantId={organization.tenantId}
+          departmentId={selected.id}
+          onBack={() => navigate('list')}
+          onOpenPerson={setViewingPersonId}
+          onEdit={() => navigate('edit', selected)}
+          onExploreInGraph={
+            onExploreInGraph ? () => onExploreInGraph('Department', selected.id) : undefined
+          }
+          /* A blind spot the reader cannot act on is a complaint, not a finding.
+             Each fix routes into the real screen that closes it. */
+          onNavigate={(route) => {
+            if (route === 'people') { onOpenPeople?.(selected.id); return; }
+            onNavigate?.(route);
+          }}
+        />
       )}
       {view === 'create' && (
         <DepartmentCreate

@@ -478,7 +478,19 @@ export interface Recommendation {
   effort: { measurable: boolean; unit?: string; value?: number; basis: string };
   /** Which of the four execution capabilities the action needs. */
   esoType: 'Assessment' | 'Learning' | 'Workflow' | 'Communication';
+  /**
+   * The executable object this action is bound to, or null.
+   *
+   * A binding exists only where an ESO in this organization's catalogue names
+   * this recommendation's gap kind in its own `gap_types`. Nothing is inferred
+   * from wording, so a null here means no ESO claims this finding — and
+   * `esoNote` says which of the two reasons applies.
+   */
   esoId: string | null;
+  esoCode?: string | null;
+  esoName?: string | null;
+  /** False for a matched ESO that is withdrawn: viewable, but not runnable. */
+  esoRunnable?: boolean;
   esoNote: string;
   nextAction: string;
   dependencies: { recommendationId: string; because: string }[];

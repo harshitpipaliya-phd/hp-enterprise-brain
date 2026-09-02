@@ -218,7 +218,15 @@ export function DimensionLadder({ dimensions }: { dimensions: StateDimension[] }
  * without a label reads as a promise, and a recommendation that looks runnable and
  * is not wastes somebody's afternoon.
  */
-export function RecommendationCard({ recommendation }: { recommendation: Recommendation }) {
+/**
+ * @param onViewEso Opens the bound executable object in the ESO Library.
+ *        Optional: where the host screen cannot navigate, the binding is still
+ *        stated in words rather than rendered as a button that does nothing.
+ */
+export function RecommendationCard({ recommendation, onViewEso }: {
+  recommendation: Recommendation;
+  onViewEso?: (esoId: string) => void;
+}) {
   const r = recommendation;
 
   return (
@@ -285,6 +293,28 @@ export function RecommendationCard({ recommendation }: { recommendation: Recomme
           <div className="oi-block__label">Execution</div>
           <div className="oi-block__body">
             Needs a <strong>{r.esoType}</strong> capability. {r.esoNote}
+            {/*
+              A BOUND ESO IS A REAL ONE. `esoId` is set only where an ESO in
+              this organization's catalogue declares this recommendation's gap
+              kind in its own gap_types — never inferred from wording — so the
+              buttons below always resolve to something the library can open.
+              `esoRunnable` is false for a matched-but-withdrawn definition,
+              which is worth showing (the capability was authored and taken out
+              of service) but must never be offered as a run.
+            */}
+            {r.esoId && onViewEso && (
+              <div className="intel-inline-actions" style={{ marginTop: 8 }}>
+                <button type="button" onClick={() => onViewEso(r.esoId as string)}>View ESO</button>
+                <button
+                  type="button"
+                  onClick={() => onViewEso(r.esoId as string)}
+                  disabled={r.esoRunnable === false}
+                  title={r.esoRunnable === false ? 'This ESO is not in service, so it cannot be run.' : undefined}
+                >
+                  {r.esoRunnable === false ? 'Not runnable' : 'Run ESO'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

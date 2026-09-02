@@ -326,6 +326,28 @@
   --feedback-info-content:    #614A5B;
   --feedback-info-solid:      var(--eb-info);
 
+  /* ---- Verdict band ----------------------------------------------------
+     The one deliberately DARK surface in a light instrument.
+
+     WHY IT IS A ROLE AND NOT JUST A SURFACE. The department intelligence screen
+     opens with a judgement — this unit is healthy, or it is not — and every
+     panel below it is the evidence for that judgement. The verdict has to
+     out-rank a page of cards visually or the screen stops being verdict-first,
+     and it cannot do that from the same --surface-card every card already uses.
+     Restated per theme below rather than inverted, so the band stays dark in
+     both: it is the emphasis that carries the meaning, not the lightness.
+
+     DERIVED, NOT INVENTED. Both ends are the existing espresso ramp — the same
+     --eb-navy-* the avatars and navy buttons already use — and the content on
+     it is the existing cream and champagne. No new hex enters the system.
+
+     -content-muted is for the supporting sentence under the verdict, which has
+     to stay legible without competing with the score above it. */
+  --verdict-surface:       var(--eb-navy-900);
+  --verdict-surface-2:     var(--eb-navy-800);
+  --verdict-content:       var(--eb-cream-100);
+  --verdict-content-muted: var(--eb-gold-200);
+
   --focus-ring:        var(--eb-gold-500);
   --focus-ring-offset: var(--eb-white);
 
@@ -491,6 +513,15 @@
   --action-subtle-hover:   rgba(201, 162, 77, 0.22);
 
   --focus-ring-offset: #221D18;
+
+  /* Verdict band — the deepest surface this theme already defines, which is two
+     steps below --surface-card and so still reads as raised emphasis rather than
+     as another panel. Restated rather than inherited: the light values sit at
+     roughly --surface-card's lightness here and would lose the emphasis. */
+  --verdict-surface:       var(--surface-deep);
+  --verdict-surface-2:     var(--surface-ground);
+  --verdict-content:       var(--content-primary);
+  --verdict-content-muted: var(--eb-gold-300);
 
   /* Status hues lightened for contrast against espresso — the same four
      meanings, the dark instrument's own steps rather than an automatic flip. */

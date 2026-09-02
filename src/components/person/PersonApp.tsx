@@ -120,11 +120,14 @@ export default function PersonApp({
   initialDepartmentId,
   onBack,
   onExploreInGraph,
+  onNavigate,
 }: {
   organization: Organization;
   initialDepartmentId?: string | null;
   onBack: () => void;
   onExploreInGraph?: (label: string, id: string) => void;
+  /** Move to another top-level screen — the profile's unlock actions need it. */
+  onNavigate?: (view: string) => void;
 }) {
   const [view, setView] = useState<PersonView>('list');
   const [selected, setSelected] = useState<Person | null>(null);
@@ -446,6 +449,7 @@ export default function PersonApp({
           onArchive={() => navigate('archive', selected)}
           onViewSourceRecord={() => navigate('details', selected)}
           onExploreInGraph={onExploreInGraph}
+          onNavigate={onNavigate}
         />
       )}
 

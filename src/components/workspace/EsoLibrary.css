@@ -1,0 +1,337 @@
+/*
+ * ESO Library.
+ *
+ * Scoped to this screen. Everything here is built from the product's existing
+ * tokens — no new colours, no new radii — because the library has to read as
+ * part of the same application as the intelligence screens beside it, and a
+ * screen that invents its own palette announces itself as bolted on.
+ *
+ * The layout answers seven questions in a fixed order, and the order is the
+ * design: what is this, when do I use it, what does it do, what does it need,
+ * has it worked, what evidence supports that, can I run it. A reader who has to
+ * hunt for "can I run it" has already been failed by the page.
+ */
+
+.eso-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .eso-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ─────────────────────────── the catalogue list ─────────────────────────── */
+
+.eso-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 720px;
+  overflow-y: auto;
+}
+
+.eso-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  background: var(--surface-card);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.eso-card:hover { background: var(--surface-hover); border-color: var(--border-default); }
+.eso-card:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+
+/* The selected row is marked on the leading edge rather than by a fill, so the
+   status chips inside it keep their own meaning. */
+.eso-card--selected {
+  border-left-color: var(--accent-intelligence-deep);
+  background: var(--surface-raised);
+  border-color: var(--border-default);
+}
+
+/* An ESO that cannot be run is dimmed, never hidden. "We have this capability
+   but it is not in service" is a finding the reader needs. */
+.eso-card--blocked .eso-card__name { color: var(--content-secondary); }
+
+.eso-card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.eso-card__name {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--content-primary);
+  line-height: 1.35;
+}
+
+.eso-card__code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--content-tertiary);
+  white-space: nowrap;
+}
+
+.eso-card__purpose {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--content-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.eso-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+/* ─────────────────────────── detail ─────────────────────────── */
+
+.eso-detail__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 14px;
+}
+
+.eso-detail__title { margin: 0 0 4px; font-size: 16px; font-weight: 650; color: var(--content-primary); }
+.eso-detail__purpose { margin: 0; font-size: 13px; line-height: 1.6; color: var(--content-secondary); max-width: 68ch; }
+
+.eso-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.eso-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-card);
+  padding: 11px 13px;
+}
+
+.eso-block__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+  margin-bottom: 7px;
+}
+
+.eso-block__body { font-size: 12.5px; line-height: 1.6; color: var(--content-secondary); }
+.eso-block__body p { margin: 0 0 6px; }
+.eso-block__body p:last-child { margin-bottom: 0; }
+
+.eso-block--span { grid-column: 1 / -1; }
+
+/* Ordered execution steps read as a procedure, not a bullet list: the numbers
+   are the point. */
+.eso-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
+.eso-steps li { padding-left: 2px; }
+
+.eso-facts { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 12px; }
+.eso-facts dt { color: var(--content-tertiary); }
+.eso-facts dd { margin: 0; color: var(--content-primary); }
+
+/* ─────────────────────────── run panel ─────────────────────────── */
+
+.eso-run {
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  padding: 14px;
+}
+
+.eso-run__field { display: block; margin-bottom: 10px; }
+.eso-run__field > span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--content-secondary);
+  margin-bottom: 4px;
+}
+
+.eso-run__field select,
+.eso-run__field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--content-primary);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+}
+
+.eso-run__field select:focus,
+.eso-run__field input:focus { outline: none; border-color: var(--border-focus); }
+
+.eso-run__hint { font-size: 11px; line-height: 1.5; color: var(--content-tertiary); margin: 3px 0 0; }
+
+.eso-run__ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--feedback-warning-border);
+  background: var(--feedback-warning-surface);
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--feedback-warning-content);
+  margin-bottom: 10px;
+}
+
+.eso-run__ack input { margin-top: 2px; flex: none; }
+
+.eso-run__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ─────────────────────────── blockers ─────────────────────────── */
+
+.eso-blockers {
+  border: 1px solid var(--feedback-warning-border);
+  background: var(--feedback-warning-surface);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.eso-blockers__title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--feedback-warning-content);
+  margin: 0 0 6px;
+}
+
+.eso-blockers ul { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.55; color: var(--feedback-warning-content); }
+
+/* ─────────────────────────── history ─────────────────────────── */
+
+.eso-rows { display: flex; flex-direction: column; gap: 6px; }
+
+.eso-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--surface-card);
+  font-size: 12px;
+  color: var(--content-secondary);
+}
+
+.eso-row__when { margin-left: auto; font-size: 11px; color: var(--content-tertiary); white-space: nowrap; }
+.eso-row__mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--content-tertiary); }
+
+/* The sentence shown wherever a track record would go but cannot be computed.
+   Styled as a statement, not as an error: "we do not know" is a legitimate
+   answer and must not look like a failure. */
+.eso-unmeasurable {
+  border: 1px dashed var(--border-default);
+  border-radius: 7px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--content-secondary);
+  background: var(--surface-inset);
+}
+
+.eso-unmeasurable strong { color: var(--content-primary); font-weight: 600; }
+
+/* ─────────────────────────── efficacy ─────────────────────────── */
+
+.eso-efficacy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.eso-efficacy__score { display: flex; flex-direction: column; gap: 2px; }
+
+.eso-efficacy__value { font-size: 28px; font-weight: 680; line-height: 1; letter-spacing: -0.02em; }
+.eso-efficacy__value--ok { color: var(--feedback-success-solid); }
+.eso-efficacy__value--warn { color: var(--feedback-warning-solid); }
+.eso-efficacy__value--crit { color: var(--feedback-error-solid); }
+
+.eso-efficacy__caption { font-size: 11px; color: var(--content-tertiary); }
+
+.eso-efficacy__facts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* ─────────────────────────── the loop ─────────────────────────── */
+
+/*
+ * A vertical chain. The connector is drawn on the node rather than between
+ * nodes so an absent step dims its own inbound edge — the break in the chain is
+ * visible at the point where the organization actually stopped.
+ */
+.eso-loop { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+.eso-loop__node {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 10px 7px 22px;
+  border-left: 2px solid var(--feedback-success-border);
+  font-size: 12.5px;
+  color: var(--content-secondary);
+}
+
+.eso-loop__node::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--feedback-success-solid);
+}
+
+.eso-loop__node--absent { border-left-style: dashed; border-left-color: var(--border-default); color: var(--content-tertiary); }
+.eso-loop__node--absent::before { background: var(--surface-card); border: 1px solid var(--border-default); }
+
+.eso-loop__label { font-weight: 600; color: var(--content-primary); min-width: 140px; }
+.eso-loop__node--absent .eso-loop__label { color: var(--content-tertiary); font-weight: 500; }
+
+.eso-loop__detail { flex: 1 1 200px; }
+
+.eso-loop__id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--content-tertiary);
+}

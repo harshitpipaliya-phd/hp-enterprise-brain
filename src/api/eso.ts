@@ -4,6 +4,18 @@ export const esoApi = {
   /** GET /api/v1/eso-definitions/{tenantId} */
   definitions: (tenantId: string) => request(`/eso-definitions/${tenantId}`),
 
+  /** GET /api/v1/eso-definitions/{tenantId}/{id} */
+  definition: (tenantId: string, id: string) => request(`/eso-definitions/${tenantId}/${id}`),
+
+  /**
+   * GET /api/v1/eso-definitions/{tenantId}/runnable-decisions
+   *
+   * The approved decisions an ESO can be run against. Without this the only way
+   * to satisfy Invariant 4 from the UI was to type a decision UUID into a text
+   * box, which nobody outside the repository can do.
+   */
+  runnableDecisions: (tenantId: string) => request(`/eso-definitions/${tenantId}/runnable-decisions`),
+
   /** POST /api/v1/measurement-plans */
   createMeasurementPlan: (body: Record<string, unknown>) =>
     request('/measurement-plans', { method: 'POST', body: JSON.stringify(body) }),
