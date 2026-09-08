@@ -260,7 +260,16 @@
   gap: var(--space-5);
 }
 
-.cc-attention {
+/*
+  THE FLOOR IS FOR A QUEUE THAT HAS ROWS IN IT.
+
+  420px was applied unconditionally, so an organization with nothing waiting got
+  a panel four hundred pixels tall holding one line of text — a large blank area
+  in the middle of the screen, reporting good news as though something were
+  missing. The floor keeps the queue from jumping about as rows resolve; it has
+  no work to do when there is no queue, so the healthy state sizes to itself.
+*/
+.cc-attention[data-populated='true'] {
   min-height: 420px;
 }
 

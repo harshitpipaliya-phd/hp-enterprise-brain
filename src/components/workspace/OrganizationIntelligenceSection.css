@@ -1,0 +1,678 @@
+/**
+ * Organization intelligence — the full-width executive band.
+ *
+ * ONE SECTION, NOT TWO BOXES. The outer element is a single elevated surface
+ * spanning the whole content column; the internal bands stack down it in reading
+ * order (health → narrative → findings → strengths/risks/opportunities →
+ * actions). That is what fills the empty middle of the organization overview:
+ * the content grew into the space rather than the space being padded out.
+ *
+ * Every colour, radius, shadow and step of spacing here is a token from
+ * design-tokens/. Nothing is a literal, so the band inherits both themes and any
+ * later change to the product's surfaces without being touched.
+ */
+
+.orgi {
+  position: relative;
+  margin-bottom: var(--space-5);
+  padding: clamp(18px, 2vw, var(--space-6));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-card);
+  box-shadow: var(--shadow);
+}
+
+/*
+  A thin top rule rather than a tinted panel. Depth here comes from the border,
+  the shadow and the inset sub-surfaces below — not from a gradient wash, which
+  at this width reads as decoration rather than as structure.
+*/
+.orgi::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--color-gold-700);
+}
+
+/* ------------------------------------------------------------------ head --- */
+
+.orgi__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.orgi__kicker {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+}
+
+.orgi__head h2 {
+  margin: 4px 0 0;
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--content-primary);
+}
+
+.orgi__head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.orgi__stamp {
+  font-size: 12px;
+  color: var(--content-tertiary);
+}
+
+.orgi__refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--content-secondary);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.orgi__refresh:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--content-primary);
+}
+
+.orgi__refresh:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+.orgi-spin {
+  animation: orgi-spin 1s linear infinite;
+}
+
+@keyframes orgi-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ------------------------------------------------------------- structure --- */
+
+.orgi__band {
+  margin-bottom: var(--space-5);
+}
+
+.orgi__band:last-of-type {
+  margin-bottom: 0;
+}
+
+.orgi__band-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.orgi__label {
+  display: block;
+  margin-bottom: var(--space-3);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  color: var(--content-secondary);
+}
+
+.orgi__band-head .orgi__label {
+  margin-bottom: 0;
+}
+
+.orgi__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-gold-700);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.orgi__more:hover {
+  text-decoration: underline;
+}
+
+.orgi__muted {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--content-tertiary);
+}
+
+.orgi__placeholder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-5);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--content-tertiary);
+  background: var(--surface-inset);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.orgi__placeholder--warn {
+  color: var(--color-red-600);
+}
+
+.orgi__pulse {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-gold-700);
+  animation: orgi-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes orgi-pulse {
+  0%, 100% { opacity: .25; }
+  50%      { opacity: 1; }
+}
+
+/* -------------------------------------------------- band 1 · the reading --- */
+
+/*
+  The health figure is given a fixed, generous column and the narrative takes the
+  rest, so the number is read first and the paragraph beside it explains it. They
+  are one band rather than two cards: a score with its explanation somewhere else
+  on the page is the arrangement this section exists to replace.
+*/
+.orgi__band--summary {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+.orgi__health,
+.orgi__narrative {
+  padding: var(--space-4);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.orgi__figure {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.orgi__figure strong {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.02em;
+  color: var(--content-primary);
+}
+
+.orgi__figure strong span {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--content-tertiary);
+}
+
+.orgi__figure em {
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+}
+
+.orgi__figure em[data-tone='good'] { color: var(--color-green-600); }
+.orgi__figure em[data-tone='warn'] { color: var(--color-amber-500); }
+.orgi__figure em[data-tone='crit'] { color: var(--color-red-600); }
+
+.orgi__meter {
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.orgi__meter > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-green-600);
+}
+
+.orgi__meter > span[data-tone='warn'] { background: var(--color-amber-500); }
+.orgi__meter > span[data-tone='crit'] { background: var(--color-red-600); }
+
+.orgi__health-meta {
+  margin: 10px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--content-secondary);
+}
+
+.orgi__health-why {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--content-tertiary);
+}
+
+/* The engine could not measure a composite. Said in words, never as a zero. */
+.orgi__unavailable {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--content-secondary);
+}
+
+.orgi__narrative p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--content-primary);
+}
+
+.orgi__narrative p:last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------- band 2 · key findings --- */
+
+.orgi__findings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-3);
+}
+
+.orgi__finding {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.orgi__finding:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.orgi__finding::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--color-green-600);
+}
+
+.orgi__finding[data-tone='warn']::after  { background: var(--color-amber-500); }
+.orgi__finding[data-tone='crit']::after  { background: var(--color-red-600); }
+.orgi__finding[data-tone='state']::after { background: var(--color-gold-700); }
+
+.orgi__finding header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.orgi__finding h3 {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--content-primary);
+}
+
+.orgi__chip {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
+  color: var(--content-secondary);
+  white-space: nowrap;
+}
+
+.orgi__chip[data-tone='good'] { color: var(--color-green-600); }
+.orgi__chip[data-tone='warn'] { color: var(--color-amber-500); }
+.orgi__chip[data-tone='crit'] { color: var(--color-red-600); }
+
+.orgi__area {
+  font-size: 11.5px;
+  color: var(--content-tertiary);
+}
+
+.orgi__note {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--content-secondary);
+}
+
+/* The prompt in front of a sentence — "Why it matters", "Next step". Reads as a
+   label rather than as the first words of the sentence itself. */
+.orgi__note em,
+.orgi__col-list small em {
+  display: block;
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+  margin-bottom: 2px;
+}
+
+.orgi__evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.orgi__evidence li {
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--content-secondary);
+}
+
+.orgi__evidence b {
+  font-family: var(--mono);
+  font-weight: 800;
+  color: var(--content-primary);
+}
+
+/* ------------------------ band 3 · strengths, risks, opportunities --------- */
+
+.orgi__band--three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.orgi__col {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.orgi__col > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-3);
+}
+
+.orgi__col > header .orgi__label {
+  margin-bottom: 0;
+  color: var(--content-primary);
+}
+
+.orgi__col-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-xs, 8px);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--content-secondary);
+}
+
+.orgi__col-icon[data-tone='good']  { color: var(--color-green-600); }
+.orgi__col-icon[data-tone='crit']  { color: var(--color-red-600); }
+.orgi__col-icon[data-tone='state'] { color: var(--color-gold-700); }
+
+.orgi__col-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.orgi__col-list li {
+  padding-left: 12px;
+  border-left: 2px solid var(--border-subtle);
+}
+
+.orgi__col[data-tone='good']  .orgi__col-list li { border-left-color: var(--color-green-600); }
+.orgi__col[data-tone='crit']  .orgi__col-list li { border-left-color: var(--color-red-600); }
+.orgi__col[data-tone='state'] .orgi__col-list li { border-left-color: var(--color-gold-700); }
+
+.orgi__col-list strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--content-primary);
+}
+
+.orgi__col-list p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--content-secondary);
+}
+
+.orgi__col-list small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--content-tertiary);
+}
+
+.orgi__owner {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--content-tertiary);
+}
+
+/* ------------------------------------------ band 4 · recommended actions --- */
+
+.orgi__actions {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.orgi__actions > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.orgi__actions > li:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.orgi__rank {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-gold-700);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+}
+
+.orgi__action-body {
+  min-width: 0;
+}
+
+.orgi__action-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.orgi__action-head h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--content-primary);
+}
+
+.orgi__action-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 8px;
+}
+
+.orgi__action-meta .orgi__evidence {
+  margin-top: 0;
+}
+
+.orgi__foot {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: var(--space-5) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--content-tertiary);
+}
+
+.orgi__foot svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* ------------------------------------------------------------ responsive --- */
+
+/* Tablet: the reading stacks, and the three columns become two so neither the
+   narrative nor a risk sentence is squeezed below a readable measure. */
+@media (max-width: 1100px) {
+  .orgi__band--summary {
+    grid-template-columns: 1fr;
+  }
+  .orgi__band--three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Mobile: one column throughout, and the action rank moves above its action so
+   the body keeps the full width. */
+@media (max-width: 720px) {
+  .orgi {
+    padding: var(--space-4);
+  }
+  .orgi__band--three,
+  .orgi__findings {
+    grid-template-columns: 1fr;
+  }
+  .orgi__actions > li {
+    grid-template-columns: 1fr;
+  }
+  .orgi__figure strong {
+    font-size: 38px;
+  }
+  .orgi__head-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* Long titles and evidence strings must wrap, never widen the page. */
+.orgi h2,
+.orgi h3,
+.orgi p,
+.orgi strong,
+.orgi small,
+.orgi__evidence li {
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orgi-spin,
+  .orgi__pulse {
+    animation: none;
+  }
+  .orgi__finding,
+  .orgi__actions > li {
+    transition: none;
+  }
+  .orgi__finding:hover {
+    transform: none;
+  }
+}

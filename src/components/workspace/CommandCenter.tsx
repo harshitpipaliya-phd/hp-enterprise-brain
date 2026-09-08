@@ -48,6 +48,7 @@ import {
   ScorecardPanel,
   TrendChart,
 } from './OperationalIntelligencePanels';
+import OrganizationIntelligenceSection from './OrganizationIntelligenceSection';
 import { LoadingState, ErrorState } from '../shared/States';
 import type { Organization, View } from '../../App';
 import type { OrganizationField } from '../../api/organization';
@@ -771,6 +772,33 @@ export default function CommandCenter({ tenantId, organizationName, organization
 
       {/*
         ─────────────────────────────────────────────────────────────────────
+        ORGANIZATION INTELLIGENCE — the reading, between the counts and the
+        aggregates that support it.
+
+        WHAT THIS REPLACED. The middle of this screen was the gap between the
+        loop strip and the record panels: on an organization whose operational
+        aggregate is thin, a reader scrolled past several hundred pixels of
+        nothing to reach the attention queue. The counts above say what the
+        organization HOLDS and the panels below say where the numbers came
+        from; neither says what any of it MEANS, and that sentence is what an
+        executive opens this screen for.
+
+        ONE FULL-WIDTH SECTION, deliberately not a pair of side-by-side boxes:
+        health, narrative, findings, strengths/risks/opportunities and actions
+        are one argument read top to bottom, and splitting them into columns
+        that compete for the same eye is what made the earlier attempts read as
+        two half-empty widgets.
+
+        IT COMPUTES NOTHING. Every figure is read from the endpoints
+        IntelligenceEngine already publishes for the selected tenant, so this
+        band and the Analytics screens cannot disagree about the same
+        organization. It loads independently and shows its own state, so a slow
+        or failing intelligence read never blocks the counts above it.
+      */}
+      <OrganizationIntelligenceSection tenantId={tenantId} onNavigate={onNavigate} />
+
+      {/*
+        ─────────────────────────────────────────────────────────────────────
         DERIVED OPERATIONAL INTELLIGENCE.
 
         Everything below is an aggregate over this organization's own imported
@@ -909,7 +937,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
       )}
 
       <div className="cc-main-grid">
-        <section className="cc-panel cc-attention" aria-labelledby="cc-attention">
+        <section className="cc-panel cc-attention" data-populated={attention.length > 0} aria-labelledby="cc-attention">
           <div className="cc-section-head">
             <div>
               <span className="cc-kicker">Needs attention</span>
