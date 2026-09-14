@@ -7,6 +7,7 @@ import { graphApi } from '../../api/graph';
 import { conversationApi } from '../../api/conversation';
 import { aiApi } from '../../api/ai';
 import { useTheme } from '../../hooks/useTheme';
+import { contextPayload, type ScreenObject } from '../../utils/screenContext';
 
 interface SearchResult {
   source: 'business' | 'graph';
@@ -69,7 +70,7 @@ const STATUS_COLOR: Record<string, string> = {
  * questions are scoped to a selected result and persisted through the existing
  * conversation backend, while AI operation history remains read-only.
  */
-export default function AIAssistant({ tenantId }: { tenantId: string }) {
+export default function AIAssistant({ tenantId, context }: { tenantId: string; context?: ScreenObject | null }) {
   const theme = useTheme();
   const [tab, setTab] = useState<AssistantTab>('context');
 
@@ -93,6 +94,30 @@ export default function AIAssistant({ tenantId }: { tenantId: string }) {
   const [operationsLoading, setOperationsLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * What this conversation is about: a result searched for HERE, or the object
+   * the reader arrived from.
+   *
+   * WHY THIS IS ONE VALUE AND NOT TWO BRANCHES. Every scoped behaviour on this
+   * screen — whether a conversation may be started, what it is titled, and the
+   * `Context:` line each message carries — asked `selectedResult` directly, so
+   * arriving from a person's profile left the New Conversation button DISABLED
+   * and `send()` returning early. The context would have been threaded all the
+   * way from PersonApp and then had nowhere to go.
+   *
+   * A searched result wins, because it is a choice the reader made on this
+   * screen; the screen they came from is the fallback. Both produce the same
+   * shape, so the three call sites below stay single-branch.
+   */
+  const scope = useMemo(
+    () => (selectedResult
+      ? { type: selectedResult.entityType, id: selectedResult.id }
+      : context
+        ? { type: context.objectType, id: context.objectId }
+        : null),
+    [selectedResult, context],
+  );
 
   const selectedEvidence = useMemo(() => {
     if (!selectedResult) return [];
@@ -196,10 +221,26 @@ export default function AIAssistant({ tenantId }: { tenantId: string }) {
     try { setMessages(await conversationApi.getMessages(tenantId, s.id)); } catch (e: any) { setError(e.message); }
   };
 
+  /*
+    OPEN A CONVERSATION, CARRYING THE SCREEN THE READER CAME FROM.
+
+    `screen`, `objectId` and `objectType` are HINTS. The server resolves the
+    object itself — by primary key AND tenant key, from the tenant in the
+    verified token — and records it on the session only if it found a real row.
+    An id from another organization comes back `object.present: false` and the
+    conversation is created with no subject, so nothing here needs to be, or can
+    be, trusted.
+
+    WITH NO SCREEN CONTEXT THE REQUEST IS UNCHANGED. contextPayload() returns an
+    empty object, so a conversation scoped by a searched result sends exactly the
+    `{ tenantId, title }` body this app has always sent.
+
+    The title names the scope, from whichever source supplied it.
+  */
   const createSession = async () => {
-    const title = selectedResult ? `Context: ${selectedResult.entityType} ${selectedResult.id.slice(0, 8)}` : 'Context conversation';
+    const title = scope ? `Context: ${scope.type} ${scope.id.slice(0, 8)}` : 'Context conversation';
     try {
-      const s = await conversationApi.createSession({ tenantId, title });
+      const s = await conversationApi.createSession({ tenantId, title, ...contextPayload(context) });
       await loadSessions();
       await openSession(s);
     } catch (e: any) {
@@ -208,9 +249,12 @@ export default function AIAssistant({ tenantId }: { tenantId: string }) {
   };
 
   const send = async () => {
-    if (!active || !draft.trim() || !selectedResult) return;
+    // `scope` rather than `selectedResult`: a conversation opened from a
+    // person's profile has a subject and no search result, and this returning
+    // early was what made such a conversation unusable.
+    if (!active || !draft.trim() || !scope) return;
     const scopedContent = [
-      `Context: ${selectedResult.entityType} ${selectedResult.id}`,
+      `Context: ${scope.type} ${scope.id}`,
       selectedEvidence.length ? `Evidence refs: ${selectedEvidence.join(', ')}` : 'Evidence refs: none displayed for this result',
       '',
       draft.trim(),
@@ -287,6 +331,30 @@ export default function AIAssistant({ tenantId }: { tenantId: string }) {
       {tab === 'context' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 360px)', gap: 16 }}>
           <section>
+            {/*
+              WHAT THE ASSISTANT WAS OPENED OVER, stated rather than implied.
+
+              One line, in the tab that already exists, above the search that
+              already exists. It is worth saying out loud because the reader
+              cannot otherwise tell whether a conversation started here will
+              carry the person they were just looking at — and a context the
+              reader cannot see is a context they cannot correct.
+
+              Absent when there is none: "no object" needs no banner.
+            */}
+            {context && (
+              <div
+                data-testid="assistant-screen-context"
+                style={{
+                  marginBottom: 12, padding: '8px 10px', borderRadius: 6,
+                  border: `1px solid ${theme.border}`, backgroundColor: theme.surface,
+                  color: theme.textMuted, fontSize: 12,
+                }}
+              >
+                Opened from <strong style={{ color: theme.text }}>{context.objectType} {context.objectId}</strong>
+                {' '}— a new conversation will resolve this object.
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               <input
                 value={query}
@@ -333,7 +401,10 @@ export default function AIAssistant({ tenantId }: { tenantId: string }) {
       {tab === 'conversation' && (
         <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24 }}>
           <aside>
-            <button onClick={createSession} disabled={!selectedResult} style={{ width: '100%', marginBottom: 12 }}>
+            {/* Enabled by EITHER scope — see the `scope` note above. Without
+                the second source this button stayed disabled for a reader who
+                arrived from the very object they wanted to ask about. */}
+            <button onClick={createSession} disabled={!scope} style={{ width: '100%', marginBottom: 12 }}>
               + New Context Conversation
             </button>
             <input

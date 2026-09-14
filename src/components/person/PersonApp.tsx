@@ -13,6 +13,7 @@ import StudentList from '../student/StudentList';
 import StudentDetail from '../student/StudentDetail';
 import type { Student } from '../../api/student';
 import { loadSession, saveSession } from '../../utils/session';
+import { screenObject, type ScreenObject } from '../../utils/screenContext';
 import { HeaderActions, PageHeader } from '../../ui';
 import './PersonList.css';
 
@@ -121,6 +122,7 @@ export default function PersonApp({
   onBack,
   onExploreInGraph,
   onNavigate,
+  onObjectChange,
 }: {
   organization: Organization;
   initialDepartmentId?: string | null;
@@ -128,6 +130,15 @@ export default function PersonApp({
   onExploreInGraph?: (label: string, id: string) => void;
   /** Move to another top-level screen — the profile's unlock actions need it. */
   onNavigate?: (view: string) => void;
+  /**
+   * Which object this screen is currently showing, for the AI Assistant.
+   *
+   * A REPORT, NOT A HAND-OFF OF OWNERSHIP. This screen keeps its own selection;
+   * the shell needs a copy only because the Assistant is a sibling that mounts
+   * after this component has unmounted, and React offers no other path between
+   * the two. Null means the screen has no single subject.
+   */
+  onObjectChange?: (object: ScreenObject | null) => void;
 }) {
   const [view, setView] = useState<PersonView>('list');
   const [selected, setSelected] = useState<Person | null>(null);
@@ -260,6 +271,42 @@ export default function PersonApp({
 
     return () => { cancelled = true; };
   }, [organization.tenantId, organization.id]);
+
+  /*
+    REPORT WHICH OBJECT IS ON SCREEN, FOR THE AI ASSISTANT.
+
+    ONE EFFECT RATHER THAN A CALL AT EVERY SELECTION SITE. This screen changes
+    its subject from four places — navigate() for staff, setStudent for
+    students, the population switcher, and the session-restore effect above —
+    and calling the parent from each would mean four chances to add a fifth and
+    forget. Deriving it from the state that already decides what renders means
+    the report cannot disagree with the screen: if PersonIntelligence is
+    showing someone, that is who is reported.
+
+    IT REPORTS, IT DOES NOT STORE. `selected` and `student` remain the only
+    copies of the selection; nothing here duplicates them.
+
+    NO NULL ON UNMOUNT, DELIBERATELY. Opening the Assistant unmounts this
+    component, and a cleanup that cleared the context would wipe it a moment
+    before the Assistant reads it. Clearing on navigation belongs to the shell,
+    which knows where the user went — see navigate() in App.tsx.
+  */
+  useEffect(() => {
+    if (!onObjectChange) return;
+
+    if (population === 'students') {
+      onObjectChange(screenObject('student-profile', student?.id));
+      return;
+    }
+
+    // A person is the subject only while their profile is open. On the list —
+    // or mid-edit, mid-archive — the screen is about the roster, and naming
+    // whoever was last clicked would hand the Assistant a subject the reader
+    // is not looking at.
+    onObjectChange(view === 'intelligence' || view === 'details'
+      ? screenObject('person-profile', selected?.id)
+      : null);
+  }, [onObjectChange, population, view, selected, student]);
 
   const navigate = (next: PersonView, person?: Person) => {
     setSelected(person ?? null);

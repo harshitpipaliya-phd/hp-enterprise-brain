@@ -46,6 +46,7 @@ import type { OrganizationRow, DeletionResult } from './api/organization';
 import { ApiError, clearRequestCache, onSessionExpired } from './api/client';
 import { getAuthTenantId, getSelectedOrgId, setSelectedOrgId, clearSelectedOrgId } from './utils/tenant';
 import { loadSession, saveSession, clearSession } from './utils/session';
+import type { ScreenObject } from './utils/screenContext';
 import { clearAuthTokens, clearLegacyPersistentTokens, getAccessToken, getRefreshToken } from './utils/authTokens';
 import { Alert, Button, EmptyState, ErrorState as ViewErrorState, LazyView } from './ui';
 import { GlobalLoader } from './ui/GlobalLoader';
@@ -80,6 +81,17 @@ function initialAuthState(): boolean {
  * build does not land the user on a screen that no longer exists.
  */
 const HOME_VIEW: View = 'home';
+
+/**
+ * The views that render the AI Assistant.
+ *
+ * Four names for one screen: 'search', 'copilot' and 'aiworkspace' were
+ * separate screens before AIAssistant consolidated them, and they are still
+ * accepted so a persisted session or an old link lands somewhere real. They are
+ * enumerated here because navigate() has to treat "going to the Assistant"
+ * differently from every other navigation — see the screen-context note there.
+ */
+const ASSISTANT_VIEWS: View[] = ['aiassistant', 'search', 'copilot', 'aiworkspace'];
 
 /**
  * Whether an organization may be shown under the CURRENT authenticated tenant.
@@ -159,6 +171,27 @@ function AuthenticatedApp() {
    * on whatever was last followed from somewhere else.
    */
   const [esoFocus, setEsoFocus] = useState<string | null>(null);
+  /**
+   * The object the current screen is showing, for the AI Assistant alone.
+   *
+   * WHY THE SHELL HOLDS IT. PersonApp and DepartmentApp own their selections
+   * and keep owning them — this is not a second source of truth, it is a
+   * carrier. The Assistant is a SIBLING of those screens, and opening it
+   * unmounts whichever one was showing, so at the moment the Assistant needs to
+   * know what the reader was looking at, the component that knew is already
+   * gone. The common parent is the only place the value can survive that
+   * transition, exactly as `graphFocus` above survives the navigation into the
+   * graph.
+   *
+   * NOT PERSISTED, for the same reason graphFocus is not: "the person I was
+   * looking at" is a moment, not a preference, and restoring it days later
+   * would open a conversation about someone the reader has no memory of
+   * choosing.
+   *
+   * ADVISORY ONLY. It becomes three fields in a request body that the server
+   * re-resolves against its own tenant; see utils/screenContext.
+   */
+  const [screenObject, setScreenObject] = useState<ScreenObject | null>(null);
   const [peopleDepartmentId, setPeopleDepartmentId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
@@ -419,6 +452,26 @@ function AuthenticatedApp() {
     setSelected(scopedNextOrg);
     setView(v);
     setPeopleDepartmentId(null);
+
+    /*
+      STALE SCREEN CONTEXT IS CLEARED HERE, AND THE ASSISTANT IS THE ONE
+      EXCEPTION.
+
+      The object a screen reported belongs to that screen. Walking from a
+      person's profile to Signals means the reader is no longer looking at a
+      person, so the report has to go — otherwise the next conversation opened
+      from anywhere would claim a subject from two screens ago.
+
+      Navigating INTO the Assistant is the one move that must preserve it: that
+      navigation is precisely the act of taking the current object into a
+      conversation, and the screen that reported it unmounts as part of the same
+      render. Clearing on the way in would make the feature clear its own input.
+
+      The four views listed are the four that render AI_ASSISTANT below; they
+      are the historical Search/Copilot/Workspace screens that now resolve to
+      the same component.
+    */
+    if (!ASSISTANT_VIEWS.includes(v)) setScreenObject(null);
 
     // Only a navigation that NAMES a node carries one. Any other route to the
     // graph — the sidebar, the command palette, a reload — opens on the
@@ -684,6 +737,7 @@ function AuthenticatedApp() {
                   // out of Departments entirely — into Ingestion, Signals or
                   // Capabilities — so they need the shell's own navigator.
                   onNavigate: (view: string) => navigate(view as View, selected),
+                  onObjectChange: setScreenObject,
                 }}
               />
             )}
@@ -691,7 +745,7 @@ function AuthenticatedApp() {
               <LazyView
                 label="People"
                 loader={PERSON_APP}
-                props={{ organization: selected, initialDepartmentId: peopleDepartmentId, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph, onNavigate: (v: string) => navigate(v as View, selected) }}
+                props={{ organization: selected, initialDepartmentId: peopleDepartmentId, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph, onNavigate: (v: string) => navigate(v as View, selected), onObjectChange: setScreenObject }}
               />
             )}
             {view === 'capabilities' && selected && (
@@ -739,7 +793,13 @@ function AuthenticatedApp() {
               />
             )}
             {(view === 'aiassistant' || view === 'search' || view === 'copilot' || view === 'aiworkspace') && selected && (
-              <LazyView label="AI Assistant" loader={AI_ASSISTANT} props={{ tenantId: selected.tenantId }} />
+              /*
+                `screenObject` is whatever the screen the reader came from last
+                reported, and navigate() cleared it unless that screen was left
+                FOR the Assistant. So arriving here from a person's profile
+                carries that person; arriving from the sidebar carries null.
+              */
+              <LazyView label="AI Assistant" loader={AI_ASSISTANT} props={{ tenantId: selected.tenantId, context: screenObject }} />
             )}
             {/* Suspense sits INSIDE the content region, so the sidebar and
                 header stay mounted and interactive while the chunk downloads —

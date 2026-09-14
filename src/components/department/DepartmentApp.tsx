@@ -11,6 +11,7 @@ import DepartmentArchiveConfirm from './DepartmentArchiveConfirm';
 import DepartmentIntelligenceScreen from './intelligence/DepartmentIntelligenceScreen';
 import PersonIntelligence from '../workspace/PersonIntelligence';
 import { api } from '../../api/department';
+import { screenObject, type ScreenObject } from '../../utils/screenContext';
 
 export type DepartmentView = 'list' | 'create' | 'edit' | 'details' | 'archive' | 'intelligence';
 
@@ -46,11 +47,20 @@ export default function DepartmentApp({
   onOpenPeople,
   onExploreInGraph,
   onNavigate,
+  onObjectChange,
 }: {
   organization: Organization;
   onBack: () => void;
   onOpenPeople?: (departmentId: string) => void;
   onExploreInGraph?: (label: string, id: string) => void;
+  /**
+   * Which object this screen is currently showing, for the AI Assistant.
+   *
+   * Reported, not surrendered: `selected` and `viewingPersonId` below stay the
+   * only copies. The shell needs one because the Assistant mounts after this
+   * component is gone.
+   */
+  onObjectChange?: (object: ScreenObject | null) => void;
   /**
    * Leaves the Departments area entirely — used by the intelligence screen's
    * blind-spot fixes, each of which routes into the screen that closes it
@@ -80,6 +90,35 @@ export default function DepartmentApp({
   };
 
   useEffect(() => { load(); }, [organization.tenantId, organization.id]);
+
+  /*
+    REPORT WHICH OBJECT IS ON SCREEN, FOR THE AI ASSISTANT.
+
+    THE NESTED PERSON WINS, AND THAT IS THE WHOLE REASON THIS IS AN EFFECT
+    RATHER THAN A CALL INSIDE navigate(). Opening a member of a department from
+    the intelligence screen goes through setViewingPersonId, which navigate()
+    never sees — so a report wired into navigate() alone would still be naming
+    the department while the reader is looking at a person. Deriving it from the
+    same two pieces of state that decide what renders keeps the two in step.
+
+    No null on unmount: clearing belongs to the shell, which knows where the
+    user went. See navigate() in App.tsx.
+  */
+  useEffect(() => {
+    if (!onObjectChange) return;
+
+    if (viewingPersonId) {
+      onObjectChange(screenObject('person-profile', viewingPersonId));
+      return;
+    }
+
+    // A department is the subject only while one of its own screens is open.
+    // On the list the screen is about the structure, not about whichever unit
+    // was last opened.
+    onObjectChange(view === 'intelligence' || view === 'details'
+      ? screenObject('department-profile', selected?.id)
+      : null);
+  }, [onObjectChange, view, selected, viewingPersonId]);
 
   /*
     THE ACADEMIC STRUCTURE IS NO LONGER A SEPARATE PAGE.
