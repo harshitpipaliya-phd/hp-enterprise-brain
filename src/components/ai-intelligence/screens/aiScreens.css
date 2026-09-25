@@ -1,0 +1,181 @@
+/*
+  Layout for the four working screens ported from G2G's app/ai/**:
+  Conversational AI, Recommendations, Evaluation, Usage & Cost.
+
+  The shared console vocabulary (aii-*) lives in ../aiIntelligence.css and is not
+  edited from here. These are only the pieces those four screens need beyond it —
+  prefixed aiw- so nothing here can restyle another screen.
+*/
+
+/* ---- Section frame ----------------------------------------------------- */
+
+.aiw-section { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.aiw-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.aiw-h2 { margin: 0; font-size: 16px; font-weight: 600; color: var(--content-primary); }
+.aiw-h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--content-primary); }
+.aiw-h4 { margin: 0; font-size: 13px; font-weight: 600; color: var(--content-primary); }
+.aiw-desc { margin: var(--space-1) 0 0; max-width: 42rem; font-size: 14px; line-height: 1.6; color: var(--content-secondary); }
+.aiw-caption { margin: var(--space-1) 0 0; font-size: 12px; line-height: 1.5; color: var(--content-secondary); }
+.aiw-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2); }
+
+.aiw-panel {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  min-width: 0;
+}
+.aiw-panel-stack { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+
+.aiw-dashed {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--content-secondary);
+}
+.aiw-dashed--tall { padding: var(--space-10) var(--space-4); text-align: center; }
+
+.aiw-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-1) 0 0; font-size: 11px; color: var(--content-secondary); }
+.aiw-num { font-variant-numeric: tabular-nums; }
+
+/* ---- Selectable list (recommendations, evaluations, conversations) ---- */
+
+.aiw-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  align-self: start;
+}
+.aiw-list > li + li { border-top: 1px solid var(--border-subtle); }
+.aiw-list-empty { padding: var(--space-6) var(--space-4); text-align: center; font-size: 14px; color: var(--content-secondary); }
+.aiw-list-btn {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--content-primary);
+  cursor: pointer;
+}
+.aiw-list-btn:hover, .aiw-list-btn[aria-current='true'] { background: var(--surface-hover); }
+.aiw-list-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+.aiw-list-btn > svg { flex-shrink: 0; margin-top: 4px; color: var(--content-secondary); }
+.aiw-list-body { min-width: 0; flex: 1; }
+.aiw-list-title { margin: 0; font-size: 14px; font-weight: 500; }
+.aiw-list-title--sm { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Conversational AI -------------------------------------------------- */
+
+.aiw-chat-layout { display: grid; gap: var(--space-5); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) {
+  .aiw-chat-layout { grid-template-columns: minmax(0, 1fr) 18rem; }
+}
+.aiw-chat-box {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+.aiw-chat-scroll { min-height: 12rem; padding: var(--space-4); }
+.aiw-chat-scroll .aii-chat { margin: 0; list-style: none; max-height: 26rem; }
+.aiw-chat-empty { margin: 0; padding: var(--space-8) 0; text-align: center; font-size: 14px; color: var(--content-secondary); }
+.aiw-chat-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.aiw-chat-form > .aiw-grow { flex: 1; min-width: 0; }
+.aiw-bubble-title { display: flex; align-items: center; gap: var(--space-1-5); margin: 0; font-weight: 500; }
+.aiw-bubble-sub { margin: var(--space-1) 0 0; font-size: 12px; line-height: 1.5; }
+
+.aiw-facts { display: grid; gap: var(--space-2); margin: var(--space-3) 0 0; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
+.aiw-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-ground);
+}
+.aiw-fact dt { font-size: 12px; color: var(--content-secondary); }
+.aiw-fact dd { margin: 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--content-primary); }
+.aiw-title-icon { display: flex; align-items: center; gap: var(--space-1-5); }
+.aiw-title-icon svg { color: var(--color-gold-500); }
+
+/* ---- Recommendations ---------------------------------------------------- */
+
+.aiw-prose-list { margin: var(--space-3) 0 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.aiw-prose-list dt { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--content-secondary); }
+.aiw-prose-list dd { margin: 0; font-size: 14px; line-height: 1.6; color: var(--content-primary); }
+.aiw-body { margin: var(--space-2) 0 0; font-size: 14px; line-height: 1.6; color: var(--content-primary); }
+.aiw-body--muted { color: var(--content-secondary); }
+.aiw-evidence { margin: var(--space-2) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+.aiw-evidence > li { padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-ground); }
+.aiw-evidence .aii-pre { margin-top: var(--space-1-5); padding: 0; border: 0; background: none; font-size: 11px; color: var(--content-secondary); }
+.aiw-strong { font-weight: 500; color: var(--content-primary); }
+
+/* ---- Evaluation --------------------------------------------------------- */
+
+.aiw-metrics { display: grid; gap: var(--space-2); margin: var(--space-3) 0 0; grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); }
+.aiw-metrics .aii-metric { padding: var(--space-2) var(--space-3); }
+.aiw-metrics dt { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--content-secondary); }
+.aiw-metrics dd { margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 500; color: var(--content-primary); }
+.aiw-case-assert { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-2) 0 0; font-size: 11px; color: var(--content-secondary); }
+.aiw-verdict { margin: var(--space-2) 0 0; font-size: 12px; line-height: 1.5; color: var(--content-primary); }
+.aiw-case-error { margin: var(--space-2) 0 0; font-size: 12px; line-height: 1.5; color: var(--feedback-error-content); }
+.aiw-details { margin-top: var(--space-2); }
+.aiw-details summary { cursor: pointer; font-size: 12px; font-weight: 500; color: var(--content-secondary); }
+.aiw-details summary:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.aiw-details .aii-pre { margin-top: var(--space-1-5); font-size: 11px; color: var(--content-secondary); }
+
+.aiw-case-draft { padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-ground); display: flex; flex-direction: column; gap: var(--space-3); }
+.aiw-case-draft-head { display: flex; align-items: flex-end; gap: var(--space-2); }
+.aiw-case-draft-head > .aiw-grow { flex: 1; min-width: 0; }
+.aiw-case-grid { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.aiw-mono-input { font-family: var(--font-mono); font-size: 12px; }
+
+/* ---- Usage & Cost ------------------------------------------------------- */
+
+.aiw-metric-note { margin: var(--space-1) 0 0 0; font-size: 11px; line-height: 1.4; color: var(--content-secondary); }
+.aiw-flags { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: 0; font-size: 12px; color: var(--content-secondary); }
+.aiw-flag-failed { color: var(--feedback-error-content); }
+.aiw-quotas { margin: var(--space-3) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+.aiw-quotas > li { padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-ground); display: flex; flex-direction: column; gap: var(--space-2); }
+.aiw-quota-exceeded { display: flex; align-items: center; gap: var(--space-1-5); margin: 0; font-size: 12px; font-weight: 500; color: var(--feedback-error-content); }
+.aiw-quota-warning { margin: 0; font-size: 12px; color: var(--feedback-warning-content); }
+.aii-bar.aiw-bar--danger > span { background: var(--feedback-error-solid); }
+.aiw-quota-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); margin-top: var(--space-4); }
+.aiw-quota-form .u-field { min-width: 10rem; }
+.aiw-hint { padding-bottom: var(--space-2); font-size: 12px; color: var(--content-secondary); }
+
+.aii-table th.aiw-right, .aii-table td.aiw-right { text-align: right; }
+.aiw-trend { margin: var(--space-3) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-1-5); }
+.aiw-trend > li { display: flex; align-items: center; gap: var(--space-3); font-size: 12px; color: var(--content-secondary); font-variant-numeric: tabular-nums; }
+.aiw-trend-day { width: 6rem; flex-shrink: 0; }
+.aiw-trend > li > .aii-bar { flex: 1; }
+.aiw-trend-value { width: 7rem; flex-shrink: 0; text-align: right; }
+.aiw-event-error { margin: var(--space-1) 0 0; max-width: 24rem; font-size: 11px; line-height: 1.4; color: var(--content-secondary); }

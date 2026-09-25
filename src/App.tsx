@@ -30,6 +30,7 @@ const INGESTION_WORKSPACE = () => import('./components/workspace/IngestionWorksp
 const MEMORY_SCREEN = () => import('./components/workspace/MemoryScreen');
 const ESO_LIBRARY_SCREEN = () => import('./components/workspace/EsoLibraryScreen');
 const KASBA_EXPLORER = () => import('./components/workspace/KasbaExplorer');
+const AI_INTELLIGENCE = () => import('./components/ai-intelligence/AiIntelligenceApp');
 // OrganizationIntelligenceHome previously rendered the 'home' view. Home is now
 // Command Center, so the component is no longer mounted anywhere. The file is
 // left in place rather than deleted — it is a complete screen, and nothing here
@@ -53,7 +54,7 @@ import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
 import { globalLoading } from './ui/globalLoading';
 
-export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion';
+export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion' | 'ai';
 
 export type Organization = OrganizationRow;
 
@@ -171,6 +172,13 @@ function AuthenticatedApp() {
    * on whatever was last followed from somewhere else.
    */
   const [esoFocus, setEsoFocus] = useState<string | null>(null);
+  /**
+   * Where inside the AI & Intelligence console the user is: '' for its index,
+   * 'providers', 'prompts/12/edit'. G2G holds this in the URL under /ai; HP Brain
+   * has no router, so it lives beside the view like graphFocus does, and is not
+   * persisted — a reload opens the console index.
+   */
+  const [aiRoute, setAiRoute] = useState('');
   /**
    * The object the current screen is showing, for the AI Assistant alone.
    *
@@ -601,6 +609,7 @@ function AuthenticatedApp() {
       userRole={userRole}
       onNavigate={(v) => navigate(v, selected ?? undefined)}
       onLogout={logout}
+      onOpenAiConsole={(route) => { setAiRoute(route); navigate('ai', selected ?? undefined); }}
       // The real NotificationBell, passed in rather than invented by the shell.
       // When no organization is selected there is no tenant to query, so the
       // shell falls back to a disabled, honestly-labelled control instead of a
@@ -858,6 +867,17 @@ function AuthenticatedApp() {
                 everyone. */}
             {view === 'esolibrary' && selected && (
               <LazyView label="ESO Library" loader={ESO_LIBRARY_SCREEN} props={{ tenantId: selected.tenantId, focusEsoId: esoFocus }} />
+            )}
+            {view === 'ai' && selected && (
+              <LazyView
+                label="AI & Intelligence"
+                loader={AI_INTELLIGENCE}
+                props={{
+                  route: aiRoute,
+                  onRoute: setAiRoute,
+                  onOpenView: (v: string) => navigate(v as View, selected),
+                }}
+              />
             )}
             {view === 'kasbaexplorer' && selected && (
               <LazyView label="KASBA" loader={KASBA_EXPLORER} props={{ tenantId: selected.tenantId, organizationName: selected.name }} />
