@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, ChevronDown, FolderTree, GraduationCap, IndianRupee, Layers, RefreshCw, Users } from 'lucide-react';
+import { Building2, ChevronDown, FolderTree, GraduationCap, IndianRupee, Layers, Plus, RefreshCw, Users } from 'lucide-react';
 import type { Organization } from '../../App';
 import { api as deptApi, type AcademicSection, type AcademicSectionsResponse } from '../../api/department';
 import { api as studentApi, type Page, type Student } from '../../api/student';
 import AcademicStructure from '../student/AcademicStructure';
-import { PageHeader } from '../../ui';
+import { HeaderActions, PageHeader } from '../../ui';
 import './DepartmentList.css';
 
 /**
@@ -58,6 +58,7 @@ interface Props {
   /** How many units the HR system holds. Zero is why this view is showing. */
   hrDepartmentCount: number;
   onBack: () => void;
+  onCreate?: () => void;
 }
 
 function formatCurrency(value: number): string {
@@ -66,7 +67,7 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export default function AcademicSectionView({ organization, hrDepartmentCount, onBack }: Props) {
+export default function AcademicSectionView({ organization, hrDepartmentCount, onBack, onCreate }: Props) {
   const [data, setData] = useState<AcademicSectionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +133,13 @@ export default function AcademicSectionView({ organization, hrDepartmentCount, o
           { label: organization.name, onClick: onBack },
           { label: 'Departments' },
         ]}
+        actions={onCreate ? (
+          <HeaderActions>
+            <button type="button" className="u-btn u-btn-primary" onClick={onCreate}>
+              <Plus size={15} aria-hidden="true" /> Add Department
+            </button>
+          </HeaderActions>
+        ) : undefined}
       />
 
       <section className="dept-intel__kpis">

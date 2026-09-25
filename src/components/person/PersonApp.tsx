@@ -294,7 +294,7 @@ export default function PersonApp({
   useEffect(() => {
     if (!onObjectChange) return;
 
-    if (population === 'students') {
+    if (population === 'students' && view !== 'create') {
       onObjectChange(screenObject('student-profile', student?.id));
       return;
     }
@@ -380,6 +380,39 @@ export default function PersonApp({
     ERP path below is byte-for-byte the screen Sunrise already had — the switcher
     is the only thing added to either.
   */
+  if (view === 'create') {
+    return (
+      <div className="people-app">
+        <PageHeader
+          variant="detail"
+          icon={<Plus />}
+          title="Add New People"
+          description={`Add a new person to ${organization.name}. Enter their personal, departmental, and employment information.`}
+          back={{ label: 'Back to People', onClick: () => navigate('list') }}
+          breadcrumbs={[
+            { label: organization.name, onClick: onBack },
+            { label: 'People', onClick: () => navigate('list') },
+            { label: 'Add New People' },
+          ]}
+        />
+        <PersonCreate
+          tenantId={organization.tenantId}
+          orgId={organization.id}
+          organizationName={organization.name}
+          onCreated={(person: any) => {
+            setPopulation('erp');
+            navigate('list');
+            load();
+            if (person.tempPassword) {
+              alert('Person created successfully!\n\nTemporary password: ' + person.tempPassword + '\n\nPlease use the ERP password-reset flow to set a permanent password.');
+            }
+          }}
+          onCancel={() => navigate('list')}
+        />
+      </div>
+    );
+  }
+
   if (population === 'students') {
     return (
       <div className="people-app">
@@ -396,6 +429,13 @@ export default function PersonApp({
             )}
             back={{ label: 'Organization', onClick: onBack }}
             breadcrumbs={[{ label: organization.name, onClick: onBack }, { label: 'People' }, { label: 'Students' }]}
+            actions={(
+              <HeaderActions>
+                <button type="button" className="u-btn u-btn-primary" onClick={() => navigate('create')}>
+                  <Plus size={15} aria-hidden="true" /> Add New People
+                </button>
+              </HeaderActions>
+            )}
           >
             {switcher}
           </PageHeader>
@@ -442,7 +482,7 @@ export default function PersonApp({
           actions={view === 'list' ? (
             <HeaderActions>
               <button type="button" className="u-btn u-btn-primary" onClick={() => navigate('create')}>
-                <Plus size={15} aria-hidden="true" /> New Person
+                <Plus size={15} aria-hidden="true" /> Add New People
               </button>
             </HeaderActions>
           ) : undefined}
@@ -497,22 +537,6 @@ export default function PersonApp({
           onViewSourceRecord={() => navigate('details', selected)}
           onExploreInGraph={onExploreInGraph}
           onNavigate={onNavigate}
-        />
-      )}
-
-      {view === 'create' && (
-        <PersonCreate
-          tenantId={organization.tenantId}
-          orgId={organization.id}
-          organizationName={organization.name}
-          onCreated={(person: any) => {
-            navigate('list');
-            load();
-            if (person.tempPassword) {
-              alert('Person created. Temporary password: ' + person.tempPassword + '\n\nThis is a randomly generated placeholder. Use the ERP password-reset flow before relying on it to log in.');
-            }
-          }}
-          onCancel={() => navigate('list')}
         />
       )}
 

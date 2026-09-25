@@ -165,7 +165,7 @@ export default function DepartmentApp({
           actions={(
             <HeaderActions>
               <button type="button" className="u-btn u-btn-primary" onClick={() => navigate('create')}>
-                <Plus size={15} aria-hidden="true" /> New Department
+                <Plus size={15} aria-hidden="true" /> Add Department
               </button>
             </HeaderActions>
           )}

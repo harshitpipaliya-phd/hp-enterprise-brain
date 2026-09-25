@@ -88,6 +88,15 @@ export const api = {
     return normalize(await request(`/people/${tenant}/${id}`), tenant);
   },
 
+  /** GET /api/v1/people/{tenantId}/options - departments and roles scoped to tenant */
+  getOptions: async (tenantId: string): Promise<{
+    departments: Array<{ id: string; name: string; code?: string | null }>;
+    roles: Array<{ id: string; name: string }>;
+  }> => {
+    const tenant = scopedTenant(tenantId);
+    return request(`/people/${tenant}/options`);
+  },
+
   /** POST /api/v1/people */
   createPerson: async (tenantId: string, body: Record<string, unknown>) => {
     const tenant = scopedTenant(tenantId);

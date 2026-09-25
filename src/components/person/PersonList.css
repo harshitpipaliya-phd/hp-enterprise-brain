@@ -458,3 +458,124 @@
   color: var(--status-crit);
   background: color-mix(in srgb, var(--status-crit) 14%, transparent);
 }
+
+/* Quick Add Department Modal & Person Form Enhancements */
+.people-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.people-modal-card {
+  width: 100%;
+  max-width: 520px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.people-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.people-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--content-primary);
+}
+
+.people-modal-close {
+  background: none;
+  border: none;
+  color: var(--content-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+}
+
+.people-modal-close:hover {
+  color: var(--content-primary);
+  background: var(--surface-inset);
+}
+
+.people-modal-body {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.people-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
+}
+
+.people-dept-empty-box {
+  grid-column: 1 / -1;
+  padding: 14px 16px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.people-dept-empty-box p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--content-secondary);
+}
+
+.people-dept-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.people-dept-add-link {
+  background: none;
+  border: none;
+  color: var(--accent-intelligence-deep);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.people-dept-add-link:hover {
+  text-decoration: underline;
+}
+
+.people-success-banner {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: var(--radius);
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  font-size: 13px;
+}
