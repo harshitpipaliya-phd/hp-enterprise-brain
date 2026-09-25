@@ -1,9 +1,10 @@
 import React from 'react';
-import { Bell, ChevronRight, Menu, Search, UserRound } from 'lucide-react';
+import { Bell, ChevronRight, Menu, Search, Sparkles, UserRound } from 'lucide-react';
 import type { View } from '../App';
 import { breadcrumbsFor } from './viewMeta';
 import { visibleViewsForRole } from './roleAccess';
 import { Avatar, IconButton } from '../ui';
+import { AI_CAPABILITIES, capabilityRoute } from '../components/ai-intelligence/core';
 
 export interface TopHeaderProps {
   view: View;
@@ -18,6 +19,8 @@ export interface TopHeaderProps {
   onNavigate: (view: View) => void;
   onLogout: () => void;
   onOpenCommandPalette: () => void;
+  /** Opens the AI & Intelligence console at a sub-route ('' for its index). */
+  onOpenAiConsole?: (route: string) => void;
   /** Rendered in the notifications slot when the app supplies one. */
   notificationSlot?: React.ReactNode;
 }
@@ -33,7 +36,7 @@ export interface TopHeaderProps {
  */
 export function TopHeader({
   view, orgName, userName, userRole, showMenuButton, menuButtonRef,
-  onOpenDrawer, onNavigate, onLogout, onOpenCommandPalette, notificationSlot,
+  onOpenDrawer, onNavigate, onLogout, onOpenCommandPalette, onOpenAiConsole, notificationSlot,
 }: TopHeaderProps) {
   const crumbs = breadcrumbsFor(view, orgName);
   const canOpenAssistant = visibleViewsForRole(userRole).has('aiassistant');
@@ -112,6 +115,7 @@ export function TopHeader({
           onLogout={onLogout}
           onOpenSettings={() => onNavigate('settings')}
           canOpenSettings={visibleViewsForRole(userRole).has('settings')}
+          onOpenAiConsole={visibleViewsForRole(userRole).has('ai') ? onOpenAiConsole : undefined}
         />
       </div>
     </header>
@@ -119,13 +123,26 @@ export function TopHeader({
 }
 
 function UserMenu({
-  userName, userRole, onLogout, onOpenSettings, canOpenSettings,
+  userName, userRole, onLogout, onOpenSettings, canOpenSettings, onOpenAiConsole,
 }: {
   userName?: string | null;
   userRole: string | null;
   onLogout: () => void;
   onOpenSettings: () => void;
   canOpenSettings: boolean;
+  /**
+   * AI & INTELLIGENCE, DRIVEN BY THE REGISTRY RATHER THAN BY A LIST HERE — the
+   * arrangement G2G's gtg-user-menu uses. The entries come from the shared
+   * capability registry, which also builds the console and every capability page,
+   * so adding or renaming a capability is a registry edit and this file does not
+   * change.
+   *
+   * It hangs off this menu rather than the sidebar for G2G's reason: these are
+   * administration screens that configure the AI every module then uses, not a
+   * module. Administrators only (roleAccess 'ai'), and the server agrees — every
+   * /ai-intelligence route carries permission:settings.manage.
+   */
+  onOpenAiConsole?: (route: string) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -173,7 +190,7 @@ function UserMenu({
       </button>
 
       {open && (
-        <div className="s-usermenu-panel" role="menu">
+        <div className={`s-usermenu-panel${onOpenAiConsole ? ' s-usermenu-panel--wide' : ''}`} role="menu">
           {/* Identity is shown only when the app actually knows it. No sample
               names, and no role invented for a user whose role is unknown. */}
           <div className="s-usermenu-head">
@@ -181,15 +198,51 @@ function UserMenu({
             {userRole && <span className="s-usermenu-role">{userRole.replace(/_/g, ' ')}</span>}
           </div>
 
-          {canOpenSettings && (
-            <button type="button" role="menuitem" className="s-usermenu-item" onClick={() => { close(); onOpenSettings(); }}>
-              Settings
-            </button>
-          )}
+          <div className="s-usermenu-scroll">
+            {canOpenSettings && (
+              <button type="button" role="menuitem" className="s-usermenu-item" onClick={() => { close(); onOpenSettings(); }}>
+                Settings
+              </button>
+            )}
 
-          <button type="button" role="menuitem" className="s-usermenu-item s-usermenu-danger" onClick={() => { setOpen(false); onLogout(); }}>
-            Sign out
-          </button>
+            {onOpenAiConsole && (
+              <div className="s-usermenu-section">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="s-usermenu-item s-usermenu-item--ai"
+                  onClick={() => { setOpen(false); onOpenAiConsole(''); }}
+                >
+                  <Sparkles size={16} aria-hidden="true" />
+                  AI &amp; Intelligence
+                </button>
+
+                {/* The capabilities themselves, so an administrator reaches the one
+                    they want in one click rather than two. The console above is
+                    still there for the overview. */}
+                {AI_CAPABILITIES.map((capability) => (
+                  <button
+                    key={capability.id}
+                    type="button"
+                    role="menuitem"
+                    className="s-usermenu-item s-usermenu-subitem"
+                    onClick={() => { setOpen(false); onOpenAiConsole(capabilityRoute(capability)); }}
+                  >
+                    <span>{capability.name}</span>
+                    {capability.status !== 'live' && (
+                      <span className="s-usermenu-tag">{capability.status === 'in-progress' ? 'WIP' : 'Soon'}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className={onOpenAiConsole ? 's-usermenu-footer' : undefined}>
+            <button type="button" role="menuitem" className="s-usermenu-item s-usermenu-danger" onClick={() => { setOpen(false); onLogout(); }}>
+              Sign out
+            </button>
+          </div>
         </div>
       )}
     </div>

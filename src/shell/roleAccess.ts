@@ -25,6 +25,9 @@ const TENANT_ADMIN: View[] = [
   'executive', 'analytics', 'decisionintel', 'mentalmodels', 'graph',
   'kasbaexplorer', 'aiassistant', 'knowledgelibrary', 'esolibrary', 'tasks',
   'policies', 'settings',
+  // AI & Intelligence: every /ai-intelligence route carries
+  // permission:settings.manage, which only admin and tenant_admin hold.
+  'ai',
 ];
 
 const MANAGER: View[] = [

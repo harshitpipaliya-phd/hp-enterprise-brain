@@ -1,0 +1,275 @@
+/*
+  AI & Intelligence console.
+
+  The layout, sections and states are G2G's (app/ai/**), rebuilt on HP Brain's
+  design tokens because HP Brain has no Tailwind. Every class is prefixed aii- so
+  nothing here can restyle another screen. Controls (buttons, inputs, modals,
+  tabs, badges) come from ../../ui — only the console's own layout lives here.
+*/
+
+.aii-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  color: var(--content-primary);
+}
+
+.aii-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+.aii-back:hover { color: var(--content-primary); }
+.aii-back:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+.aii-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.aii-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--content-primary);
+}
+.aii-lead {
+  margin: var(--space-2) 0 0;
+  max-width: 48rem;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--content-secondary);
+}
+.aii-summary { margin: var(--space-3) 0 0; font-size: 14px; color: var(--content-secondary); }
+
+/* ---- Cards ------------------------------------------------------------- */
+
+.aii-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+.aii-card--flush { padding: 0; overflow: hidden; }
+.aii-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
+}
+.aii-card-body { padding: var(--space-4) var(--space-5); }
+.aii-card-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--content-primary); }
+.aii-card-desc { margin: var(--space-1) 0 0; font-size: 14px; line-height: 1.6; color: var(--content-secondary); }
+.aii-card-sub { margin: 2px 0 0; font-size: 12px; color: var(--content-secondary); }
+.aii-card-content { margin-top: var(--space-3); }
+
+.aii-grid-2 { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.aii-grid-3 { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.aii-stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.aii-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.aii-row--between { justify-content: space-between; }
+.aii-split { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) {
+  .aii-split { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+}
+
+/* ---- Metrics ----------------------------------------------------------- */
+
+.aii-metric {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-ground);
+  padding: var(--space-3) var(--space-4);
+}
+.aii-metric-label { margin: 0; font-size: 12px; color: var(--content-secondary); }
+.aii-metric-value { margin: var(--space-1) 0 0; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--content-primary); }
+.aii-metric-hint { margin: 2px 0 0; font-size: 12px; color: var(--content-tertiary); }
+
+/* ---- Tables ------------------------------------------------------------ */
+
+.aii-table-wrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-card); }
+.aii-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+.aii-table--wide { min-width: 52rem; }
+.aii-table th {
+  padding: var(--space-2-5) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-inset);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--content-secondary);
+}
+.aii-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-subtle); vertical-align: top; color: var(--content-primary); }
+.aii-table tbody tr:last-child td { border-bottom: 0; }
+.aii-table tbody tr:hover { background: var(--surface-hover); }
+.aii-table td.aii-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.aii-table td.aii-truncate { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--content-secondary); }
+.aii-table tr.aii-row-selected { background: var(--surface-hover); }
+
+.aii-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  color: var(--content-primary);
+  cursor: pointer;
+  text-align: left;
+}
+.aii-link:hover { text-decoration: underline; }
+.aii-link:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.aii-link .aii-link-arrow { opacity: 0; transition: opacity 120ms; color: var(--content-secondary); }
+.aii-link:hover .aii-link-arrow, .aii-link:focus-visible .aii-link-arrow { opacity: 1; }
+
+/* ---- Chips and pills --------------------------------------------------- */
+
+.aii-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: 4px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.aii-chip--sm { padding: 2px 8px; font-size: 11px; }
+.aii-chip--live { background: var(--surface-ground); color: var(--content-primary); }
+.aii-chip--in-progress { background: var(--feedback-info-surface); border-color: var(--feedback-info-border); color: var(--feedback-info-content); }
+.aii-chip--coming-soon { background: var(--surface-inset); color: var(--content-secondary); }
+
+.aii-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.aii-pill--yes { background: var(--feedback-info-surface); border-color: var(--feedback-info-border); color: var(--feedback-info-content); }
+.aii-pill--partial { background: var(--surface-inset); color: var(--content-primary); }
+.aii-pill--no { border-style: dashed; background: transparent; color: var(--content-secondary); }
+
+/* ---- Text ------------------------------------------------------------- */
+
+.aii-muted { color: var(--content-secondary); }
+.aii-faint { color: var(--content-tertiary); }
+.aii-small { font-size: 12px; }
+.aii-mono { font-family: var(--font-mono); font-size: 12px; }
+.aii-pre {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--content-primary);
+}
+
+.aii-points { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
+.aii-points li { display: flex; align-items: flex-start; gap: var(--space-2); font-size: 14px; line-height: 1.6; color: var(--content-secondary); }
+.aii-points li::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin-top: 9px;
+  border-radius: 50%;
+  background: var(--color-gold-500);
+}
+
+/* ---- States ----------------------------------------------------------- */
+
+.aii-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--content-secondary);
+}
+.aii-empty svg { flex-shrink: 0; margin-top: 3px; }
+.aii-empty-title { margin: 0; font-weight: 500; color: var(--content-primary); }
+.aii-empty p { margin: 0; }
+.aii-loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-6) 0; font-size: 14px; color: var(--content-secondary); }
+.aii-spin { animation: aii-spin 900ms linear infinite; }
+@keyframes aii-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .aii-spin { animation: none; } }
+
+/* ---- Forms ------------------------------------------------------------ */
+
+.aii-form { display: flex; flex-direction: column; gap: var(--space-4); }
+.aii-form-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.aii-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.aii-toggle-list { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* ---- Bars (usage) ----------------------------------------------------- */
+
+.aii-bar { height: 8px; border-radius: var(--radius-pill); background: var(--surface-inset); overflow: hidden; min-width: 80px; }
+.aii-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--color-gold-500); }
+.aii-bar--warn > span { background: var(--feedback-warning-solid); }
+
+/* ---- Chat ------------------------------------------------------------- */
+
+.aii-chat { display: flex; flex-direction: column; gap: var(--space-3); max-height: 520px; overflow-y: auto; padding: var(--space-1); }
+.aii-bubble { max-width: 85%; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.aii-bubble--user { align-self: flex-end; background: var(--surface-inset); border: 1px solid var(--border-subtle); }
+.aii-bubble--assistant { align-self: flex-start; background: var(--surface-card); border: 1px solid var(--border-subtle); }
+.aii-bubble--error { align-self: flex-start; background: var(--feedback-error-surface); border: 1px solid var(--feedback-error-border); color: var(--feedback-error-content); }
+.aii-bubble-meta { margin-top: var(--space-1-5); font-size: 11px; color: var(--content-tertiary); }
+
+/* ---- Filter tabs with counts ----------------------------------------- */
+
+.aii-filters { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
+.aii-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: 6px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  font: inherit;
+  font-size: 13px;
+  color: var(--content-secondary);
+  cursor: pointer;
+}
+.aii-filter[aria-pressed='true'] { border-color: var(--border-strong); background: var(--surface-inset); color: var(--content-primary); font-weight: 600; }
+.aii-filter:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.aii-filter-count { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--content-tertiary); }

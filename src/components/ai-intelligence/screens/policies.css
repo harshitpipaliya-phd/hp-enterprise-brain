@@ -1,0 +1,75 @@
+/*
+  AI Policies — G2G's Tailwind classes rebuilt on HP Brain tokens. Every class is
+  prefixed pol- so nothing here restyles another screen; controls come from
+  ../../../ui and the console layout from ../aiIntelligence.css.
+*/
+
+.pol-section-title { font-size: 16px; }
+.pol-name { font-weight: 500; color: var(--content-primary); }
+.pol-empty-cell { padding: var(--space-8) var(--space-4) !important; text-align: center; color: var(--content-secondary) !important; }
+
+.pol-platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-inset);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--content-secondary);
+}
+
+.pol-form-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--content-primary); }
+.pol-form-title:focus { outline: none; }
+.pol-form-title:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.pol-form { margin-top: var(--space-4); }
+
+.pol-check-card {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-ground);
+}
+.pol-check-card .u-check { color: var(--content-primary); }
+.pol-check-card--raised { background: var(--surface-card); }
+
+.pol-group {
+  margin: 0;
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-ground);
+}
+.pol-group-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--content-primary); }
+.pol-group-body { margin-top: var(--space-3); }
+.pol-assignments { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.pol-dashed {
+  margin: 0;
+  padding: var(--space-4) var(--space-3);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--content-secondary);
+}
+
+.pol-assignment {
+  display: grid;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) {
+  .pol-assignment { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; }
+}
+.pol-scope-note { display: flex; align-items: center; padding: 0 var(--space-1); font-size: 12px; color: var(--content-secondary); }

@@ -128,6 +128,9 @@ export function onSessionExpired(callback: () => void): void {
 export type ApiRequestOptions = RequestInit & {
   globalLoader?: GlobalLoaderMode | 'auto';
   cacheTtlMs?: number;
+  /** false returns the body exactly as sent. For APIs whose objects are keyed by
+   *  data (a map of rule keys), where an added camelCase alias is a phantom entry. */
+  camelAliases?: boolean;
 };
 
 type CachedGet = {
@@ -159,7 +162,7 @@ export async function request(path: string, options: ApiRequestOptions = {}, _is
   const loaderMode = resolveGlobalLoaderMode(options);
   globalLoading.requestStarted(loaderMode);
   try {
-    const { globalLoader: _globalLoader, cacheTtlMs, ...requestOptions } = options;
+    const { globalLoader: _globalLoader, cacheTtlMs, camelAliases = true, ...requestOptions } = options;
     const isFormData = requestOptions.body instanceof FormData;
     const url = `${API_BASE}${path}`;
     const method = requestOptions.method || 'GET';
@@ -233,7 +236,9 @@ export async function request(path: string, options: ApiRequestOptions = {}, _is
         }
       }
 
-      return text ? addCamelAliases(JSON.parse(text)) : null;
+      if (!text) return null;
+      const parsed = JSON.parse(text);
+      return camelAliases ? addCamelAliases(parsed) : parsed;
     };
 
     if (normalizedMethod === 'GET' && ttl > 0) {

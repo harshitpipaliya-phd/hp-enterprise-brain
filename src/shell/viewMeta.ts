@@ -52,7 +52,7 @@ export const COLLAPSIBLE_SECTIONS: SectionId[] = [
   'Intelligence Loop', 'Analytics', 'Knowledge', 'Automation',
 ];
 
-/** Every one of the 31 View values, exhaustively — the Record type enforces it. */
+/** Every View value, exhaustively — the Record type enforces it. */
 export const VIEW_META: Record<View, ViewMeta> = {
   home:             { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, description: 'What this organization contains, and how far its data has travelled through the loop.' },
   // Retained as an alias so a session persisted by an earlier build still
@@ -98,6 +98,9 @@ export const VIEW_META: Record<View, ViewMeta> = {
   policies:         { label: 'Policy Management', section: 'Automation', icon: ShieldCheck, requiresOrg: true, description: 'The rules execution must respect.' },
 
   settings:         { label: 'Settings', section: 'Account', icon: Settings, requiresOrg: true, description: 'Configuration for this organization.' },
+  // Reached from the account menu, as in G2G and LMS K-12, so hidden from the
+  // sidebar. Its sub-screens are a console route held in App state, not views.
+  ai:               { label: 'AI & Intelligence', section: 'Account', icon: Sparkles, requiresOrg: true, hidden: true, description: 'The AI capabilities every module calls, configured for this organization.' },
 };
 
 /** Sidebar order. Hidden views are routable but never drawn. */
