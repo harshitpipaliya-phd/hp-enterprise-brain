@@ -40,6 +40,7 @@ import Signup from './components/auth/Signup';
 import type { AuthSession } from './components/auth/session';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { AppShell } from './shell/AppShell';
+import { ModuleAiStackFrame } from './components/ai-stack/ModuleAiStackFrame';
 import { NotificationBell } from './components/NotificationBell';
 import { ToastProvider, useToast } from './components/Toast';
 import { api } from './api/organization';
@@ -617,6 +618,10 @@ function AuthenticatedApp() {
       notificationSlot={selected ? <NotificationBell tenantId={selected.tenantId} /> : undefined}
     >
       <ErrorBoundary key={view} label={view}>
+        {/* Module AI Stack: an admin-only toggle above the eighteen module screens that
+            carry one (components/ai-stack/moduleViews.ts). Renders the screen alone
+            everywhere else. Keyed by the boundary above, so it resets per view. */}
+        <ModuleAiStackFrame view={view} userRole={userRole}>
             {error && (
               <Alert tone="danger" title="Workspace data is partially unavailable">
                 {error}
@@ -893,6 +898,7 @@ function AuthenticatedApp() {
                 }}
               />
             )}
+        </ModuleAiStackFrame>
       </ErrorBoundary>
     </AppShell>
   );

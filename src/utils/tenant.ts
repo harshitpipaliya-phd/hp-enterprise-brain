@@ -80,3 +80,19 @@ export function clearSelectedOrgId(): void {
 export function hasSelectedOrg(): boolean {
   return localStorage.getItem(SELECTED_ORG_KEY) !== null;
 }
+
+/**
+ * The role claim of the signed-in JWT ('admin', 'tenant_admin', …), or ''.
+ *
+ * Like the tenant, read from the token rather than from anything the UI stored,
+ * so it is always the role the API will enforce on the next request.
+ */
+export function getAuthRole(): string {
+  const token = getAccessToken();
+  if (token) {
+    const claims = decodeJwtPayload(token);
+    if (typeof claims?.role === 'string') return claims.role;
+  }
+
+  return '';
+}
