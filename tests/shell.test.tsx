@@ -86,11 +86,11 @@ describe('role matrix — unchanged by the redesign', () => {
     // Ingestion carries permission:settings.manage, so it is deliberately NOT
     // granted to manager/analyst/viewer/member. The same holds for 'ai' (AI &
     // Intelligence), whose routes all carry permission:settings.manage.
-    admin: 34,        // every view in VIEW_META, including hidden aliases
-    tenant_admin: 26,
-    manager: 15,
-    analyst: 17,
-    viewer: 11,
+    admin: 37,        // every view in VIEW_META, including hidden aliases
+    tenant_admin: 28,
+    manager: 16,
+    analyst: 19,
+    viewer: 12,
     member: 3,
   };
 
@@ -199,6 +199,7 @@ describe('sidebar', () => {
       'Knowledge Library',
       'Memory',
       'AI Assistant',
+      'Global Search',
       'ESO Library',
     ]);
   });

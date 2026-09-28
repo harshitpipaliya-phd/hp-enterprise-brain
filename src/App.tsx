@@ -30,6 +30,9 @@ const INGESTION_WORKSPACE = () => import('./components/workspace/IngestionWorksp
 const MEMORY_SCREEN = () => import('./components/workspace/MemoryScreen');
 const ESO_LIBRARY_SCREEN = () => import('./components/workspace/EsoLibraryScreen');
 const KASBA_EXPLORER = () => import('./components/workspace/KasbaExplorer');
+const SIGNAL_CHAIN_VIEW = () => import('./components/signal/SignalChainView');
+const CASES_WORKSPACE = () => import('./components/case/CasesWorkspace');
+const GLOBAL_SEARCH = () => import('./components/workspace/GlobalSearch');
 const AI_INTELLIGENCE = () => import('./components/ai-intelligence/AiIntelligenceApp');
 // OrganizationIntelligenceHome previously rendered the 'home' view. Home is now
 // Command Center, so the component is no longer mounted anywhere. The file is
@@ -54,7 +57,7 @@ import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
 import { globalLoading } from './ui/globalLoading';
 
-export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion' | 'ai';
+export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion' | 'ai' | 'signalchain' | 'cases' | 'globalsearch';
 
 export type Organization = OrganizationRow;
 
@@ -173,6 +176,14 @@ function AuthenticatedApp() {
    */
   const [esoFocus, setEsoFocus] = useState<string | null>(null);
   /**
+   * The signal whose full chain (evidence → case → decision → execution →
+   * outcome → learning) the reader asked to see. Same shape of problem as
+   * esoFocus above: the chain view is a separate screen, so "View chain" from
+   * a signal row is a navigation plus a selection, and the selection has
+   * nowhere to live but here. Cleared on every navigation away.
+   */
+  const [chainSignalId, setChainSignalId] = useState<string | null>(null);
+  /**
    * Where inside the AI & Intelligence console the user is: '' for its index,
    * 'providers', 'prompts/12/edit'. G2G holds this in the URL under /ai; HP Brain
    * has no router, so it lives beside the view like graphFocus does, and is not
@@ -201,6 +212,26 @@ function AuthenticatedApp() {
    */
   const [screenObject, setScreenObject] = useState<ScreenObject | null>(null);
   const [peopleDepartmentId, setPeopleDepartmentId] = useState<string | null>(null);
+  /**
+   * The department the Organization screen's own list asked to open. Same
+   * shape of problem as peopleDepartmentId above — Departments is a separate
+   * screen, so opening a specific row from the Organization overview is a
+   * navigation plus a selection, and the selection has nowhere to live but
+   * here. Cleared once DepartmentApp has consumed it (see its own effect).
+   */
+  const [openDepartmentId, setOpenDepartmentId] = useState<string | null>(null);
+  /**
+   * A specific person requested from outside the People screen — Graph
+   * Explorer's "Open full record", currently. Same carrier pattern as
+   * openDepartmentId above.
+   */
+  const [openPersonId, setOpenPersonId] = useState<string | null>(null);
+  /**
+   * A specific case requested from outside the Cases screen — Graph
+   * Explorer or Global Search, currently. Same carrier pattern as
+   * openDepartmentId/openPersonId above.
+   */
+  const [openCaseId, setOpenCaseId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -460,6 +491,9 @@ function AuthenticatedApp() {
     setSelected(scopedNextOrg);
     setView(v);
     setPeopleDepartmentId(null);
+    setOpenDepartmentId(null);
+    setOpenPersonId(null);
+    setOpenCaseId(null);
 
     /*
       STALE SCREEN CONTEXT IS CLEARED HERE, AND THE ASSISTANT IS THE ONE
@@ -486,6 +520,7 @@ function AuthenticatedApp() {
     // organization.
     setGraphFocus(v === 'graph' ? (focus ?? null) : null);
     if (v !== 'esolibrary') setEsoFocus(null);
+    if (v !== 'signalchain') setChainSignalId(null);
 
     saveSession({ organization: scopedNextOrg, view: v });
   };
@@ -512,6 +547,41 @@ function AuthenticatedApp() {
   const viewEso = (esoId: string) => {
     setEsoFocus(esoId);
     navigate('esolibrary', selected ?? undefined);
+  };
+
+  /**
+   * "View chain", from a signal row or from a case just opened off a
+   * recommendation. Carries the signal id the same way viewEso carries an
+   * ESO id — the chain view has nowhere else to read it from.
+   */
+  const viewChain = (signalId: string) => {
+    setChainSignalId(signalId);
+    navigate('signalchain', selected ?? undefined);
+  };
+
+  /**
+   * "Open" on a department row in the Organization overview — the same
+   * carrier-plus-navigate pattern onOpenPeople already uses to jump into
+   * People pre-filtered to a unit.
+   */
+  const viewDepartment = (departmentId: string) => {
+    navigate('departments', selected ?? undefined);
+    setOpenDepartmentId(departmentId);
+  };
+
+  /** "Open" on a person — Graph Explorer's "Open full record" for a Person
+   *  node, currently. Same carrier-plus-navigate pattern as viewDepartment. */
+  const viewPerson = (personId: string) => {
+    navigate('people', selected ?? undefined);
+    setOpenPersonId(personId);
+  };
+
+  /** "Open" on a case — Graph Explorer, Global Search, or wherever else a
+   *  real case id surfaces. Same carrier-plus-navigate pattern as
+   *  viewDepartment/viewPerson. */
+  const viewCase = (caseId: string) => {
+    navigate('cases', selected ?? undefined);
+    setOpenCaseId(caseId);
   };
 
   /**
@@ -681,6 +751,7 @@ function AuthenticatedApp() {
                   onUpdated: (org: Organization) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); },
                   onArchive: () => navigate('archive', selected),
                   onExploreInGraph: exploreInGraph,
+                  onOpenDepartment: viewDepartment,
                 }}
               />
             )}
@@ -727,6 +798,7 @@ function AuthenticatedApp() {
                   onUpdated: (org: Organization) => { setSelected(org); saveSession({ organization: org }); showToast('success', 'Organization updated'); },
                   onArchive: () => navigate('archive', selected),
                   onExploreInGraph: exploreInGraph,
+                  onOpenDepartment: viewDepartment,
                 }}
               />
             )}
@@ -736,6 +808,7 @@ function AuthenticatedApp() {
                 loader={DEPARTMENT_APP}
                 props={{
                   organization: selected,
+                  initialDepartmentId: openDepartmentId,
                   onBack: () => navigate('details', selected),
                   onOpenPeople: (departmentId: string) => {
                     navigate('people', selected);
@@ -747,6 +820,7 @@ function AuthenticatedApp() {
                   // Capabilities — so they need the shell's own navigator.
                   onNavigate: (view: string) => navigate(view as View, selected),
                   onObjectChange: setScreenObject,
+                  onOpenChain: viewChain,
                 }}
               />
             )}
@@ -754,7 +828,7 @@ function AuthenticatedApp() {
               <LazyView
                 label="People"
                 loader={PERSON_APP}
-                props={{ organization: selected, initialDepartmentId: peopleDepartmentId, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph, onNavigate: (v: string) => navigate(v as View, selected), onObjectChange: setScreenObject }}
+                props={{ organization: selected, initialDepartmentId: peopleDepartmentId, initialPersonId: openPersonId, onBack: () => navigate('details', selected), onExploreInGraph: exploreInGraph, onNavigate: (v: string) => navigate(v as View, selected), onObjectChange: setScreenObject }}
               />
             )}
             {view === 'capabilities' && selected && (
@@ -764,11 +838,32 @@ function AuthenticatedApp() {
                 props={{ organization: selected, onBack: () => navigate('details', selected) }}
               />
             )}
+            {view === 'signalchain' && selected && chainSignalId && (
+              <LazyView
+                label="Signal Chain"
+                loader={SIGNAL_CHAIN_VIEW}
+                props={{ tenantId: selected.tenantId, signalId: chainSignalId, onBack: () => navigate('signals', selected) }}
+              />
+            )}
             {view === 'signals' && selected && (
               <LazyView
                 label="Signals"
                 loader={SIGNAL_DASHBOARD}
-                props={{ tenantId: selected.tenantId, onNavigate: (v: View) => navigate(v, selected), onExploreInGraph: exploreInGraph }}
+                props={{ tenantId: selected.tenantId, onNavigate: (v: View) => navigate(v, selected), onExploreInGraph: exploreInGraph, onOpenChain: viewChain }}
+              />
+            )}
+            {view === 'cases' && selected && (
+              <LazyView
+                label="Cases"
+                loader={CASES_WORKSPACE}
+                props={{ tenantId: selected.tenantId, onOpenChain: viewChain, initialCaseId: openCaseId }}
+              />
+            )}
+            {view === 'globalsearch' && selected && (
+              <LazyView
+                label="Global Search"
+                loader={GLOBAL_SEARCH}
+                props={{ tenantId: selected.tenantId, onOpenDepartment: viewDepartment, onOpenPerson: viewPerson, onOpenChain: viewChain, onOpenCase: viewCase }}
               />
             )}
             {view === 'workspace' && selected && (
@@ -788,7 +883,7 @@ function AuthenticatedApp() {
               <LazyView
                 label="Graph Explorer"
                 loader={GRAPH_EXPLORER}
-                props={{ tenantId: selected.tenantId, organizationName: selected.name, focus: graphFocus, onNavigate: (v: View) => navigate(v, selected) }}
+                props={{ tenantId: selected.tenantId, organizationName: selected.name, focus: graphFocus, onNavigate: (v: View) => navigate(v, selected), onOpenDepartment: viewDepartment, onOpenPerson: viewPerson, onOpenCase: viewCase, onOpenChain: viewChain }}
               />
             )}
             {view === 'agents' && selected && (

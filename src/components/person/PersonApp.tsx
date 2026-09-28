@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GraduationCap, Plus, Users } from 'lucide-react';
 import type { Organization } from '../../App';
 import { api as departmentApi } from '../../api/department';
@@ -119,6 +119,7 @@ const ROSTER_CAP = 2000;
 export default function PersonApp({
   organization,
   initialDepartmentId,
+  initialPersonId,
   onBack,
   onExploreInGraph,
   onNavigate,
@@ -126,6 +127,11 @@ export default function PersonApp({
 }: {
   organization: Organization;
   initialDepartmentId?: string | null;
+  /** A specific person selected from outside this screen — Graph Explorer or
+   *  Global Search, currently — that this screen should open straight into
+   *  once its own roster has loaded. Takes precedence over reopening whoever
+   *  was open before a refresh. */
+  initialPersonId?: string | null;
   onBack: () => void;
   onExploreInGraph?: (label: string, id: string) => void;
   /** Move to another top-level screen — the profile's unlock actions need it. */
@@ -149,6 +155,9 @@ export default function PersonApp({
   const [population, setPopulation] = useState<Population | null>(null);
   const [counts, setCounts] = useState<PopulationCounts | null>(null);
   const [student, setStudent] = useState<Student | null>(null);
+  // Consumed once per mount, so a later reload of `people` does not yank the
+  // reader back to this row after they have navigated elsewhere.
+  const consumedInitialPersonId = useRef(false);
 
   /*
     One request per organization, before anything heavy: two COUNTs and a
@@ -252,6 +261,10 @@ export default function PersonApp({
       if (cancelled || !restorePending) return;
       restorePending = false;
 
+      // An explicit request from outside this screen — Graph Explorer, Global
+      // Search — wins over whichever profile a refresh would otherwise reopen.
+      if (initialPersonId) return;
+
       const storedId = loadSession().personId;
       if (!storedId) return;
 
@@ -270,7 +283,37 @@ export default function PersonApp({
     });
 
     return () => { cancelled = true; };
+    // Deliberately narrow, as `load` already was: `restorePending` makes this
+    // whole effect a one-time check regardless of how often it re-runs, and
+    // `initialPersonId` only needs to be read at that one check — the
+    // requested-id effect below is what reacts to it going forward.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization.tenantId, organization.id]);
+
+  /*
+    OPEN STRAIGHT INTO THE PERSON REQUESTED FROM OUTSIDE.
+
+    Fires once the roster has real rows to search, and only once per mount —
+    the ref guard is what keeps a later reload of `people` (the refresh
+    button, or a person created elsewhere) from re-triggering this and
+    pulling the reader back to a profile they have since left. A person id
+    that matches nothing in this organization's roster is left alone: the
+    screen opens on its ordinary default rather than a blank profile for an
+    id that turned out not to exist or belongs to another tenant.
+  */
+  useEffect(() => {
+    if (consumedInitialPersonId.current || !initialPersonId || people.length === 0) return;
+
+    consumedInitialPersonId.current = true;
+
+    const match = people.find((person) => String(person.id) === initialPersonId);
+    if (match) {
+      setSelected(match);
+      setView('intelligence');
+      setPopulation('erp');
+      saveSession({ personId: String(match.id) });
+    }
+  }, [people, initialPersonId]);
 
   /*
     REPORT WHICH OBJECT IS ON SCREEN, FOR THE AI ASSISTANT.

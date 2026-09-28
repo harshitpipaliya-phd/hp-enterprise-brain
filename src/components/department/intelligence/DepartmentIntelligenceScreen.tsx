@@ -60,6 +60,7 @@ export default function DepartmentIntelligenceScreen({
   onOpenPerson,
   onEdit,
   onExploreInGraph,
+  onOpenChain,
 }: {
   tenantId: string;
   departmentId: string;
@@ -69,6 +70,10 @@ export default function DepartmentIntelligenceScreen({
   onOpenPerson?: (personId: string) => void;
   onEdit?: () => void;
   onExploreInGraph?: () => void;
+  /** Opens the new case's full chain once "Open case" succeeds — only
+   *  possible when the case was linked to a signal, since the chain is
+   *  traced from the signal, not the case. */
+  onOpenChain?: (signalId: string) => void;
 }) {
   const [data, setData] = useState<DepartmentIntelligence | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -133,12 +138,27 @@ export default function DepartmentIntelligenceScreen({
   const openCase = async () => {
     if (!data) return;
 
+    const signalId = data.signals.find((s) => s.open)?.id ?? null;
+
     try {
       await caseApi.createCase({
         title: `${data.department.name}: ${data.recommendation.title}`,
-        signalId: data.signals.find((s) => s.open)?.id ?? null,
+        signalId,
       });
-      setCaseNote('Case opened. It is now in the Cases workspace.');
+
+      // The chain is traced from the signal, not the case, so a case opened
+      // without one has nowhere for "view its chain" to go — say so rather
+      // than silently doing nothing.
+      if (signalId && onOpenChain) {
+        onOpenChain(signalId);
+        return;
+      }
+
+      setCaseNote(
+        signalId
+          ? 'Case opened. Open Signals and use "Chain" on the triggering signal to follow it.'
+          : 'Case opened, but it has no open signal to trace a chain from.',
+      );
     } catch (e) {
       setCaseNote(
         e instanceof Error

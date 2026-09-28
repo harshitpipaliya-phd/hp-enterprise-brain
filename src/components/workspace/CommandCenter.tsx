@@ -84,6 +84,9 @@ interface CommandCenterProps {
   /**
   /** Open Graph Explorer centred on this organization. Optional: absent in tests. */
   onExploreInGraph?: (label: string, id: string) => void;
+  /** Jump straight into one department's own intelligence screen, from its
+   *  row in the Departments overview card below. Optional: absent in tests. */
+  onOpenDepartment?: (departmentId: string) => void;
 }
 
 /*
@@ -239,7 +242,7 @@ const LOOP_STAGE_VIEWS: Record<string, View> = {
   learnings: 'mentalmodels',
 };
 
-export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onExploreInGraph }: CommandCenterProps) {
+export default function CommandCenter({ tenantId, organizationName, organization, onNavigate, onUpdated, onArchive, onExploreInGraph, onOpenDepartment }: CommandCenterProps) {
   const [homeMetrics, setHomeMetrics] = useState<HomeMetrics | null>(null);
   const [capabilityCount, setCapabilityCount] = useState<number | null>(null);
   const [dataSources, setDataSources] = useState<any[]>([]);
@@ -1065,6 +1068,7 @@ export default function CommandCenter({ tenantId, organizationName, organization
             onAction={() => onNavigate('departments')}
             empty="No departments are recorded in the source system for this organization."
             rows={summaryDepartments}
+            onSelectRow={onOpenDepartment}
           />
 
           <OverviewListCard
@@ -1405,14 +1409,19 @@ function OverviewKpi({
   );
 }
 
-function OverviewListCard({
-  title, actionLabel, onAction, rows, empty,
+export function OverviewListCard({
+  title, actionLabel, onAction, rows, empty, onSelectRow,
 }: {
   title: string;
   actionLabel: string;
   onAction: () => void;
   empty: string;
   rows: Array<{ id: string; title: string; meta: string; badge?: string | number | null }>;
+  /** When supplied, each row becomes a jump into that entity's own screen —
+   *  the ids were already real department/person ids, just never wired to
+   *  anything. Omitted for rows that name something other than an entity
+   *  (a data source has nothing of its own to open). */
+  onSelectRow?: (id: string) => void;
 }) {
   return (
     <section className="cc-panel cc-overview-list" aria-label={title}>
@@ -1428,10 +1437,17 @@ function OverviewListCard({
         <ul className="cc-overview-list__rows">
           {rows.map((row) => (
             <li key={row.id}>
-              <span>
-                <strong>{row.title}</strong>
-                <small>{row.meta}</small>
-              </span>
+              {onSelectRow ? (
+                <button type="button" className="cc-overview-list__row-btn" onClick={() => onSelectRow(row.id)}>
+                  <strong>{row.title}</strong>
+                  <small>{row.meta}</small>
+                </button>
+              ) : (
+                <span>
+                  <strong>{row.title}</strong>
+                  <small>{row.meta}</small>
+                </span>
+              )}
               {row.badge !== undefined && row.badge !== null && row.badge !== '' && (
                 <em className="eb-badge eb-badge-info">{row.badge}</em>
               )}

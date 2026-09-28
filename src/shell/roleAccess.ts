@@ -21,9 +21,9 @@ const TENANT_ADMIN: View[] = [
   // routes all carry permission:settings.manage. Kept out of the other role
   // lists to match that, rather than widened here where the API would 403.
   'ingestion',
-  'signals', 'evidence', 'deliberation', 'memory', 'workspace', 'executions',
+  'signals', 'evidence', 'cases', 'deliberation', 'memory', 'workspace', 'executions',
   'executive', 'analytics', 'decisionintel', 'mentalmodels', 'graph',
-  'kasbaexplorer', 'aiassistant', 'knowledgelibrary', 'esolibrary', 'tasks',
+  'kasbaexplorer', 'aiassistant', 'globalsearch', 'knowledgelibrary', 'esolibrary', 'tasks',
   'policies', 'settings',
   // AI & Intelligence: every /ai-intelligence route carries
   // permission:settings.manage, which only admin and tenant_admin hold.
@@ -32,20 +32,20 @@ const TENANT_ADMIN: View[] = [
 
 const MANAGER: View[] = [
   'home', 'commandcenter', 'departments', 'people', 'capabilities',
-  'signals', 'evidence', 'deliberation', 'workspace', 'executions',
+  'signals', 'evidence', 'cases', 'deliberation', 'workspace', 'executions',
   'executive', 'analytics', 'decisionintel', 'tasks', 'settings',
 ];
 
 const ANALYST: View[] = [
   'home', 'commandcenter', 'departments', 'people', 'capabilities',
-  'signals', 'evidence', 'deliberation', 'memory', 'workspace', 'analytics',
-  'decisionintel', 'mentalmodels', 'graph', 'aiassistant', 'knowledgelibrary',
+  'signals', 'evidence', 'cases', 'deliberation', 'memory', 'workspace', 'analytics',
+  'decisionintel', 'mentalmodels', 'graph', 'aiassistant', 'globalsearch', 'knowledgelibrary',
   'settings',
 ];
 
 const VIEWER: View[] = [
   'home', 'commandcenter', 'departments', 'people', 'capabilities',
-  'executive', 'analytics', 'decisionintel', 'graph', 'aiassistant', 'settings',
+  'executive', 'analytics', 'decisionintel', 'graph', 'aiassistant', 'globalsearch', 'settings',
 ];
 
 const MEMBER: View[] = ['home', 'commandcenter', 'settings'];
