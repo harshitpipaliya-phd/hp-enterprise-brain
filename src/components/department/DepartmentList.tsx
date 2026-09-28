@@ -772,6 +772,24 @@ export default function DepartmentList({ organization, departments, loading, onS
                                 {workItems.toLocaleString()} imported {workItems === 1 ? 'record names' : 'records name'} this unit
                               </span>
                             )}
+                            {/*
+                              THE SPLIT REGISTER, SURFACED WHERE THE READER SEES IT.
+
+                              DepartmentIntelligenceMetrics already detects this pairing
+                              (two rows for one real unit — one staffed, one holding the
+                              work) and the department's own detail page already explains
+                              it. Without this line, a reader scanning the card grid sees
+                              two cards that look like an un-deduplicated bug — a staffed
+                              unit with no work next to an unstaffed one full of it — with
+                              no way to tell they are a known, named pair. Not a merge:
+                              attribution stays exactly as the source states it.
+                            */}
+                            {dept.metrics.unclaimedWork && (
+                              <span className="dept-card__metric-work">
+                                {dept.metrics.unclaimedWork.records.toLocaleString()} recorded work items are booked to a
+                                related unit on this register, "{dept.metrics.unclaimedWork.label}" — not merged into this one
+                              </span>
+                            )}
                           </span>
 
                           <span className="dept-card__score">
