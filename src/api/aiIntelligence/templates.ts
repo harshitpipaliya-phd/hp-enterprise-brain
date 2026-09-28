@@ -224,11 +224,25 @@ export function fetchTemplateOptions(): Promise<AiTemplateOptions> {
   return aiRequest<AiTemplateOptions>('/templates/options');
 }
 
-/** Templates for one module. Omit `moduleKey` for every template the organisation can see. */
-export function fetchTemplates(moduleKey?: string | null): Promise<AiTemplateIndex> {
-  const query = moduleKey ? `?module_key=${encodeURIComponent(moduleKey)}` : '';
+/**
+ * Templates for one module. Omit `moduleKey` for every template the organisation can see.
+ *
+ * `latestOnly` asks for the AI Stack's own view of the list — one row per template key
+ * (this organisation's own row shadowing the platform's, highest version only) — rather
+ * than every version and every shadowed platform row. It defaults unset so the
+ * centralised AI & Intelligence console, which lists every version, is unaffected byte
+ * for byte; every AI Stack module screen call site passes `true`.
+ */
+export function fetchTemplates(moduleKey?: string | null, latestOnly?: boolean): Promise<AiTemplateIndex> {
+  const params = new URLSearchParams();
+  if (moduleKey) params.set('module_key', moduleKey);
+  // The backend's `latest_only` rule is `nullable|boolean`, which Laravel resolves via
+  // `$request->boolean(...)` — happy with '1'/'0' as much as true/false, but sending the
+  // string keeps this an ordinary query parameter rather than a JSON body value.
+  if (latestOnly) params.set('latest_only', '1');
+  const query = params.toString();
 
-  return aiRequest<AiTemplateIndex>(`/templates${query}`);
+  return aiRequest<AiTemplateIndex>(`/templates${query ? `?${query}` : ''}`);
 }
 
 export function fetchTemplate(id: string): Promise<{ template: AiTemplateRow }> {
