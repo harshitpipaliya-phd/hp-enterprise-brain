@@ -186,6 +186,13 @@ export interface LoopCounts {
   cases: number;
   decisions: number;
   executions: number;
+  /** Whether this organization's connected data can even populate each count — a false here means the zero is an unmeasured gap, not a clean record. */
+  tracked: {
+    signals: boolean;
+    cases: boolean;
+    decisions: boolean;
+    executions: boolean;
+  };
 }
 
 export interface RecordsSummaryRow {

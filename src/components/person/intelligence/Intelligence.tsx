@@ -258,7 +258,9 @@ export function Anomalies({
   );
 }
 
-const LOOP_COPY: Array<{ key: keyof PersonIntelligence['loop']; label: string; copy: string }> = [
+type LoopCountKey = Exclude<keyof PersonIntelligence['loop'], 'tracked'>;
+
+const LOOP_COPY: Array<{ key: LoopCountKey; label: string; copy: string }> = [
   { key: 'signals', label: 'Signals', copy: 'patterns the system raised that name this person' },
   { key: 'cases', label: 'Cases', copy: 'investigations opened from those signals' },
   { key: 'decisions', label: 'Decisions', copy: 'decisions this person is recorded as taking' },
@@ -271,19 +273,48 @@ const LOOP_COPY: Array<{ key: keyof PersonIntelligence['loop']; label: string; c
  * These counts are legitimately zero for most people — the loop only names
  * someone once a pattern reaches them — so four full-size cards each announcing
  * a nothing took a quarter of the tab to say the same word four times.
+ *
+ * A raw "0" is ambiguous: it can mean a clean, quiet record, or it can mean
+ * this organization's connected data never attributes that dimension to a
+ * person at all — an unmeasured gap, not a finding. `loop.tracked` tells us
+ * which one it is, so the untracked dimensions read "not tracked" instead of
+ * a misleading zero, and an all-zero-but-tracked record gets one sentence
+ * saying plainly that nothing was found rather than four silent counters.
  */
 export function LoopStrip({ loop }: { loop: PersonIntelligence['loop'] }) {
+  const trackedKeys = LOOP_COPY.filter(({ key }) => loop.tracked?.[key] !== false);
+  const allZero = trackedKeys.length > 0 && trackedKeys.every(({ key }) => loop[key] === 0);
+  const someUntracked = LOOP_COPY.some(({ key }) => loop.tracked?.[key] === false);
+
   return (
     <Panel title="Intelligence-loop involvement">
       <div className="pi-loop">
-        {LOOP_COPY.map(({ key, label, copy }) => (
-          <div className="pi-loop__cell" key={key}>
-            <span className="pi-loop__n">{loop[key].toLocaleString()}</span>
-            <b>{label}</b>
-            <span className="pi-loop__c">{copy}</span>
-          </div>
-        ))}
+        {LOOP_COPY.map(({ key, label, copy }) => {
+          const isTracked = loop.tracked?.[key] !== false;
+          return (
+            <div className="pi-loop__cell" key={key}>
+              <span className="pi-loop__n">{isTracked ? loop[key].toLocaleString() : '—'}</span>
+              <b>{label}</b>
+              <span className="pi-loop__c">
+                {isTracked ? copy : 'not tracked — this organization has no connected source for this yet'}
+              </span>
+            </div>
+          );
+        })}
       </div>
+      {allZero && !someUntracked && (
+        <p className="pi-foot">
+          No verified issue was identified for this person using the currently connected data — nobody has raised a
+          signal, opened a case, recorded a decision by them, or logged an execution under their name in the tracked
+          window. This reflects a quiet record, not an absence of monitoring.
+        </p>
+      )}
+      {someUntracked && (
+        <p className="pi-foot">
+          Counts shown as “—” are not a finding of zero: this organization has not connected a source that would let
+          the system attribute that dimension to a person.
+        </p>
+      )}
     </Panel>
   );
 }
