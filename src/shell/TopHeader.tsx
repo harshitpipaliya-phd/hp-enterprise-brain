@@ -115,14 +115,10 @@ export function TopHeader({
           userRole={userRole}
           onLogout={onLogout}
           onOpenSettings={() => onNavigate('settings')}
-
           canOpenSettings={visible.has('settings')}
           platformServices={PLATFORM_SERVICES.filter((v) => visible.has(v))}
           onNavigate={onNavigate}
-
-          canOpenSettings={visibleViewsForRole(userRole).has('settings')}
-          onOpenAiConsole={visibleViewsForRole(userRole).has('ai') ? onOpenAiConsole : undefined}
-
+          onOpenAiConsole={visible.has('ai') ? onOpenAiConsole : undefined}
         />
       </div>
     </header>
@@ -214,12 +210,6 @@ function UserMenu({
                 })}
               </div>
             </div>
-          )}
-
-          {canOpenSettings && (
-            <button type="button" role="menuitem" className="s-usermenu-item" onClick={() => { close(); onOpenSettings(); }}>
-              Settings
-            </button>
           )}
 
           <div className="s-usermenu-scroll">

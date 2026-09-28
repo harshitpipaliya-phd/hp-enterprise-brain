@@ -1,9 +1,9 @@
 import type { View } from '../App';
 import {
   Activity, Bell, Boxes, Brain, Building2, CalendarClock, ChartNoAxesColumn,
-  CircleGauge, ClipboardCheck, Database, FileSearch, FileText, FolderTree,
+  CircleGauge, ClipboardCheck, Database, FileSearch, FileText, FolderSearch, FolderTree,
   Gauge, KeyRound, Layers, Library, ListChecks, Network, Notebook, Plug, Radio,
-  Route, Scale, Settings, ShieldCheck, Sparkles, Target, TrendingUp, Upload,
+  Route, Scale, Search, Settings, ShieldCheck, Sparkles, Target, TrendingUp, Upload,
   Users, Waypoints, Workflow,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';

@@ -977,6 +977,8 @@ function AuthenticatedApp() {
                 label={VIEW_META[view].label}
                 loader={PLATFORM_SERVICES_SCREEN}
                 props={{ service: view, tenantId: selected.tenantId, organizationName: selected.name, userRole, onNavigate: (v: View) => navigate(v, selected) }}
+              />
+            )}
             {view === 'ai' && selected && (
               <LazyView
                 label="AI & Intelligence"
