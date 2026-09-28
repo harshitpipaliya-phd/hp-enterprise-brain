@@ -1,7 +1,7 @@
 
 import { FolderTree, Plus } from 'lucide-react';
 import { HeaderActions, PageHeader } from '../../ui';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Organization } from '../../App';
 import DepartmentList from './DepartmentList';
 import DepartmentCreate from './DepartmentCreate';
@@ -48,6 +48,8 @@ export default function DepartmentApp({
   onExploreInGraph,
   onNavigate,
   onObjectChange,
+  onOpenChain,
+  initialDepartmentId,
 }: {
   organization: Organization;
   onBack: () => void;
@@ -68,6 +70,13 @@ export default function DepartmentApp({
    * those buttons pointing at the real screens rather than at dead ends.
    */
   onNavigate?: (view: string) => void;
+  /** Opens the Signal Chain view for a signal — passed to the intelligence
+   *  screen so "Open case" can land somewhere real instead of a toast. */
+  onOpenChain?: (signalId: string) => void;
+  /** A department row selected from outside this screen — the Organization
+   *  overview's Departments card, currently — that this screen should open
+   *  straight into once its own list has loaded. */
+  initialDepartmentId?: string | null;
 }) {
   const [view, setView] = useState<DepartmentView>('list');
   const [selected, setSelected] = useState<Department | null>(null);
@@ -75,6 +84,9 @@ export default function DepartmentApp({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewingPersonId, setViewingPersonId] = useState<string | null>(null);
+  // Consumed once per mount, so a later refresh of `departments` does not
+  // yank the reader back to this row after they have navigated elsewhere.
+  const consumedInitialDepartmentId = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -90,6 +102,26 @@ export default function DepartmentApp({
   };
 
   useEffect(() => { load(); }, [organization.tenantId, organization.id]);
+
+  /*
+    OPEN STRAIGHT INTO THE ROW THE ORGANIZATION OVERVIEW ASKED FOR.
+
+    Fires once the list has real rows to search, and only once per mount —
+    the ref guard is what keeps a later `load()` (the refresh button, or a
+    department created elsewhere) from re-triggering this and yanking the
+    reader back to a row they have since navigated away from. A department id
+    that does not match anything in this organization's list is left alone:
+    the screen opens on its ordinary list rather than a blank intelligence
+    screen for an id that turned out not to exist.
+  */
+  useEffect(() => {
+    if (consumedInitialDepartmentId.current || !initialDepartmentId || departments.length === 0) return;
+
+    consumedInitialDepartmentId.current = true;
+
+    const match = departments.find((d) => d.id === initialDepartmentId);
+    if (match) navigate('intelligence', match);
+  }, [departments, initialDepartmentId]);
 
   /*
     REPORT WHICH OBJECT IS ON SCREEN, FOR THE AI ASSISTANT.
@@ -165,7 +197,7 @@ export default function DepartmentApp({
           actions={(
             <HeaderActions>
               <button type="button" className="u-btn u-btn-primary" onClick={() => navigate('create')}>
-                <Plus size={15} aria-hidden="true" /> New Department
+                <Plus size={15} aria-hidden="true" /> Add Department
               </button>
             </HeaderActions>
           )}
@@ -220,6 +252,7 @@ export default function DepartmentApp({
             if (route === 'people') { onOpenPeople?.(selected.id); return; }
             onNavigate?.(route);
           }}
+          onOpenChain={onOpenChain}
         />
       )}
       {view === 'create' && (

@@ -52,8 +52,24 @@ interface GraphExplorerProps {
   organizationName?: string;
   /** A node another screen asked to open on — see "Explore in Graph". */
   focus?: GraphFocus | null;
-  /** Navigate to the screen that owns an entity. */
+  /** Navigate to the screen that owns an entity. Used for "Open full record"
+   *  on a label this screen has no dedicated jump for (Student, and anything
+   *  else with a deepLink but no id-aware handler below). */
   onNavigate?: (view: View) => void;
+  /** "Open full record" on a Department node — jumps straight to that
+   *  department's own intelligence screen instead of the generic list. */
+  onOpenDepartment?: (departmentId: string) => void;
+  /** "Open full record" on a Person node — jumps straight to that person's
+   *  own intelligence screen instead of the generic list. */
+  onOpenPerson?: (personId: string) => void;
+  /** "Open full record" on a Case node — jumps to that case's own detail in
+   *  the Cases workspace instead of the generic Deliberation screen. */
+  onOpenCase?: (caseId: string) => void;
+  /** "Open full record" on a Signal node — jumps to that signal's full
+   *  chain instead of the generic Signals list. Also used for an Evidence
+   *  node, via the signal it supports, since there is no standalone
+   *  evidence screen. */
+  onOpenChain?: (signalId: string) => void;
 }
 
 /**
@@ -117,7 +133,73 @@ const INTELLIGENCE_BRANCHES = [
 const NODE_FAMILIES: NodeFamily[] = ['organization', 'people', 'student', 'academic', 'intelligence'];
 const EDGE_FAMILIES: EdgeFamily[] = ['organizational', 'people', 'academic', 'intelligence'];
 
-export default function GraphExplorer({ tenantId, organizationName, focus, onNavigate }: GraphExplorerProps) {
+/**
+ * What "Open full record" does for a given node — a real id-aware jump for
+ * every label this application has a per-entity screen for, or the plain
+ * deepLink-named navigate it always had for everything else.
+ *
+ * `deepLink` only ever names a screen ("departments", "people", "evidence",
+ * "deliberation", "signals"), never a record — used alone it opened that
+ * screen's list with no idea which row the reader had actually selected. The
+ * node itself carries the real id (and, for Evidence, the signal it supports
+ * — added to `properties` specifically so this could exist), so each label
+ * below goes straight to the record instead:
+ *
+ *   Department → that department's own intelligence screen
+ *   Person     → that person's own intelligence screen
+ *   Signal     → that signal's full chain
+ *   Case       → that case's own detail in the Cases workspace
+ *   Evidence   → the chain of the signal it supports (there is no standalone
+ *                evidence screen — the chain is where this evidence is shown
+ *                in context, which is a real destination, not a list)
+ *
+ * Student is deliberately NOT special-cased even though its deepLink is also
+ * "people": the People screen's roster is staff-only and has no student in
+ * it to match, so routing a student id through onOpenPerson would silently
+ * select nothing — the existing generic navigate is the honest answer for it,
+ * same as for every other label without a dedicated screen, and for an
+ * Evidence row whose signal_id is null (the schema allows it even though the
+ * pipeline always writes one today).
+ */
+export function openRecordAction(
+  node: GraphNode,
+  nav: {
+    onNavigate?: (view: View) => void;
+    onOpenDepartment?: (departmentId: string) => void;
+    onOpenPerson?: (personId: string) => void;
+    onOpenCase?: (caseId: string) => void;
+    onOpenChain?: (signalId: string) => void;
+  },
+): (() => void) | undefined {
+  if (node.label === 'Department' && nav.onOpenDepartment) {
+    const id = node.id;
+    return () => nav.onOpenDepartment!(id);
+  }
+  if (node.label === 'Person' && nav.onOpenPerson) {
+    const id = node.id;
+    return () => nav.onOpenPerson!(id);
+  }
+  if (node.label === 'Signal' && nav.onOpenChain) {
+    const id = node.id;
+    return () => nav.onOpenChain!(id);
+  }
+  if (node.label === 'Case' && nav.onOpenCase) {
+    const id = node.id;
+    return () => nav.onOpenCase!(id);
+  }
+  if (node.label === 'Evidence' && nav.onOpenChain) {
+    const signalId = node.properties.signalId;
+    if (typeof signalId === 'string' && signalId !== '') {
+      return () => nav.onOpenChain!(signalId);
+    }
+  }
+  if (!node.deepLink || !nav.onNavigate) return undefined;
+
+  const view = node.deepLink;
+  return () => nav.onNavigate!(view as View);
+}
+
+export default function GraphExplorer({ tenantId, organizationName, focus, onNavigate, onOpenDepartment, onOpenPerson, onOpenCase, onOpenChain }: GraphExplorerProps) {
   /* ------------------------------------------------------------- graph state */
 
   const [nodes, setNodes] = useState<Map<string, GraphNode>>(new Map());
@@ -780,7 +862,7 @@ export default function GraphExplorer({ tenantId, organizationName, focus, onNav
             onExpand={() => { void expand(selectedNode); }}
             onCollapse={() => collapse(selectedNode)}
             onSelectKey={selectByKey}
-            onOpenRecord={(view) => onNavigate?.(view as View)}
+            onOpenRecord={() => openRecordAction(selectedNode, { onNavigate, onOpenDepartment, onOpenPerson, onOpenCase, onOpenChain })?.()}
           />
         )}
       </div>

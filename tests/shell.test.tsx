@@ -84,12 +84,13 @@ describe('role matrix — unchanged by the redesign', () => {
   // refactor changed who can reach what, which is a product decision.
   const EXPECTED: Record<string, number> = {
     // Ingestion carries permission:settings.manage, so it is deliberately NOT
-    // granted to manager/analyst/viewer/member.
-    admin: 41,        // every view in VIEW_META, including hidden aliases
-    tenant_admin: 33, // + all eight Platform Services
-    manager: 17,      // + Workflow, Notification
-    analyst: 18,      // + Notification
-    viewer: 12,       // + Notification
+    // granted to manager/analyst/viewer/member. The same holds for 'ai' (AI &
+    // Intelligence), whose routes all carry permission:settings.manage.
+    admin: 37,        // every view in VIEW_META, including hidden aliases
+    tenant_admin: 28,
+    manager: 16,
+    analyst: 19,
+    viewer: 12,
     member: 3,
   };
 
@@ -198,6 +199,7 @@ describe('sidebar', () => {
       'Knowledge Library',
       'Memory',
       'AI Assistant',
+      'Global Search',
       'ESO Library',
     ]);
   });
@@ -453,6 +455,47 @@ describe('user menu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
     const menu = screen.getByRole('menu');
     expect(within(menu).getByText('Signed in')).toBeTruthy();
+  });
+});
+
+describe('user menu — AI & Intelligence', () => {
+  const openMenu = () => fireEvent.click(screen.getByRole('button', { name: /^Account menu/ }));
+
+  it.each(['admin', 'tenant_admin'])('offers the console and every capability to %s', (role) => {
+    const onOpenAiConsole = vi.fn();
+    renderShell({ userRole: role, onOpenAiConsole });
+    openMenu();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: /AI & Intelligence/ }));
+    expect(onOpenAiConsole).toHaveBeenLastCalledWith('');
+
+    openMenu();
+    // A capability with its own screen opens that route; one without opens its slug.
+    fireEvent.click(screen.getByRole('menuitem', { name: 'AI Providers' }));
+    expect(onOpenAiConsole).toHaveBeenLastCalledWith('providers');
+    openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /Knowledge Graph/ }));
+    expect(onOpenAiConsole).toHaveBeenLastCalledWith('knowledge-graph');
+  });
+
+  it.each(['manager', 'analyst', 'viewer', 'member', null])('is absent for %s — the API would 403', (role) => {
+    renderShell({ userRole: role, onOpenAiConsole: vi.fn() });
+    openMenu();
+    expect(screen.queryByRole('menuitem', { name: /AI & Intelligence/ })).toBeNull();
+  });
+
+  it('is absent until an organization is selected, because the console is tenant-scoped', () => {
+    renderShell({ hasSelectedOrg: false, onOpenAiConsole: vi.fn() });
+    openMenu();
+    expect(screen.queryByRole('menuitem', { name: /AI & Intelligence/ })).toBeNull();
+  });
+
+  it('keeps Sign out reachable below the capability list', () => {
+    const onLogout = vi.fn();
+    renderShell({ onLogout, onOpenAiConsole: vi.fn() });
+    openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
+    expect(onLogout).toHaveBeenCalledOnce();
   });
 });
 

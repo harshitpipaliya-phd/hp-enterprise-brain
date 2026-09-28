@@ -455,6 +455,7 @@ export default function DepartmentList({ organization, departments, loading, onS
         organization={organization}
         hrDepartmentCount={summary?.departments.total ?? 0}
         onBack={onBack}
+        onCreate={onCreate}
       />
     );
   }
@@ -501,7 +502,7 @@ export default function DepartmentList({ organization, departments, loading, onS
         actions={(
           <HeaderActions>
             <button type="button" className="u-btn u-btn-primary" onClick={onCreate}>
-              <Plus size={15} aria-hidden="true" /> New Department
+              <Plus size={15} aria-hidden="true" /> Add Department
             </button>
             <button
               type="button"

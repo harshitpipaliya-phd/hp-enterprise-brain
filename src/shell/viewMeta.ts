@@ -72,9 +72,13 @@ export const VIEW_META: Record<View, ViewMeta> = {
 
   signals:          { label: 'Signals', section: 'Intelligence Loop', icon: Radio, requiresOrg: true, description: 'What the data has flagged, and who it concerns.' },
   evidence:         { label: 'Evidence', section: 'Intelligence Loop', icon: FileSearch, requiresOrg: true, description: 'What supports each signal, and how firmly it is held.' },
+  cases:            { label: 'Cases', section: 'Intelligence Loop', icon: FolderSearch, requiresOrg: true, description: 'Every investigation opened from a signal or a recommendation, across the organization.' },
   deliberation:     { label: 'Deliberation', section: 'Intelligence Loop', icon: Scale, requiresOrg: true, description: 'Open investigations and the decisions waiting on them.' },
   workspace:        { label: 'Intelligence Workspace', section: 'Intelligence Loop', icon: Brain, requiresOrg: true, description: 'What this organization currently knows about itself.' },
   executions:       { label: 'Execution Center', section: 'Intelligence Loop', icon: Workflow, requiresOrg: true, description: 'What has been done about approved decisions, and the result.' },
+  // Routable, not a nav entry: reached by "View chain" from a signal row or
+  // from a case opened off a recommendation. See viewChain() in App.tsx.
+  signalchain:      { label: 'Signal Chain', section: 'Intelligence Loop', icon: Workflow, requiresOrg: true, hidden: true, parent: 'signals', description: 'The full trace from this signal to its evidence, case, decision, execution, outcome and learning.' },
 
   executive:        { label: 'Executive Dashboard', section: 'Analytics', icon: Gauge, requiresOrg: true, description: 'Organization health at a glance.' },
   analytics:        { label: 'Decision Analytics', section: 'Analytics', icon: ChartNoAxesColumn, requiresOrg: true, description: 'How decisions are performing over time.' },
@@ -86,6 +90,10 @@ export const VIEW_META: Record<View, ViewMeta> = {
   knowledgelibrary: { label: 'Knowledge Library', section: 'Knowledge', icon: Library, requiresOrg: true, description: 'Reusable knowledge assets.' },
   memory:           { label: 'Memory', section: 'Knowledge', icon: Database, requiresOrg: true, description: 'What the Brain retains between sessions.' },
   aiassistant:      { label: 'AI Assistant', section: 'Knowledge', icon: Sparkles, requiresOrg: true, description: 'Context-scoped search, conversation and AI operation history.' },
+  // A plain query across every record type, not a conversation — distinct
+  // from AI Assistant above, which is why both are visible side by side
+  // rather than one absorbing the other.
+  globalsearch:     { label: 'Global Search', section: 'Knowledge', icon: Search, requiresOrg: true, description: 'One query across departments, people, signals, evidence and cases.' },
   esolibrary:       { label: 'ESO Library', section: 'Knowledge', icon: Boxes, requiresOrg: true, description: 'Executable strategic objectives.' },
 
   // Hidden aliases for persisted sessions and older in-app navigation. They
@@ -111,6 +119,9 @@ export const VIEW_META: Record<View, ViewMeta> = {
   eventbus:         { label: 'Event Bus', section: 'Platform Services', icon: Waypoints, requiresOrg: true, description: 'What is queued, in flight, settled or failed on the event backbone.' },
 
   settings:         { label: 'Settings', section: 'Account', icon: Settings, requiresOrg: true, description: 'Configuration for this organization.' },
+  // Reached from the account menu, as in G2G and LMS K-12, so hidden from the
+  // sidebar. Its sub-screens are a console route held in App state, not views.
+  ai:               { label: 'AI & Intelligence', section: 'Account', icon: Sparkles, requiresOrg: true, hidden: true, description: 'The AI capabilities every module calls, configured for this organization.' },
 };
 
 /** Sidebar order. Hidden views are routable but never drawn. */

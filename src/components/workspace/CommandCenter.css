@@ -443,6 +443,25 @@
   color: var(--content-tertiary);
 }
 
+.cc-overview-list__row-btn {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.cc-overview-list__row-btn:hover strong,
+.cc-overview-list__row-btn:focus-visible strong {
+  color: var(--accent-intelligence);
+}
+
 .cc-empty {
   display: block;
   margin: 0;

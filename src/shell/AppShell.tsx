@@ -13,6 +13,8 @@ export interface AppShellProps {
   userRole: string | null;
   onNavigate: (view: View) => void;
   onLogout: () => void;
+  /** Opens the AI & Intelligence console at a sub-route. Absent, the account menu has no AI section. */
+  onOpenAiConsole?: (route: string) => void;
   notificationSlot?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -31,7 +33,7 @@ export interface AppShellProps {
  */
 export function AppShell({
   view, orgName, hasSelectedOrg, userName, userRole,
-  onNavigate, onLogout, notificationSlot, children,
+  onNavigate, onLogout, onOpenAiConsole, notificationSlot, children,
 }: AppShellProps) {
   const sidebar = useSidebarState();
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -81,6 +83,9 @@ export function AppShell({
           onOpenDrawer={sidebar.openDrawer}
           onNavigate={onNavigate}
           onLogout={onLogout}
+          // The console is scoped to the selected organization's tenant, so it is
+          // offered only once there is one.
+          onOpenAiConsole={hasSelectedOrg ? onOpenAiConsole : undefined}
           onOpenCommandPalette={() => setPaletteOpen(true)}
           notificationSlot={notificationSlot}
         />

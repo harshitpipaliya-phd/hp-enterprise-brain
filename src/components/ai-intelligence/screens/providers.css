@@ -1,0 +1,25 @@
+/*
+  Providers & Models screens — the few pieces aiIntelligence.css does not already
+  carry. Prefixed aii-pm- so nothing here can restyle another console screen.
+*/
+
+.aii-pm-section { display: flex; flex-direction: column; gap: var(--space-4); }
+.aii-pm-heading { margin: 0; font-size: 16px; font-weight: 600; color: var(--content-primary); }
+.aii-pm-note { margin: var(--space-1-5) 0 0; font-size: 12px; line-height: 1.5; color: var(--content-secondary); }
+.aii-pm-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1-5);
+  margin: var(--space-1-5) 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--feedback-warning-content);
+}
+.aii-pm-warn svg { flex-shrink: 0; margin-top: 2px; }
+.aii-pm-inline-link { color: var(--content-link, var(--content-primary)); text-decoration: underline; }
+.aii-pm-inline-link:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.aii-pm-table-block { display: flex; flex-direction: column; gap: var(--space-2); }
+.aii-pm-table td { white-space: nowrap; vertical-align: middle; }
+.aii-pm-empty-cell { text-align: center; color: var(--content-secondary); padding: var(--space-5) var(--space-4); }
+.aii-pm-ok { color: var(--feedback-success-content); font-size: 12px; }
+.aii-pm-missing { color: var(--feedback-error-content); font-size: 12px; }

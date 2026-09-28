@@ -25,18 +25,21 @@ const TENANT_ADMIN: View[] = [
   // routes all carry permission:settings.manage. Kept out of the other role
   // lists to match that, rather than widened here where the API would 403.
   'ingestion',
-  'signals', 'evidence', 'deliberation', 'memory', 'workspace', 'executions',
+  'signals', 'evidence', 'cases', 'deliberation', 'memory', 'workspace', 'executions',
   'executive', 'analytics', 'decisionintel', 'mentalmodels', 'graph',
-  'kasbaexplorer', 'aiassistant', 'knowledgelibrary', 'esolibrary', 'tasks',
+  'kasbaexplorer', 'aiassistant', 'globalsearch', 'knowledgelibrary', 'esolibrary', 'tasks',
   'policies', 'settings',
   // Platform Services. RBAC, Scheduler, Document and Integration read routes
   // carrying settings.manage; Audit and Event Bus expose tenant-wide history.
   ...PLATFORM_SERVICES,
+  // AI & Intelligence: every /ai-intelligence route carries
+  // permission:settings.manage, which only admin and tenant_admin hold.
+  'ai',
 ];
 
 const MANAGER: View[] = [
   'home', 'commandcenter', 'departments', 'people', 'capabilities',
-  'signals', 'evidence', 'deliberation', 'workspace', 'executions',
+  'signals', 'evidence', 'cases', 'deliberation', 'workspace', 'executions',
   'executive', 'analytics', 'decisionintel', 'tasks', 'settings',
   // Managers hold decision.approve, so the approval queue is theirs to work.
   'workflow', 'notifications',

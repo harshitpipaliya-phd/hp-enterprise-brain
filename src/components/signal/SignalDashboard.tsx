@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Activity, AlertTriangle, ChevronRight, Clock3, FileSearch, Radio, RefreshCw, Scale, Share2, Signal as SignalIcon } from 'lucide-react';
+import { Activity, AlertTriangle, ChevronRight, Clock3, FileSearch, Radio, RefreshCw, Scale, Share2, Signal as SignalIcon, Workflow } from 'lucide-react';
 import { api } from '../../api/signal';
 import type { View } from '../../App';
 import { HeaderActions, PageHeader } from '../../ui';
@@ -393,7 +393,7 @@ const PAGE_SIZE = 25;
  */
 const SIGNAL_FETCH_LIMIT = 5000;
 
-export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph }: { tenantId: string; onNavigate?: (view: View) => void; onExploreInGraph?: (label: string, id: string) => void }) {
+export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph, onOpenChain }: { tenantId: string; onNavigate?: (view: View) => void; onExploreInGraph?: (label: string, id: string) => void; onOpenChain?: (signalId: string) => void }) {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [severityFilter, setSeverityFilter] = useState('');
@@ -863,6 +863,11 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
                                 <FileSearch size={13} /> Evidence
                               </button>
                             )}
+                            {onOpenChain && (
+                              <button onClick={() => onOpenChain(String(signal.id))} title="Trace this signal's evidence, case, decision, execution and outcome">
+                                <Workflow size={13} /> Chain
+                              </button>
+                            )}
                             {/* The graph is where this signal's evidence, the
                                 case it opened and the recommendation it led to
                                 are visible as one chain. */}
@@ -943,14 +948,16 @@ export default function SignalDashboard({ tenantId, onNavigate, onExploreInGraph
                                 </strong>
                                 {' — '}{intel.attention.reason}
                               </p>
-                              {onNavigate && (
+                              {(onNavigate || onOpenChain) && (
                                 <div className="signal-intel__chain">
                                   <span>Follow it through:</span>
-                                  <button type="button" onClick={() => onNavigate('evidence')}>Evidence</button>
-                                  <ChevronRight size={12} />
-                                  <button type="button" onClick={() => onNavigate('deliberation')}>Case</button>
-                                  <ChevronRight size={12} />
-                                  <button type="button" onClick={() => onNavigate('decisionintel')}>Decision</button>
+                                  {onNavigate && <button type="button" onClick={() => onNavigate('evidence')}>Evidence</button>}
+                                  {onNavigate && onOpenChain && <ChevronRight size={12} />}
+                                  {onOpenChain && (
+                                    <button type="button" onClick={() => onOpenChain(String(signal.id))}>
+                                      Case → Decision → Outcome
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
