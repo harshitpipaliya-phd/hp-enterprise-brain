@@ -85,11 +85,11 @@ describe('role matrix — unchanged by the redesign', () => {
   const EXPECTED: Record<string, number> = {
     // Ingestion carries permission:settings.manage, so it is deliberately NOT
     // granted to manager/analyst/viewer/member.
-    admin: 33,        // every view in VIEW_META, including hidden aliases
-    tenant_admin: 25,
-    manager: 15,
-    analyst: 17,
-    viewer: 11,
+    admin: 41,        // every view in VIEW_META, including hidden aliases
+    tenant_admin: 33, // + all eight Platform Services
+    manager: 17,      // + Workflow, Notification
+    analyst: 18,      // + Notification
+    viewer: 12,       // + Notification
     member: 3,
   };
 
@@ -320,6 +320,8 @@ describe('breadcrumbs', () => {
     ['memory', 'Knowledge', 'Memory'],
     ['tasks', 'Automation', 'Task Orchestrator'],
     ['settings', 'Account', 'Settings'],
+    ['rbac', 'Platform Services', 'RBAC'],
+    ['eventbus', 'Platform Services', 'Event Bus'],
   ] as const)('maps %s through its section', (view, section, label) => {
     const trail = breadcrumbsFor(view, 'Scholar Clone').map((c) => c.label);
     expect(trail).toContain(section);
@@ -418,6 +420,32 @@ describe('user menu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Account menu for Scholar Clone' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     expect(onLogout).toHaveBeenCalledOnce();
+  });
+
+  it('lists the Platform Services the role may reach, and navigates to one', () => {
+    const onNavigate = vi.fn();
+    renderShell({ onNavigate });
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu for Scholar Clone' }));
+    const group = screen.getByRole('group', { name: 'Platform Services' });
+    expect(within(group).getAllByRole('menuitem').map((b) => b.textContent)).toEqual([
+      'RBAC', 'Workflow', 'Notification', 'Scheduler', 'Document', 'Integration', 'Audit', 'Event Bus',
+    ]);
+    fireEvent.click(within(group).getByRole('menuitem', { name: 'Audit' }));
+    expect(onNavigate).toHaveBeenCalledWith('audit');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('narrows Platform Services to what a manager may reach', () => {
+    renderShell({ userRole: 'manager' });
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu for Scholar Clone' }));
+    const group = screen.getByRole('group', { name: 'Platform Services' });
+    expect(within(group).getAllByRole('menuitem').map((b) => b.textContent)).toEqual(['Workflow', 'Notification']);
+  });
+
+  it('omits the Platform Services group for a role that can reach none of them', () => {
+    renderShell({ userRole: 'member' });
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu for Scholar Clone' }));
+    expect(screen.queryByRole('group', { name: 'Platform Services' })).toBeNull();
   });
 
   it('shows no identity it does not have', () => {

@@ -9,6 +9,8 @@ function normalize(row: any): any {
     entityType: row.entity_type ?? row.entityType ?? '',
     status: row.status ?? '',
     fileName: row.file_name ?? row.fileName ?? '',
+    importType: row.import_type ?? row.importType ?? '',
+    sourceRef: row.source_ref ?? row.sourceRef ?? row.source_id ?? null,
     totalRows: Number(row.total_rows ?? row.totalRows ?? 0),
     processedRows: Number(row.processed_rows ?? row.processedRows ?? 0),
     successCount: Number(row.success_count ?? row.successCount ?? 0),
@@ -41,4 +43,8 @@ export const api = {
 
   getActiveImports: async (tenantId: string) =>
     normalizeAll(await request(`/import/${tenantId}/active`)),
+
+  /** GET /imports/{tenantId} — every import and ingestion job, newest first. */
+  listJobs: async (tenantId: string) =>
+    normalizeAll(await request(`/imports/${tenantId}`)),
 };

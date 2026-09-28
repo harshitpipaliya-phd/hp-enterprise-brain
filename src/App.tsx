@@ -30,6 +30,7 @@ const INGESTION_WORKSPACE = () => import('./components/workspace/IngestionWorksp
 const MEMORY_SCREEN = () => import('./components/workspace/MemoryScreen');
 const ESO_LIBRARY_SCREEN = () => import('./components/workspace/EsoLibraryScreen');
 const KASBA_EXPLORER = () => import('./components/workspace/KasbaExplorer');
+const PLATFORM_SERVICES_SCREEN = () => import('./components/platform/PlatformServices');
 // OrganizationIntelligenceHome previously rendered the 'home' view. Home is now
 // Command Center, so the component is no longer mounted anywhere. The file is
 // left in place rather than deleted — it is a complete screen, and nothing here
@@ -39,6 +40,8 @@ import Signup from './components/auth/Signup';
 import type { AuthSession } from './components/auth/session';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { AppShell } from './shell/AppShell';
+import { PLATFORM_SERVICES } from './shell/roleAccess';
+import { VIEW_META } from './shell/viewMeta';
 import { NotificationBell } from './components/NotificationBell';
 import { ToastProvider, useToast } from './components/Toast';
 import { api } from './api/organization';
@@ -53,7 +56,8 @@ import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
 import { globalLoading } from './ui/globalLoading';
 
-export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion';
+export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion'
+  | 'rbac' | 'workflow' | 'notifications' | 'scheduler' | 'documents' | 'integrations' | 'audit' | 'eventbus';
 
 export type Organization = OrganizationRow;
 
@@ -858,6 +862,14 @@ function AuthenticatedApp() {
                 everyone. */}
             {view === 'esolibrary' && selected && (
               <LazyView label="ESO Library" loader={ESO_LIBRARY_SCREEN} props={{ tenantId: selected.tenantId, focusEsoId: esoFocus }} />
+            )}
+            {/* All eight Platform Services share one screen; `service` picks the panel. */}
+            {PLATFORM_SERVICES.includes(view) && selected && (
+              <LazyView
+                label={VIEW_META[view].label}
+                loader={PLATFORM_SERVICES_SCREEN}
+                props={{ service: view, tenantId: selected.tenantId, organizationName: selected.name, userRole, onNavigate: (v: View) => navigate(v, selected) }}
+              />
             )}
             {view === 'kasbaexplorer' && selected && (
               <LazyView label="KASBA" loader={KASBA_EXPLORER} props={{ tenantId: selected.tenantId, organizationName: selected.name }} />

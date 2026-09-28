@@ -15,6 +15,10 @@ import { NAV_VIEWS, VIEW_META } from './viewMeta';
  * every request, so a view reached by other means still 403s.
  */
 
+/** Every Platform Services view, in menu order — derived, so VIEW_META stays the one definition. */
+export const PLATFORM_SERVICES: View[] = (Object.keys(VIEW_META) as View[])
+  .filter((v) => VIEW_META[v].section === 'Platform Services');
+
 const TENANT_ADMIN: View[] = [
   'home', 'commandcenter', 'list', 'departments', 'people', 'capabilities',
   // Ingestion writes real Signals under a provenance record, and its four
@@ -25,24 +29,30 @@ const TENANT_ADMIN: View[] = [
   'executive', 'analytics', 'decisionintel', 'mentalmodels', 'graph',
   'kasbaexplorer', 'aiassistant', 'knowledgelibrary', 'esolibrary', 'tasks',
   'policies', 'settings',
+  // Platform Services. RBAC, Scheduler, Document and Integration read routes
+  // carrying settings.manage; Audit and Event Bus expose tenant-wide history.
+  ...PLATFORM_SERVICES,
 ];
 
 const MANAGER: View[] = [
   'home', 'commandcenter', 'departments', 'people', 'capabilities',
   'signals', 'evidence', 'deliberation', 'workspace', 'executions',
   'executive', 'analytics', 'decisionintel', 'tasks', 'settings',
+  // Managers hold decision.approve, so the approval queue is theirs to work.
+  'workflow', 'notifications',
 ];
 
 const ANALYST: View[] = [
   'home', 'commandcenter', 'departments', 'people', 'capabilities',
   'signals', 'evidence', 'deliberation', 'memory', 'workspace', 'analytics',
   'decisionintel', 'mentalmodels', 'graph', 'aiassistant', 'knowledgelibrary',
-  'settings',
+  'settings', 'notifications',
 ];
 
 const VIEWER: View[] = [
   'home', 'commandcenter', 'departments', 'people', 'capabilities',
   'executive', 'analytics', 'decisionintel', 'graph', 'aiassistant', 'settings',
+  'notifications',
 ];
 
 const MEMBER: View[] = ['home', 'commandcenter', 'settings'];
