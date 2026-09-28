@@ -30,6 +30,7 @@ const INGESTION_WORKSPACE = () => import('./components/workspace/IngestionWorksp
 const MEMORY_SCREEN = () => import('./components/workspace/MemoryScreen');
 const ESO_LIBRARY_SCREEN = () => import('./components/workspace/EsoLibraryScreen');
 const KASBA_EXPLORER = () => import('./components/workspace/KasbaExplorer');
+const PLATFORM_SERVICES_SCREEN = () => import('./components/platform/PlatformServices');
 const SIGNAL_CHAIN_VIEW = () => import('./components/signal/SignalChainView');
 const CASES_WORKSPACE = () => import('./components/case/CasesWorkspace');
 const GLOBAL_SEARCH = () => import('./components/workspace/GlobalSearch');
@@ -43,6 +44,8 @@ import Signup from './components/auth/Signup';
 import type { AuthSession } from './components/auth/session';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { AppShell } from './shell/AppShell';
+import { PLATFORM_SERVICES } from './shell/roleAccess';
+import { VIEW_META } from './shell/viewMeta';
 import { ModuleAiStackFrame } from './components/ai-stack/ModuleAiStackFrame';
 import { NotificationBell } from './components/NotificationBell';
 import { ToastProvider, useToast } from './components/Toast';
@@ -58,7 +61,7 @@ import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
 import { globalLoading } from './ui/globalLoading';
 
-export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion' | 'ai' | 'signalchain' | 'cases' | 'globalsearch';
+export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion'  | 'ai' | 'signalchain' | 'cases' | 'globalsearch' | 'rbac' | 'workflow' | 'notifications' | 'scheduler' | 'documents' | 'integrations' | 'audit' | 'eventbus';
 
 export type Organization = OrganizationRow;
 
@@ -967,6 +970,14 @@ function AuthenticatedApp() {
                 everyone. */}
             {view === 'esolibrary' && selected && (
               <LazyView label="ESO Library" loader={ESO_LIBRARY_SCREEN} props={{ tenantId: selected.tenantId, focusEsoId: esoFocus }} />
+            )}
+            {/* All eight Platform Services share one screen; `service` picks the panel. */}
+            {PLATFORM_SERVICES.includes(view) && selected && (
+              <LazyView
+                label={VIEW_META[view].label}
+                loader={PLATFORM_SERVICES_SCREEN}
+                props={{ service: view, tenantId: selected.tenantId, organizationName: selected.name, userRole, onNavigate: (v: View) => navigate(v, selected) }}
+              />
             )}
             {view === 'ai' && selected && (
               <LazyView

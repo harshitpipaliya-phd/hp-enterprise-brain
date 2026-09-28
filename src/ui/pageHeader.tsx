@@ -112,7 +112,7 @@ export interface PageHeaderProps {
  */
 const NAV_SECTION_EYEBROWS = new Set([
   'foundation', 'intelligence loop', 'analytics',
-  'knowledge', 'automation', 'account', 'overview',
+  'knowledge', 'automation', 'platform services', 'account', 'overview',
 ]);
 
 function isNavSectionEyebrow(eyebrow: React.ReactNode): boolean {

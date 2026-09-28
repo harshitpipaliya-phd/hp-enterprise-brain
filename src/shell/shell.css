@@ -468,6 +468,32 @@
 }
 .s-usermenu-item:hover { background: var(--surface-hover); color: var(--content-primary); }
 .s-usermenu-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.s-usermenu-group { padding: 6px 4px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--border-subtle); }
+.s-usermenu-group-label {
+  display: block; padding: 2px 6px 6px;
+  font-size: var(--fs-tiny); font-weight: 650; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--content-tertiary);
+}
+.s-usermenu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; min-width: 300px; }
+.s-usermenu-tile {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px 6px 6px;
+  border: 1px solid var(--border-subtle);
+  font-weight: 550;
+  white-space: nowrap;
+}
+/* The icon sits in a small inset chip, the same treatment as the loop tiles. */
+.s-usermenu-tile svg {
+  flex: none;
+  box-sizing: content-box;
+  padding: 5px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  color: var(--color-gold-700);
+}
+.s-usermenu-tile:hover { border-color: var(--border-default); }
+.s-usermenu-tile:hover svg { background: var(--surface-card); }
+@media (max-width: 420px) { .s-usermenu-grid { grid-template-columns: 1fr; min-width: 0; } }
 .s-usermenu-danger { color: var(--status-crit); }
 .s-usermenu-danger:hover { background: var(--feedback-error-surface); color: var(--feedback-error-content); }
 

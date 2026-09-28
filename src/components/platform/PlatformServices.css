@@ -1,0 +1,123 @@
+/*
+  Platform Services. Built on the Intelligence suite (intel-section-head,
+  intel-kpi, intel-score-card, intel-panel); this file only adds what those
+  screens have no need of — a toned KPI tile with an icon, tables sitting flush
+  inside a panel, and a two-up split. Tokens only; no hex.
+*/
+
+.ps-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eb-space-5);
+  min-width: 0;
+}
+
+/* ---- Headline card in the header aside ---------------------------------- */
+.ps-score {
+  min-width: 240px;
+  max-width: 320px;
+}
+.ps-score strong {
+  margin-top: 8px;
+  font-size: clamp(34px, 4vw, 52px);
+}
+/* A job name or a sentence is not a figure — set it as text, not as a 52px number. */
+.ps-score[data-kind='text'] strong {
+  font-family: inherit;
+  font-size: 22px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.ps-score p {
+  font-size: var(--fs-small);
+  line-height: 1.5;
+}
+
+/* ---- KPI strip ---------------------------------------------------------- */
+.ps-kpi {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+}
+.ps-kpi[data-tone='good']::before { background: var(--status-good); }
+.ps-kpi[data-tone='warn']::before { background: var(--status-warn); }
+.ps-kpi[data-tone='crit']::before { background: var(--status-crit); }
+.ps-kpi[data-tone='info']::before { background: var(--eb-gold-500); }
+
+.ps-kpi-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  color: var(--color-gold-700);
+}
+.ps-kpi-icon svg { width: 18px; height: 18px; }
+.ps-kpi-body { display: flex; flex-direction: column; min-width: 0; }
+.ps-kpi .intel-kpi-value { margin-top: 4px; font-size: 26px; line-height: 1.1; }
+.ps-kpi small { margin-top: 4px; font-size: var(--fs-tiny); }
+
+/* ---- Sections ----------------------------------------------------------- */
+.ps-section { display: flex; flex-direction: column; min-width: 0; }
+.ps-section .intel-section-head { align-items: flex-start; flex-wrap: wrap; }
+.ps-section .intel-section-head > div:first-child { flex: 1 1 320px; min-width: 0; }
+.ps-section .intel-section-head h2 { font-size: 20px; }
+.ps-section .intel-section-head p { margin-top: 6px; max-width: 72ch; font-size: var(--fs-small); line-height: 1.5; }
+.ps-section .intel-inline-actions { justify-content: flex-end; }
+.ps-section .intel-inline-actions .u-tabs { margin: 0; }
+
+/* The panel is already the card; a second bordered, shadowed card inside it
+   read as a box in a box. The table keeps its header band and row rules. */
+.ps-section .u-table-wrap {
+  border: 0;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  background: transparent;
+}
+
+.ps-section .u-pagination { background: transparent; padding-inline: 0; }
+
+.ps-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--eb-space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--eb-space-4);
+}
+.ps-filters-grow { flex: 1 1 260px; min-width: 0; }
+
+.ps-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--eb-space-5);
+  align-items: start;
+}
+
+/* ---- Cells -------------------------------------------------------------- */
+.ps-stacked { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-stacked strong { font-weight: 600; color: var(--content-primary); }
+.ps-stacked span { font-size: var(--fs-tiny); color: var(--content-tertiary); overflow-wrap: anywhere; }
+
+.ps-code {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--fs-tiny);
+  color: var(--content-secondary);
+  overflow-wrap: anywhere;
+}
+
+.ps-none { color: var(--content-tertiary); }
+.ps-row-actions { display: flex; justify-content: flex-end; gap: var(--eb-space-2); }
+
+@media (max-width: 1100px) {
+  .ps-split { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .ps-score { max-width: none; min-width: 0; }
+  .ps-section .intel-inline-actions { justify-content: flex-start; }
+}

@@ -8,7 +8,8 @@ export const authApi = {
 
 export const notificationApi = {
   list: (tenantId: string, unreadOnly = false) =>
-    request(`/notifications/${tenantId}${unreadOnly ? '?unread=true' : ''}`, { globalLoader: 'none' }),
+    // NotificationController reads `unreadOnly`; `?unread=true` was ignored.
+    request(`/notifications/${tenantId}${unreadOnly ? '?unreadOnly=1' : ''}`, { globalLoader: 'none' }),
   unreadCount: (tenantId: string) =>
     request(`/notifications/${tenantId}/unread-count`, { globalLoader: 'none' }),
   markRead: (tenantId: string, id: string) =>

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Bell, ChevronRight, Menu, Search, Sparkles, UserRound } from 'lucide-react';
 import type { View } from '../App';
-import { breadcrumbsFor } from './viewMeta';
-import { visibleViewsForRole } from './roleAccess';
+import { VIEW_META, breadcrumbsFor } from './viewMeta';
+import { PLATFORM_SERVICES, visibleViewsForRole } from './roleAccess';
 import { Avatar, IconButton } from '../ui';
 import { AI_CAPABILITIES, capabilityRoute } from '../components/ai-intelligence/core';
 
@@ -39,7 +39,8 @@ export function TopHeader({
   onOpenDrawer, onNavigate, onLogout, onOpenCommandPalette, onOpenAiConsole, notificationSlot,
 }: TopHeaderProps) {
   const crumbs = breadcrumbsFor(view, orgName);
-  const canOpenAssistant = visibleViewsForRole(userRole).has('aiassistant');
+  const visible = visibleViewsForRole(userRole);
+  const canOpenAssistant = visible.has('aiassistant');
 
   return (
     <header className="s-header">
@@ -114,8 +115,10 @@ export function TopHeader({
           userRole={userRole}
           onLogout={onLogout}
           onOpenSettings={() => onNavigate('settings')}
-          canOpenSettings={visibleViewsForRole(userRole).has('settings')}
-          onOpenAiConsole={visibleViewsForRole(userRole).has('ai') ? onOpenAiConsole : undefined}
+          canOpenSettings={visible.has('settings')}
+          platformServices={PLATFORM_SERVICES.filter((v) => visible.has(v))}
+          onNavigate={onNavigate}
+          onOpenAiConsole={visible.has('ai') ? onOpenAiConsole : undefined}
         />
       </div>
     </header>
@@ -123,26 +126,20 @@ export function TopHeader({
 }
 
 function UserMenu({
-  userName, userRole, onLogout, onOpenSettings, canOpenSettings, onOpenAiConsole,
+  userName, userRole, onLogout, onOpenSettings, canOpenSettings, platformServices, onNavigate, onOpenAiConsole
 }: {
   userName?: string | null;
   userRole: string | null;
   onLogout: () => void;
   onOpenSettings: () => void;
   canOpenSettings: boolean;
-  /**
-   * AI & INTELLIGENCE, DRIVEN BY THE REGISTRY RATHER THAN BY A LIST HERE — the
-   * arrangement G2G's gtg-user-menu uses. The entries come from the shared
-   * capability registry, which also builds the console and every capability page,
-   * so adding or renaming a capability is a registry edit and this file does not
-   * change.
-   *
-   * It hangs off this menu rather than the sidebar for G2G's reason: these are
-   * administration screens that configure the AI every module then uses, not a
-   * module. Administrators only (roleAccess 'ai'), and the server agrees — every
-   * /ai-intelligence route carries permission:settings.manage.
-   */
+
+  /** Platform Services views this role may reach. Empty hides the group. */
+  platformServices: View[];
+  onNavigate: (view: View) => void;
+
   onOpenAiConsole?: (route: string) => void;
+
 }) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -197,6 +194,23 @@ function UserMenu({
             <span className="s-usermenu-name">{userName || 'Signed in'}</span>
             {userRole && <span className="s-usermenu-role">{userRole.replace(/_/g, ' ')}</span>}
           </div>
+
+          {platformServices.length > 0 && (
+            <div className="s-usermenu-group" role="group" aria-labelledby="s-usermenu-platform">
+              <span id="s-usermenu-platform" className="s-usermenu-group-label">Platform Services</span>
+              <div className="s-usermenu-grid">
+                {platformServices.map((v) => {
+                  const { label, icon: Icon } = VIEW_META[v];
+                  return (
+                    <button key={v} type="button" role="menuitem" className="s-usermenu-item s-usermenu-tile" onClick={() => { close(); onNavigate(v); }}>
+                      <Icon size={15} aria-hidden="true" />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="s-usermenu-scroll">
             {canOpenSettings && (

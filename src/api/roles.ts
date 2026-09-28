@@ -6,8 +6,11 @@ function normalize(row: any): any {
     id: String(row.id ?? ''),
     tenantId: row.tenant_id ?? row.tenantId ?? '',
     orgId: String(row.org_id ?? row.orgId ?? ''),
-    code: row.code ?? '',
+    code: row.code ?? row.role_key ?? '',
     name: row.name ?? '',
+    category: row.category ?? null,
+    permissions: Array.isArray(row.permissions) ? row.permissions : [],
+    isSystem: Boolean(row.is_system ?? row.isSystem),
     description: row.description ?? null,
     level: row.level ?? '',
     status: row.status ?? '',
@@ -41,3 +44,12 @@ export const api = {
   getAuditLogs: async (tenantId: string, id: string) =>
     request(`/roles/${tenantId}/${id}/audit`),
 };
+
+export interface PermissionMatrix {
+  permissions: string[];
+  roles: { key: string; permissions: string[] }[];
+}
+
+/** GET /roles/{tenantId}/matrix — the access roles the API enforces, from its Role enum. */
+export const getPermissionMatrix = (tenantId: string): Promise<PermissionMatrix> =>
+  request(`/roles/${tenantId}/matrix`);
