@@ -71,7 +71,12 @@ export const VIEW_META: Record<View, ViewMeta> = {
 
   signals:          { label: 'Signals', section: 'Intelligence Loop', icon: Radio, requiresOrg: true, description: 'What the data has flagged, and who it concerns.' },
   evidence:         { label: 'Evidence', section: 'Intelligence Loop', icon: FileSearch, requiresOrg: true, description: 'What supports each signal, and how firmly it is held.' },
-  cases:            { label: 'Cases', section: 'Intelligence Loop', icon: FolderSearch, requiresOrg: true, description: 'Every investigation opened from a signal or a recommendation, across the organization.' },
+  // Routable, not a nav entry: reached by "Open as case" from a department's
+  // recommendation panel, or from a Case result/node in Global Search and the
+  // Graph Explorer (viewCase() in App.tsx). The finding it represents is shown
+  // in-context in those workflows now, so a standalone browse-all-cases entry
+  // is no longer in the user-facing navigation. Same pattern as signalchain.
+  cases:            { label: 'Cases', section: 'Intelligence Loop', icon: FolderSearch, requiresOrg: true, hidden: true, description: 'Every investigation opened from a signal or a recommendation, across the organization.' },
   deliberation:     { label: 'Deliberation', section: 'Intelligence Loop', icon: Scale, requiresOrg: true, description: 'Open investigations and the decisions waiting on them.' },
   workspace:        { label: 'Intelligence Workspace', section: 'Intelligence Loop', icon: Brain, requiresOrg: true, description: 'What this organization currently knows about itself.' },
   executions:       { label: 'Execution Center', section: 'Intelligence Loop', icon: Workflow, requiresOrg: true, description: 'What has been done about approved decisions, and the result.' },
