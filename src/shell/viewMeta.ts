@@ -1,9 +1,10 @@
 import type { View } from '../App';
 import {
-  Activity, Boxes, Brain, Building2, ChartNoAxesColumn, CircleGauge,
-  Database, FileSearch, FolderSearch, FolderTree, Gauge, Layers, Library, ListChecks,
-  Network, Notebook, Radio, Scale, Search, Settings, ShieldCheck, Sparkles, Target,
-  TrendingUp, Upload, Users, Workflow,
+  Activity, Bell, Boxes, Brain, Building2, CalendarClock, ChartNoAxesColumn,
+  CircleGauge, ClipboardCheck, Database, FileSearch, FileText, FolderSearch, FolderTree,
+  Gauge, KeyRound, Layers, Library, ListChecks, Network, Notebook, Plug, Radio,
+  Route, Scale, Search, Settings, ShieldCheck, Sparkles, Target, TrendingUp, Upload,
+  Users, Waypoints, Workflow,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -23,7 +24,7 @@ import type { LucideIcon } from 'lucide-react';
 
 export type SectionId =
   | 'Overview' | 'Foundation' | 'Intelligence Loop'
-  | 'Analytics' | 'Knowledge' | 'Automation' | 'Account';
+  | 'Analytics' | 'Knowledge' | 'Automation' | 'Platform Services' | 'Account';
 
 export interface ViewMeta {
   /** Sidebar and breadcrumb label. */
@@ -41,7 +42,7 @@ export interface ViewMeta {
 
 export const SECTIONS: SectionId[] = [
   'Overview', 'Foundation', 'Intelligence Loop',
-  'Analytics', 'Knowledge', 'Automation', 'Account',
+  'Analytics', 'Knowledge', 'Automation', 'Platform Services', 'Account',
 ];
 
 /** Sections whose nav items render as a single expandable group header rather
@@ -49,10 +50,10 @@ export const SECTIONS: SectionId[] = [
  *  is open at a time. Always-visible sections (Overview, Foundation, Account)
  *  are excluded so their items are always reachable without a second tap. */
 export const COLLAPSIBLE_SECTIONS: SectionId[] = [
-  'Intelligence Loop', 'Analytics', 'Knowledge', 'Automation',
+  'Intelligence Loop', 'Analytics', 'Knowledge', 'Automation', 'Platform Services',
 ];
 
-/** Every View value, exhaustively — the Record type enforces it. */
+/** Every one of the 41 View values, exhaustively — the Record type enforces it. */
 export const VIEW_META: Record<View, ViewMeta> = {
   home:             { label: 'Organization', section: 'Overview', icon: CircleGauge, requiresOrg: true, description: 'What this organization contains, and how far its data has travelled through the loop.' },
   // Retained as an alias so a session persisted by an earlier build still
@@ -109,6 +110,18 @@ export const VIEW_META: Record<View, ViewMeta> = {
   agents:           { label: 'Agent Monitor', section: 'Automation', icon: Activity, requiresOrg: true, description: 'What the agents are doing, and on whose authority.' },
   tasks:            { label: 'Task Orchestrator', section: 'Automation', icon: ListChecks, requiresOrg: true, description: 'Scheduled and queued work.' },
   policies:         { label: 'Policy Management', section: 'Automation', icon: ShieldCheck, requiresOrg: true, description: 'The rules execution must respect.' },
+
+  // Platform Services: the cross-cutting services every module runs on. One
+  // screen (components/platform/PlatformServices) renders all eight, and the
+  // account menu lists them under the same heading.
+  rbac:             { label: 'RBAC', section: 'Platform Services', icon: KeyRound, requiresOrg: true, description: 'The access roles the API enforces, and what each one may do.' },
+  workflow:         { label: 'Workflow', section: 'Platform Services', icon: Route, requiresOrg: true, description: 'Decisions awaiting approval, and the executions and policies that follow them.' },
+  notifications:    { label: 'Notification', section: 'Platform Services', icon: Bell, requiresOrg: true, description: 'Every notification sent to you in this organization.' },
+  scheduler:        { label: 'Scheduler', section: 'Platform Services', icon: CalendarClock, requiresOrg: true, description: 'Recurring jobs, when each next runs, and on-demand tasks.' },
+  documents:        { label: 'Document', section: 'Platform Services', icon: FileText, requiresOrg: true, description: 'Files brought in, and the knowledge assets they became.' },
+  integrations:     { label: 'Integration', section: 'Platform Services', icon: Plug, requiresOrg: true, description: 'Source systems, modules and feature flags this organization is wired to.' },
+  audit:            { label: 'Audit', section: 'Platform Services', icon: ClipboardCheck, requiresOrg: true, description: 'Every recorded change — who made it, to what, and when.' },
+  eventbus:         { label: 'Event Bus', section: 'Platform Services', icon: Waypoints, requiresOrg: true, description: 'What is queued, in flight, settled or failed on the event backbone.' },
 
   settings:         { label: 'Settings', section: 'Account', icon: Settings, requiresOrg: true, description: 'Configuration for this organization.' },
   // Reached from the account menu, as in G2G and LMS K-12, so hidden from the
