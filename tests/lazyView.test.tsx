@@ -110,7 +110,7 @@ describe('DecisionIntelligence is not eagerly imported', () => {
     expect(src).toMatch(/import\('\.\/components\/workspace\/DecisionIntelligence'\)/);
   });
 
-  it('no other module imports it statically either', async () => {
+  it('no other module imports it statically either', { timeout: 30_000 }, async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
 

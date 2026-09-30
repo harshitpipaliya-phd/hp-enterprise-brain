@@ -47,6 +47,19 @@ vi.mock('../src/api/ingestion', () => ({
   },
 }));
 
+const getOperationsOverview = vi.fn();
+
+vi.mock('../src/api/operations', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/api/operations')>();
+  return {
+    ...actual,
+    operationsApi: {
+      ...actual.operationsApi,
+      getOverview: (...args: unknown[]) => getOperationsOverview(...args),
+    },
+  };
+});
+
 // The signed-in role decides whether the screen asks for data sources (settings.manage only).
 let authRole = 'tenant_admin';
 vi.mock('../src/utils/tenant', async (importOriginal) => {
@@ -128,6 +141,7 @@ describe('CommandCenter organization overview', () => {
     listSources.mockReset().mockResolvedValue([
       { source_key: 'fees', display_name: 'Fees Data', source_type: 'csv', is_active: true },
     ]);
+    getOperationsOverview.mockReset().mockResolvedValue(null);
     archiveOrganization.mockReset().mockResolvedValue({ ok: true });
     updateOrganization.mockReset();
   });
@@ -154,7 +168,7 @@ describe('CommandCenter organization overview', () => {
     // panel. Scoped rather than global, because the department also appears in
     // the structure table below and a bare text query cannot tell them apart.
     expect(within(await screen.findByLabelText('Departments')).getByText('Administration')).toBeTruthy();
-    expect(within(screen.getByLabelText('Data sources')).getByText('Fees Data')).toBeTruthy();
+    expect(await within(screen.getByLabelText('Data sources')).findByText('Fees Data')).toBeTruthy();
 
     // The attention queue is the server's, including its tenant vocabulary.
     expect(screen.getByText('4 students without a class section')).toBeTruthy();
