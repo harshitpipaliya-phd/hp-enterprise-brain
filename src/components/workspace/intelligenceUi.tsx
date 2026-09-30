@@ -15,6 +15,8 @@
 
 import React from 'react';
 import { HeaderActions, HeaderStamp, PageHeader, Panel } from '../../ui';
+import { organizationIntelligenceApi } from '../../api/organizationIntelligence';
+import { getAuthRole, getAuthTenantId } from '../../utils/tenant';
 import type {
   ConfidenceValue, EvidenceRef, ExecutiveInterpretation, Provenance, Recommendation, StateDimension, Gap,
 } from '../../api/organizationIntelligence';
@@ -338,23 +340,56 @@ export function RecommendationCard({ recommendation, onViewEso }: {
 /* ─────────────────────────── gap ─────────────────────────── */
 
 /** One gap: what is absent, how much it touches, and what would close it. */
-export function ExecutiveInterpretationPanel({ interpretation }: { interpretation: ExecutiveInterpretation | null | undefined }) {
+/** Roles the server lets spend a model call (`create`); a Viewer sees the button as absent, and the API refuses it anyway. */
+const CAN_GENERATE_ROLES = new Set(['admin', 'tenant_admin', 'manager', 'analyst']);
+
+export function ExecutiveInterpretationPanel({ interpretation: initial }: { interpretation: ExecutiveInterpretation | null | undefined }) {
+  const [generated, setGenerated] = React.useState<ExecutiveInterpretation | null>(null);
+  const [generating, setGenerating] = React.useState(false);
+  const [generateError, setGenerateError] = React.useState('');
+
+  const interpretation = generated ?? initial;
   if (!interpretation) return null;
 
   const available = interpretation.status === 'available';
   const findings = interpretation.critical_findings.slice(0, 3);
   const actions = interpretation.recommendations.slice(0, 3);
+  const notGenerated = !available && interpretation.reason === 'interpretation_not_generated';
+  const canGenerate = CAN_GENERATE_ROLES.has(getAuthRole());
+
+  // Opening a screen never spends a model call. This is the explicit action that does.
+  const generate = async () => {
+    setGenerating(true);
+    setGenerateError('');
+    try {
+      const result = await organizationIntelligenceApi.generateInterpretation(getAuthTenantId());
+      setGenerated(result.interpretation);
+    } catch (cause) {
+      setGenerateError(cause instanceof Error ? cause.message : 'Could not generate the interpretation.');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <Panel
       title="Executive interpretation"
-      hint={available ? `DeepSeek - ${interpretation.model ?? 'configured model'}` : 'DeepSeek unavailable'}
+      hint={available ? `DeepSeek - ${interpretation.model ?? 'configured model'}` : notGenerated ? 'Not generated' : 'DeepSeek unavailable'}
       footnote={<span>{interpretation.guardrails.model_role} {interpretation.guardrails.facts}</span>}
     >
       {!available && (
         <div className="oi-ai-unavailable">
-          <strong>Interpretation unavailable.</strong>
+          <strong>{notGenerated ? 'No interpretation generated yet.' : 'Interpretation unavailable.'}</strong>
           <span>{interpretation.reason ?? 'unknown'}{interpretation.detail ? `: ${interpretation.detail}` : ''}</span>
+          {notGenerated && canGenerate && (
+            <button type="button" onClick={generate} disabled={generating}>
+              {generating ? 'Generating…' : 'Generate AI interpretation'}
+            </button>
+          )}
+          {notGenerated && !canGenerate && (
+            <span>Your role can read intelligence but cannot request a model call.</span>
+          )}
+          {generateError && <span role="alert">{generateError}</span>}
         </div>
       )}
 

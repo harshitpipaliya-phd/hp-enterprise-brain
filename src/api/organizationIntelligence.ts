@@ -531,6 +531,14 @@ const base = (tenantId: string) => `/organization-intelligence/${encodeURICompon
 const query = (fresh?: boolean) => (fresh ? '?fresh=1' : '');
 
 export const organizationIntelligenceApi = {
+  /**
+   * POST /organization-intelligence/{tenant}/interpretation — the only call that can spend a
+   * model request on the executive interpretation. Every read above serves the cached one or
+   * reports "not generated"; this needs the `create` permission on the server.
+   */
+  generateInterpretation: (tenantId: string, fresh?: boolean): Promise<{ interpretation: ExecutiveInterpretation }> =>
+    request(`${base(tenantId)}/interpretation${query(fresh)}`, { method: 'POST', body: JSON.stringify({}) }),
+
   getState: (tenantId: string, fresh?: boolean): Promise<OrganizationalState> =>
     request(`${base(tenantId)}/state${query(fresh)}`),
 

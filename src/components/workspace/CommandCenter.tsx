@@ -55,6 +55,10 @@ import type { OrganizationField } from '../../api/organization';
 import { ExploreInGraphButton } from '../graph/ExploreInGraphButton';
 import { HeaderActions, PageHeader } from '../../ui';
 import './CommandCenter.css';
+import { getAuthRole } from '../../utils/tenant';
+
+/** Roles holding settings.manage, which the ingestion-sources route requires. */
+const MAY_LIST_SOURCES = new Set(['admin', 'tenant_admin']);
 
 interface CommandCenterProps {
   tenantId: string;
@@ -279,7 +283,9 @@ export default function CommandCenter({ tenantId, organizationName, organization
   const loadSecondary = useCallback(async () => {
     const secondary = await Promise.allSettled([
       capabilityApi.listCapabilities(tenantId, organization?.id),
-      ingestionApi.listSources(tenantId),
+      // Data sources sit behind permission:settings.manage (admin and tenant_admin). Asking as any
+      // other role is a guaranteed 403 on every home load, so do not ask.
+      MAY_LIST_SOURCES.has(getAuthRole()) ? ingestionApi.listSources(tenantId) : Promise.resolve(null),
       operationsApi.getOverview(tenantId),
     ]);
 

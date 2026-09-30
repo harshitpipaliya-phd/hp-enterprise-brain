@@ -3,7 +3,8 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import { Sidebar } from '../src/shell/Sidebar';
 import { AppShell } from '../src/shell/AppShell';
 import { breadcrumbsFor, VIEW_META } from '../src/shell/viewMeta';
-import { navViewsForRole, visibleViewsForRole } from '../src/shell/roleAccess';
+import { navViewsForRole, visibleViewsForRole, PLATFORM_SERVICES } from '../src/shell/roleAccess';
+import type { View } from '../src/App';
 import { readCollapsePreference } from '../src/shell/useSidebarState';
 
 /**
@@ -79,23 +80,94 @@ afterEach(() => {
 
 /* ========================================================================== */
 
-describe('role matrix — unchanged by the redesign', () => {
-  // Lifted from the pre-redesign Sidebar.tsx. If any of these counts move, the
-  // refactor changed who can reach what, which is a product decision.
+describe('role matrix', () => {
+  // These lists only decide which menu items are DRAWN. `navigate()` applies no role guard and the
+  // API re-checks permissions from the signed JWT on every request, so a view reached another way
+  // still 403s. The tests below therefore pin the two things that matter about the lists:
+  //   1. the SECURITY-RELEVANT invariants — which views a role must never be offered — stated
+  //      as policy rather than as a count that any added screen silently invalidates, and
+  //   2. the current size of each role's menu, as an explicit tripwire: a change to who sees
+  //      what is a product decision and should have to touch this file on purpose.
+  const ALL_VIEWS = Object.keys(VIEW_META) as View[];
+
+  // Routes carrying permission:settings.manage (admin and tenant_admin only), plus admin-only tooling.
+  // workflow and notifications are deliberately excluded: managers work the approval queue and every
+  // authenticated role has notifications.
+  const SETTINGS_MANAGE_VIEWS: View[] = [
+    'ingestion', 'ai', 'list',
+    ...PLATFORM_SERVICES.filter((v) => v !== 'workflow' && v !== 'notifications'),
+  ];
+
+  // What a read-only or unrecognised role must never be offered: anything that writes, executes,
+  // approves, administers or configures.
+  const WRITE_OR_GOVERNANCE_VIEWS: View[] = [
+    'signals', 'evidence', 'cases', 'deliberation', 'executions', 'ingestion', 'tasks', 'policies',
+    'esolibrary', 'ai', 'agents', 'list', 'workflow', ...SETTINGS_MANAGE_VIEWS,
+  ];
+
+  // Current menu sizes. admin is derived: it sees every view the nav declares.
   const EXPECTED: Record<string, number> = {
-    // Ingestion carries permission:settings.manage, so it is deliberately NOT
-    // granted to manager/analyst/viewer/member. The same holds for 'ai' (AI &
-    // Intelligence), whose routes all carry permission:settings.manage.
-    admin: 37,        // every view in VIEW_META, including hidden aliases
-    tenant_admin: 28,
-    manager: 16,
-    analyst: 19,
+    tenant_admin: 36,
+    manager: 18,
+    analyst: 18,
     viewer: 12,
     member: 3,
   };
 
-  it.each(Object.entries(EXPECTED))('%s sees exactly %i views', (role, count) => {
+  it('admin sees every view the nav declares', () => {
+    expect(visibleViewsForRole('admin').size).toBe(ALL_VIEWS.length);
+    expect(visibleViewsForRole('admin')).toEqual(new Set(ALL_VIEWS));
+  });
+
+  it.each(Object.entries(EXPECTED))('%s is offered exactly %i views (pinned)', (role, count) => {
     expect(visibleViewsForRole(role).size).toBe(count);
+  });
+
+  it('never offers any role a view that admin cannot see', () => {
+    const admin = visibleViewsForRole('admin');
+    for (const role of Object.keys(EXPECTED)) {
+      for (const v of visibleViewsForRole(role)) expect(admin.has(v)).toBe(true);
+    }
+  });
+
+  it.each(['manager', 'analyst', 'viewer', 'member'])(
+    'keeps every settings.manage view out of %s',
+    (role) => {
+      const visible = visibleViewsForRole(role);
+      for (const v of SETTINGS_MANAGE_VIEWS) expect(visible.has(v), `${role} must not see ${v}`).toBe(false);
+    },
+  );
+
+  it('offers the settings.manage views to tenant_admin', () => {
+    const visible = visibleViewsForRole('tenant_admin');
+    for (const v of SETTINGS_MANAGE_VIEWS.filter((x) => x !== 'agents')) {
+      expect(visible.has(v), `tenant_admin should see ${v}`).toBe(true);
+    }
+  });
+
+  it.each(['viewer', 'member'])('offers no write, approval, execution or admin view to %s', (role) => {
+    const visible = visibleViewsForRole(role);
+    for (const v of WRITE_OR_GOVERNANCE_VIEWS) expect(visible.has(v), `${role} must not see ${v}`).toBe(false);
+  });
+
+  it('offers the execution centre only to roles holding eso.execute (manager and above)', () => {
+    for (const role of ['admin', 'tenant_admin', 'manager']) {
+      expect(visibleViewsForRole(role).has('executions')).toBe(true);
+    }
+    for (const role of ['analyst', 'viewer', 'member']) {
+      expect(visibleViewsForRole(role).has('executions')).toBe(false);
+    }
+  });
+
+  it('gives managers the approval queue and analysts and viewers only notifications', () => {
+    expect(visibleViewsForRole('manager').has('workflow')).toBe(true);
+    expect(visibleViewsForRole('analyst').has('workflow')).toBe(false);
+    expect(visibleViewsForRole('viewer').has('workflow')).toBe(false);
+    for (const role of ['analyst', 'viewer']) expect(visibleViewsForRole(role).has('notifications')).toBe(true);
+  });
+
+  it('gives a member exactly home, command centre and settings', () => {
+    expect(visibleViewsForRole('member')).toEqual(new Set(['home', 'commandcenter', 'settings']));
   });
 
   it('treats an unknown role as member, not as admin', () => {

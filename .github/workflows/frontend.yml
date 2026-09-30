@@ -1,0 +1,38 @@
+# Frontend CI — type check and the vitest suite.
+#
+# No secrets and no backend are needed: the tests run in jsdom against fixtures.
+# ESLint is intentionally not a gate yet (1 error and 26 warnings at the time this was
+# added); make it one once `npm run lint` is clean.
+name: frontend
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install (reproducible, from package-lock.json)
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc -b --noEmit
+
+      - name: Unit tests
+        run: npm test

@@ -20,6 +20,7 @@ import { Archive, Brain, Clock3, Database, FileCheck2, FileSearch, Link2, Plus, 
 import { api } from '../../api/intelligence';
 import { api as signalApi } from '../../api/signal';
 import { aiApi } from '../../api/ai';
+import { getAuthRole } from '../../utils/tenant';
 import { useToast } from '../Toast';
 import type { View } from '../../App';
 import { HeaderActions, PageHeader } from '../../ui';
@@ -27,6 +28,9 @@ import { operationsApi } from '../../api/operations';
 import type { LoopMetrics } from '../../api/operations';
 import { DistributionPanel } from './OperationalIntelligencePanels';
 import './EvidenceWorkspace.css';
+
+/** Roles the server lets spend a model call (`create`); a Viewer sees the button disabled and the API refuses it regardless. */
+const CAN_SPEND_ON_AI = new Set(['admin', 'tenant_admin', 'manager', 'analyst']);
 
 interface Evidence {
   id: string;
@@ -476,13 +480,28 @@ export default function EvidenceWorkspace({ tenantId, onNavigate }: { tenantId: 
   }, [model, signals.length]);
 
   const summarizeWithAI = async (item: Evidence) => {
+    // The server summarises the evidence attached to a signal, not free text.
+    if (!item.signalId) {
+      showToast('warning', 'This evidence is not attached to a signal, so there is nothing for the server to summarise.');
+      return;
+    }
+
     setSummarizingId(item.id);
     try {
-      const result = await aiApi.summarizeEvidence(contentText(item), item.id);
-      if ('summary' in result) {
-        showToast('info', result.summary);
+      const result = (await aiApi.summarizeEvidence(String(item.signalId))) as {
+        state?: string;
+        value?: { summary?: string };
+        gaps?: string[];
+      };
+
+      if (result.state === 'DECIDED' && typeof result.value?.summary === 'string') {
+        showToast('info', result.value.summary);
       } else {
-        showToast(result.providerConfigured ? 'error' : 'warning', result.error);
+        // UNDETERMINED is an honest answer, not an error: name what is missing.
+        const gaps = (result.gaps ?? []).join(', ');
+        showToast('warning', gaps === 'no_ai_provider_configured'
+          ? 'No AI provider is configured for this organization.'
+          : `No summary could be produced${gaps ? ` (${gaps})` : ''}.`);
       }
     } catch (e: unknown) {
       showToast('error', e instanceof Error ? e.message : 'Unable to summarize evidence.');
@@ -771,7 +790,11 @@ export default function EvidenceWorkspace({ tenantId, onNavigate }: { tenantId: 
                         ) : (
                           <span className="evidence-intel__unattached">Not attached to a signal</span>
                         )}
-                        <button onClick={() => summarizeWithAI(row.item)} disabled={summarizingId === row.item.id}>
+                        <button
+                          onClick={() => summarizeWithAI(row.item)}
+                          disabled={summarizingId === row.item.id || !CAN_SPEND_ON_AI.has(getAuthRole())}
+                          title={CAN_SPEND_ON_AI.has(getAuthRole()) ? undefined : 'Your role can read evidence but cannot request a model call.'}
+                        >
                           {summarizingId === row.item.id ? 'Summarising…' : 'Summarise'}
                         </button>
                       </div>

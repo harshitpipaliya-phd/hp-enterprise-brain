@@ -96,7 +96,11 @@ const ORG = {
   identityFields: [],
 };
 
-describe('permanent deletion ends the session', () => {
+// Every case drives the real <App/> through lazily loaded screens and waits on findBy queries
+// that themselves allow 5 s. With vitest's default 5 s TEST timeout the first (cold) case, or any
+// case on a busy machine, can time out while nothing is wrong: it passes in ~1.6 s alone and
+// failed at 5.6 s beside other jsdom suites. The budget is explicit; no assertion is loosened.
+describe('permanent deletion ends the session', { timeout: 30_000 }, () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();

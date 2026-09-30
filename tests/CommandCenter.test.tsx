@@ -47,6 +47,13 @@ vi.mock('../src/api/ingestion', () => ({
   },
 }));
 
+// The signed-in role decides whether the screen asks for data sources (settings.manage only).
+let authRole = 'tenant_admin';
+vi.mock('../src/utils/tenant', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/utils/tenant')>();
+  return { ...actual, getAuthRole: () => authRole };
+});
+
 const organization = {
   id: '1000000',
   tenantId: '1000000',
@@ -80,6 +87,7 @@ const PIPELINE_COUNTS = {
 
 describe('CommandCenter organization overview', () => {
   beforeEach(() => {
+    authRole = 'tenant_admin';
     getHomeMetrics.mockReset().mockResolvedValue({
       erp: {
         activePeople: 1001,
@@ -240,4 +248,15 @@ describe('CommandCenter organization overview', () => {
     // sentence, not as the string the audit table stores.
     expect(await screen.findByText('Organization updated')).toBeTruthy();
   });
+
+  it.each(['analyst', 'viewer', 'manager', 'member'])(
+    'does not ask for data sources as %s — that route requires settings.manage and would always 403',
+    async (role) => {
+      authRole = role;
+      render(<CommandCenter tenantId="1" organization={organization as never} onNavigate={vi.fn()} />);
+
+      await waitFor(() => expect(listCapabilities).toHaveBeenCalled());
+      expect(listSources).not.toHaveBeenCalled();
+    },
+  );
 });
