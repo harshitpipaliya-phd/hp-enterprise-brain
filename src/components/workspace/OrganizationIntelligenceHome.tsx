@@ -221,8 +221,8 @@ export default function OrganizationIntelligenceHome({ organization, onNavigate 
             ? `Your workforce has ${erp.activePeople} active employee${erp.activePeople !== 1 ? 's' : ''} across ${erp.activeDepartments} department${erp.activeDepartments !== 1 ? 's' : ''}.`
             : 'No employee records found.'}
           {intelligence.highSignals > 0
-            ? ` There ${intelligence.highSignals === 1 ? 'is' : 'are'} ${intelligence.highSignals} high-severity signal${intelligence.highSignals !== 1 ? 's' : ''} requiring immediate attention.`
-            : ' All signals are currently resolved.'}
+            ? ` There ${intelligence.highSignals === 1 ? 'is' : 'are'} ${intelligence.highSignals} high-severity issue${intelligence.highSignals !== 1 ? 's' : ''} requiring immediate attention.`
+            : ' All issues are currently resolved.'}
         </p>
       </div>
 
@@ -255,29 +255,29 @@ export default function OrganizationIntelligenceHome({ organization, onNavigate 
           <div className="eb-stat-value" style={{ color: intelligence.highSignals > 0 ? 'var(--feedback-error-content)' : 'inherit' }}>
             {intelligence.highSignals.toLocaleString()}
           </div>
-          <div className="eb-stat-label">High Signals</div>
+          <div className="eb-stat-label">Urgent Attention Needed</div>
           <div className="eb-stat-detail">requires review</div>
         </div>
         <div className="eb-stat-card">
           <div className="eb-stat-value">{intelligence.pendingRecommendations.toLocaleString()}</div>
-          <div className="eb-stat-label">Pending Decisions</div>
+          <div className="eb-stat-label">Pending Approvals</div>
           <div className="eb-stat-detail">awaiting approval</div>
         </div>
       </div>
 
       {pipeline && (
         <section className="eb-home-attention">
-          <h3>Enterprise Brain Pipeline</h3>
+          <h3>School Improvement Pipeline</h3>
           <div className="eb-home-cards">
             {[
               ['Records', pipeline.counts.operationalRecords, 'tenant-scoped rows'],
-              ['Signals', pipeline.counts.signals, `${pipeline.counts.firedRuleKeys} fired rule keys`],
-              ['Cases', pipeline.counts.cases, 'opened investigations'],
+              ['Attention Needed', pipeline.counts.signals, `${pipeline.counts.firedRuleKeys} fired rule keys`],
+              ['Issues to Review', pipeline.counts.cases, 'opened investigations'],
               ['Rule Keys', pipeline.review.firedRuleKeys, `${pipeline.review.approvedRuleKeys} classified`],
-              ['Recommendations', pipeline.counts.recommendations, 'grounded actions'],
+              ['Recommended Actions', pipeline.counts.recommendations, 'grounded actions'],
               ['Decisions', pipeline.counts.decisions, 'governed choices'],
-              ['Executions', pipeline.counts.executions, 'actions tracked'],
-              ['Learning', pipeline.counts.learnings, `${pipeline.counts.outcomes} outcomes`],
+              ['Actions Taken', pipeline.counts.executions, 'actions tracked'],
+              ['What We Learned', pipeline.counts.learnings, `${pipeline.counts.outcomes} outcomes`],
             ].map(([label, value, detail]) => (
               <div className="eb-stat-card" key={String(label)}>
                 <div className="eb-stat-value">{Number(value).toLocaleString()}</div>

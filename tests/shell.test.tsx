@@ -275,6 +275,61 @@ describe('sidebar', () => {
       'ESO Library',
     ]);
   });
+
+  it('displays the exact five Intelligence Loop screen names in order', () => {
+    renderSidebar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Intelligence Loop' }));
+
+    const loopItems = within(screen.getByRole('button', { name: 'Intelligence Loop' }).closest('.s-section') as HTMLElement)
+      .getAllByRole('button')
+      .map((button) => button.textContent);
+
+    expect(loopItems).toEqual([
+      'Intelligence Loop',
+      'Signals',
+      'Evidence',
+      'Deliberation',
+      'Intelligence Workspace',
+      'Execution Center',
+    ]);
+  });
+
+  it('opens corresponding screens when Intelligence Loop items are clicked', () => {
+    const onNavigate = vi.fn();
+    renderSidebar({ onNavigate });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Intelligence Loop' }));
+    const section = screen.getByRole('button', { name: 'Intelligence Loop' }).closest('.s-section') as HTMLElement;
+
+    fireEvent.click(within(section).getByRole('button', { name: 'Signals' }));
+    expect(onNavigate).toHaveBeenCalledWith('signals');
+
+    fireEvent.click(within(section).getByRole('button', { name: 'Evidence' }));
+    expect(onNavigate).toHaveBeenCalledWith('evidence');
+
+    fireEvent.click(within(section).getByRole('button', { name: 'Deliberation' }));
+    expect(onNavigate).toHaveBeenCalledWith('deliberation');
+
+    fireEvent.click(within(section).getByRole('button', { name: 'Intelligence Workspace' }));
+    expect(onNavigate).toHaveBeenCalledWith('workspace');
+
+    fireEvent.click(within(section).getByRole('button', { name: 'Execution Center' }));
+    expect(onNavigate).toHaveBeenCalledWith('executions');
+  });
+
+  it.each([
+    ['signals', 'Signals'],
+    ['evidence', 'Evidence'],
+    ['deliberation', 'Deliberation'],
+    ['workspace', 'Intelligence Workspace'],
+    ['executions', 'Execution Center'],
+  ] as const)('marks %s as active when currentView is %s', (view, label) => {
+    renderSidebar({ currentView: view });
+    const item = screen.getByRole('button', { name: label });
+    expect(item.getAttribute('aria-current')).toBe('page');
+    expect(item.className).toContain('s-item-active');
+  });
 });
 
 describe('collapse preference', () => {

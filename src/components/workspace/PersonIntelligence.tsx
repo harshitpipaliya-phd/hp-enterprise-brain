@@ -1369,7 +1369,7 @@ function IntelligenceTab({ intelligence, personName }: { intelligence: Intellige
       </Panel>
 
       <div className="pp-grid" style={{ marginTop: 'var(--space-4)' }}>
-        <Panel title="Signals about this person">
+        <Panel title="Attention needed for this person">
           {intelligence.signals.length === 0 ? (
             <Empty
               headline="No signals name this person."
@@ -1378,7 +1378,7 @@ function IntelligenceTab({ intelligence, personName }: { intelligence: Intellige
           ) : (
             <div className="pp-table-wrap">
               <table className="pp-table">
-                <thead><tr><th>Signal</th><th>Severity</th><th>Status</th><th>Detected</th></tr></thead>
+                <thead><tr><th>Issue</th><th>Severity</th><th>Status</th><th>Detected</th></tr></thead>
                 <tbody>
                   {intelligence.signals.map((s) => (
                     <tr key={s.id}>
@@ -1402,7 +1402,7 @@ function IntelligenceTab({ intelligence, personName }: { intelligence: Intellige
           )}
         </Panel>
 
-        <Panel title="Cases">
+        <Panel title="Issues to Review">
           {intelligence.cases.length === 0 ? (
             <Empty
               headline="No cases have been opened from this person’s signals."
@@ -1411,7 +1411,7 @@ function IntelligenceTab({ intelligence, personName }: { intelligence: Intellige
           ) : (
             <div className="pp-table-wrap">
               <table className="pp-table">
-                <thead><tr><th>Case</th><th>Status</th><th>Opened</th></tr></thead>
+                <thead><tr><th>Review Item</th><th>Status</th><th>Opened</th></tr></thead>
                 <tbody>
                   {intelligence.cases.map((c) => (
                     <tr key={c.id}>

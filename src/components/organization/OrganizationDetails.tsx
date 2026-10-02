@@ -37,6 +37,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
   const [quality, setQuality] = useState<any>(null);
   const [qualityLoading, setQualityLoading] = useState(false);
   const [qualityError, setQualityError] = useState<string | null>(null);
+  const [headNames, setHeadNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setAuditLoading(true);
@@ -64,6 +65,54 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
       .catch((e: any) => setStructureError(e.message))
       .finally(() => setStructureLoading(false));
   }, [tab, organization.tenantId, organization.id]);
+
+  /*
+    HEADS AS NAMES, NOT AS FOREIGN KEYS.
+
+    `structure.heads` maps a department to the id of the person who leads it, and
+    that is what it should carry. Rendering it directly prints a raw id under the
+    "Manager" column — "5208" — which is the same defect the Departments screen
+    already fixed by resolving heads against the roster. So the roster is loaded
+    once for this screen and the ids are turned into names here, falling back to
+    an em dash for a department whose head is not on the roster (an archived
+    person, or a head belonging to another organization, which must not be shown).
+  */
+  useEffect(() => {
+    if (tab !== 'structure') return;
+
+    const heads = Object.values(structure?.heads ?? {}).filter(
+      (id): id is string => typeof id === 'string' && id !== '',
+    );
+
+    if (heads.length === 0) {
+      setHeadNames({});
+      return;
+    }
+
+    let cancelled = false;
+    const token = getAccessToken();
+
+    fetch(`${API_BASE}/people/${organization.tenantId}?perPage=200`, {
+      headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+    })
+      .then((r) => { if (!r.ok) throw new Error('Failed to load people'); return r.json(); })
+      .then((page: any) => {
+        if (cancelled) return;
+        const rows = Array.isArray(page) ? page : Array.isArray(page?.people) ? page.people : [];
+        const next: Record<string, string> = {};
+        for (const person of rows) {
+          const id = String(person?.id ?? '');
+          if (id === '') continue;
+          const name = String(person?.displayName ?? '').trim()
+            || `${String(person?.firstName ?? '').trim()} ${String(person?.lastName ?? '').trim()}`.trim();
+          if (name) next[id] = name;
+        }
+        setHeadNames(next);
+      })
+      .catch(() => { if (!cancelled) setHeadNames({}); });
+
+    return () => { cancelled = true; };
+  }, [tab, structure, organization.tenantId]);
 
   useEffect(() => {
     if (tab !== 'quality') return;
@@ -97,7 +146,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
   const tabs: { key: Tab; label: string }[] = [
     { key: 'details', label: 'Details' },
     { key: 'structure', label: 'Structure' },
-    { key: 'quality', label: 'Data Quality' },
+    { key: 'quality', label: 'Data Completeness' },
     { key: 'audit', label: 'Audit' },
   ];
 
@@ -182,7 +231,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
                         <tr key={d.id}>
                           <td style={{ padding: 8 }}>{d.name}</td>
                           <td style={{ padding: 8 }}>{structure.peopleByDepartment?.[d.id] ?? 0}</td>
-                          <td style={{ padding: 8 }}>{structure.heads?.[d.id] ?? '—'}</td>
+                          <td style={{ padding: 8 }}>{structure.heads?.[d.id] ? (headNames[String(structure.heads[d.id])] ?? '—') : '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -197,7 +246,7 @@ export default function OrganizationDetails({ organization, onEdit, onArchive, o
 
       {tab === 'quality' && (
         <div>
-          <h3>Data Quality</h3>
+          <h3>Data Completeness</h3>
           {qualityLoading ? <p>Loading data quality…</p>
             : qualityError ? <p style={{ color: 'var(--status-crit)' }}>Error: {qualityError}</p>
             : quality ? (

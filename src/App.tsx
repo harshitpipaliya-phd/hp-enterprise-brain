@@ -950,7 +950,7 @@ function AuthenticatedApp() {
               <LazyView label="Mental Models" loader={MENTAL_MODEL_BROWSER} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'executions' && selected && (
-              <LazyView label="Executions" loader={EXECUTION_CENTER} props={{ tenantId: selected.tenantId }} />
+              <LazyView label="Execution Center" loader={EXECUTION_CENTER} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'knowledgelibrary' && selected && (
               <LazyView label="Knowledge Library" loader={KNOWLEDGE_LIBRARY} props={{ tenantId: selected.tenantId, onNavigate: (v: string) => navigate(v as View, selected) }} />
