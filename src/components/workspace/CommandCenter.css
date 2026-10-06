@@ -260,6 +260,24 @@
   gap: var(--space-5);
 }
 
+/* Nothing to put beside the queue: let it take the row instead of leaving an
+   empty column. */
+.cc-main-grid[data-solo='true'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.cc-main-grid[data-solo='true'] .cc-side-stack {
+  display: none;
+}
+
+/* The organization's own record, departments and sources: one compact row. */
+.cc-core-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--card-gap, var(--space-5));
+  margin-bottom: var(--space-5);
+  align-items: start;
+}
+
 /*
   THE FLOOR IS FOR A QUEUE THAT HAS ROWS IN IT.
 
@@ -269,9 +287,8 @@
   missing. The floor keeps the queue from jumping about as rows resolve; it has
   no work to do when there is no queue, so the healthy state sizes to itself.
 */
-.cc-attention[data-populated='true'] {
-  min-height: 420px;
-}
+/* No floor: a three-row queue sized to 420px left a blank block under its last
+   row. The panel now sizes to its content. */
 
 .cc-attention-list {
   list-style: none;
@@ -623,10 +640,25 @@
   .cc-profile-editor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+@media (max-width: 1180px) {
+  .cc-core-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cc-core-grid > .cc-org-details {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 980px) {
   .cc-main-grid {
     display: grid;
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .cc-core-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

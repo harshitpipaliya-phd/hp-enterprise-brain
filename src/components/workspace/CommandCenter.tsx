@@ -705,6 +705,185 @@ export default function CommandCenter({ tenantId, organizationName, organization
         )}
       </section>
 
+      {/* 1-3. THE ORGANIZATION ITSELF, first: its record, its departments, its data sources. */}
+      <div className="cc-core-grid">
+          <section className="cc-panel cc-org-details">
+            <div className="cc-section-head">
+              <div>
+                <span className="cc-kicker">Organization record</span>
+                <h2>Details</h2>
+              </div>
+              {organization && !editingProfile && (
+                <button type="button" className="eb-link-btn" onClick={beginProfileEdit}>Edit</button>
+              )}
+            </div>
+            {!organization ? (
+              <p className="cc-empty">No organization record is selected.</p>
+            ) : editingProfile && profileForm ? (
+              <form className="cc-profile-editor" onSubmit={(event) => { event.preventDefault(); void saveProfile(); }}>
+                {supportedOrganizationFields(organization).map((spec) => (
+                  <label key={spec.key} className={spec.wide ? 'cc-profile-editor__wide' : undefined}>
+                    {spec.label}
+                    <input
+                      type={spec.inputType ?? 'text'}
+                      required={spec.required}
+                      value={profileForm[spec.key] ?? ''}
+                      onChange={(event) => setProfileForm({ ...profileForm, [spec.key]: event.target.value })}
+                    />
+                  </label>
+                ))}
+                <p className="cc-profile-editor__note">
+                  These are the organization fields this tenant&rsquo;s connected system of record can hold.
+                  Anything it does not keep a column for is not shown, rather than offered and then discarded.
+                </p>
+                {profileError && <p className="cc-record__error">{profileError}</p>}
+                <div className="cc-profile-editor__actions">
+                  <button type="submit" disabled={profileSaving}>{profileSaving ? 'Saving…' : 'Save changes'}</button>
+                  <button type="button" className="eb-pill-btn" disabled={profileSaving} onClick={() => { setEditingProfile(false); setProfileError(null); }}>Cancel</button>
+                </div>
+              </form>
+            ) : recordedDetails.length > 0 ? (
+              <dl className="cc-detail-list">
+                {recordedDetails.map((row) => (
+                  <div key={row.label}>
+                    <dt>{row.label}</dt>
+                    <dd>{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="cc-empty">This source record has no additional profile fields mapped yet.</p>
+            )}
+          </section>
+
+          <OverviewListCard
+            title="Departments"
+            actionLabel="View all"
+            onAction={() => onNavigate('departments')}
+            empty="No departments are recorded in the source system for this organization."
+            rows={summaryDepartments}
+            onSelectRow={onOpenDepartment}
+          />
+
+          <OverviewListCard
+            title="Data sources"
+            actionLabel="Import data"
+            onAction={() => onNavigate('ingestion')}
+            empty="No data has been imported yet. Open the Ingestion Engine to upload your first file."
+            rows={dataSources.slice(0, 6).map((source: any) => ({
+              id: String(source.id ?? source.source_key ?? source.sourceKey),
+              title: String(source.display_name ?? source.displayName ?? source.source_key ?? 'Data source'),
+              meta: String(source.source_type ?? source.sourceType ?? 'source'),
+              badge: source.is_active === false || source.isActive === false ? 'Inactive' : 'Active',
+            }))}
+          />
+      </div>
+
+      {/* 4. Structure, data quality and audit history. */}
+      {organization && (
+        <section className="cc-record cc-panel" aria-label="Organization structure, data quality and audit">
+          <div className="cc-section-head cc-record__head">
+            <div>
+              <span className="cc-kicker">Source records</span>
+              <h2>Structure, data quality and audit history</h2>
+            </div>
+            <div className="cc-record__actions">
+              {onArchive && <button type="button" className="eb-link-btn cc-danger-link" onClick={onArchive}>Archive organization</button>}
+            </div>
+          </div>
+          <div className="cc-tabs" role="tablist" aria-label="Organization record sections">
+            {([
+              ['structure', 'Structure'], ['quality', 'Data quality'], ['audit', 'Audit'],
+            ] as Array<[RecordPanel, string]>).map(([key, label]) => (
+              <button key={key} type="button" role="tab" aria-selected={recordPanel === key} className={recordPanel === key ? 'is-active' : ''} onClick={() => setRecordPanel(key)}>{label}</button>
+            ))}
+          </div>
+          {recordLoading && <p className="cc-empty">Loading {recordPanel === 'quality' ? 'data quality' : recordPanel}…</p>}
+          {recordError && <p className="cc-record__error">{recordError}</p>}
+          {!recordLoading && !recordError && recordPanel === 'structure' && <StructurePanel data={recordData} />}
+          {!recordLoading && !recordError && recordPanel === 'quality' && <QualityPanel data={recordData} />}
+          {!recordLoading && !recordError && recordPanel === 'audit' && <AuditPanel data={recordData} />}
+        </section>
+      )}
+
+      {/* 5. What to look at first, with the structural findings that sit beside it. */}
+      <div className="cc-main-grid" data-solo={structureFindings.length === 0}>
+        <section className="cc-panel cc-attention" data-populated={attention.length > 0} aria-labelledby="cc-attention">
+          <div className="cc-section-head">
+            <div>
+              <span className="cc-kicker">Needs attention</span>
+              <h2 id="cc-attention">What to look at first</h2>
+            </div>
+          </div>
+
+          {attention.length === 0 ? (
+            <div className="cc-healthy">
+              <CheckCircle2 size={22} />
+              <strong>Nothing is waiting</strong>
+              <p>No incomplete records, unresolved high-severity signals or pending decisions were found for this organization.</p>
+            </div>
+          ) : (
+            <ul className="cc-attention-list">
+              {attention.map((item) => (
+                <li key={item.id}>
+                  <button type="button" onClick={() => onNavigate(viewFromHomeLink(item.link))}>
+                    <span className="cc-attention__tone" data-health={severityTone(item.severity)}><AlertTriangle size={16} /></span>
+                    <span>
+                      <strong>
+                        {item.title}
+                        {/* The queue is already in server-ranked order; the chip
+                            says how far apart two adjacent rows actually are,
+                            which the ordering alone cannot. */}
+                        <em className="cc-attention__severity" data-health={severityTone(item.severity)}>{item.severity}</em>
+                      </strong>
+                      <small>{item.description}</small>
+                    </span>
+                    <ArrowRight size={16} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <aside className="cc-side-stack">
+          {/*
+            WHERE THE ORGANIZATION IS LOPSIDED.
+
+            The attention queue above is the server's, and it is about records:
+            people without a unit, unresolved signals, decisions waiting. This is
+            about SHAPE, and it is derived here because the structure payload is
+            already on screen for the org chart — no second request, and nothing
+            claimed that the reader cannot check against the table below.
+
+            It renders only when there is something to say. A well-balanced
+            organization gets no panel rather than a panel saying it is fine.
+          */}
+          {structureFindings.length > 0 && (
+            <section className="cc-panel cc-concentration" aria-labelledby="cc-concentration">
+              <div className="cc-section-head">
+                <div>
+                  <span className="cc-kicker">Structure</span>
+                  <h2 id="cc-concentration">How the workforce sits</h2>
+                </div>
+              </div>
+              <ul className="cc-concentration__list">
+                {structureFindings.map((finding) => (
+                  <li key={finding.title} data-tone={finding.tone}>
+                    <strong>{finding.title}</strong>
+                    <small>{finding.detail}</small>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="eb-link-btn cc-concentration__more" onClick={() => onNavigate('departments')}>
+                Open Department Performance
+              </button>
+            </section>
+          )}
+        </aside>
+      </div>
+
+      {/* 6. Everything the data is telling us: counts, loop, intelligence, operational analytics. */}
       {/*
         THE WHOLE LOOP, IN THE ORDER DATA MOVES THROUGH IT.
 
@@ -943,179 +1122,6 @@ export default function CommandCenter({ tenantId, organizationName, organization
             />
           )}
         </>
-      )}
-
-      <div className="cc-main-grid">
-        <section className="cc-panel cc-attention" data-populated={attention.length > 0} aria-labelledby="cc-attention">
-          <div className="cc-section-head">
-            <div>
-              <span className="cc-kicker">Needs attention</span>
-              <h2 id="cc-attention">What to look at first</h2>
-            </div>
-          </div>
-
-          {attention.length === 0 ? (
-            <div className="cc-healthy">
-              <CheckCircle2 size={22} />
-              <strong>Nothing is waiting</strong>
-              <p>No incomplete records, unresolved high-severity signals or pending decisions were found for this organization.</p>
-            </div>
-          ) : (
-            <ul className="cc-attention-list">
-              {attention.map((item) => (
-                <li key={item.id}>
-                  <button type="button" onClick={() => onNavigate(viewFromHomeLink(item.link))}>
-                    <span className="cc-attention__tone" data-health={severityTone(item.severity)}><AlertTriangle size={16} /></span>
-                    <span>
-                      <strong>
-                        {item.title}
-                        {/* The queue is already in server-ranked order; the chip
-                            says how far apart two adjacent rows actually are,
-                            which the ordering alone cannot. */}
-                        <em className="cc-attention__severity" data-health={severityTone(item.severity)}>{item.severity}</em>
-                      </strong>
-                      <small>{item.description}</small>
-                    </span>
-                    <ArrowRight size={16} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <aside className="cc-side-stack">
-          {/*
-            WHERE THE ORGANIZATION IS LOPSIDED.
-
-            The attention queue above is the server's, and it is about records:
-            people without a unit, unresolved signals, decisions waiting. This is
-            about SHAPE, and it is derived here because the structure payload is
-            already on screen for the org chart — no second request, and nothing
-            claimed that the reader cannot check against the table below.
-
-            It renders only when there is something to say. A well-balanced
-            organization gets no panel rather than a panel saying it is fine.
-          */}
-          {structureFindings.length > 0 && (
-            <section className="cc-panel cc-concentration" aria-labelledby="cc-concentration">
-              <div className="cc-section-head">
-                <div>
-                  <span className="cc-kicker">Structure</span>
-                  <h2 id="cc-concentration">How the workforce sits</h2>
-                </div>
-              </div>
-              <ul className="cc-concentration__list">
-                {structureFindings.map((finding) => (
-                  <li key={finding.title} data-tone={finding.tone}>
-                    <strong>{finding.title}</strong>
-                    <small>{finding.detail}</small>
-                  </li>
-                ))}
-              </ul>
-              <button type="button" className="eb-link-btn cc-concentration__more" onClick={() => onNavigate('departments')}>
-                Open Department Performance
-              </button>
-            </section>
-          )}
-
-          <section className="cc-panel cc-org-details">
-            <div className="cc-section-head">
-              <div>
-                <span className="cc-kicker">Organization record</span>
-                <h2>Details</h2>
-              </div>
-              {organization && !editingProfile && (
-                <button type="button" className="eb-link-btn" onClick={beginProfileEdit}>Edit</button>
-              )}
-            </div>
-            {!organization ? (
-              <p className="cc-empty">No organization record is selected.</p>
-            ) : editingProfile && profileForm ? (
-              <form className="cc-profile-editor" onSubmit={(event) => { event.preventDefault(); void saveProfile(); }}>
-                {supportedOrganizationFields(organization).map((spec) => (
-                  <label key={spec.key} className={spec.wide ? 'cc-profile-editor__wide' : undefined}>
-                    {spec.label}
-                    <input
-                      type={spec.inputType ?? 'text'}
-                      required={spec.required}
-                      value={profileForm[spec.key] ?? ''}
-                      onChange={(event) => setProfileForm({ ...profileForm, [spec.key]: event.target.value })}
-                    />
-                  </label>
-                ))}
-                <p className="cc-profile-editor__note">
-                  These are the organization fields this tenant&rsquo;s connected system of record can hold.
-                  Anything it does not keep a column for is not shown, rather than offered and then discarded.
-                </p>
-                {profileError && <p className="cc-record__error">{profileError}</p>}
-                <div className="cc-profile-editor__actions">
-                  <button type="submit" disabled={profileSaving}>{profileSaving ? 'Saving…' : 'Save changes'}</button>
-                  <button type="button" className="eb-pill-btn" disabled={profileSaving} onClick={() => { setEditingProfile(false); setProfileError(null); }}>Cancel</button>
-                </div>
-              </form>
-            ) : recordedDetails.length > 0 ? (
-              <dl className="cc-detail-list">
-                {recordedDetails.map((row) => (
-                  <div key={row.label}>
-                    <dt>{row.label}</dt>
-                    <dd>{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="cc-empty">This source record has no additional profile fields mapped yet.</p>
-            )}
-          </section>
-
-          <OverviewListCard
-            title="Departments"
-            actionLabel="View all"
-            onAction={() => onNavigate('departments')}
-            empty="No departments are recorded in the source system for this organization."
-            rows={summaryDepartments}
-            onSelectRow={onOpenDepartment}
-          />
-
-          <OverviewListCard
-            title="Data sources"
-            actionLabel="Import data"
-            onAction={() => onNavigate('ingestion')}
-            empty="No data has been imported yet. Open the Ingestion Engine to upload your first file."
-            rows={dataSources.slice(0, 6).map((source: any) => ({
-              id: String(source.id ?? source.source_key ?? source.sourceKey),
-              title: String(source.display_name ?? source.displayName ?? source.source_key ?? 'Data source'),
-              meta: String(source.source_type ?? source.sourceType ?? 'source'),
-              badge: source.is_active === false || source.isActive === false ? 'Inactive' : 'Active',
-            }))}
-          />
-        </aside>
-      </div>
-
-      {organization && (
-        <section className="cc-record cc-panel" aria-label="Organization structure, data quality and audit">
-          <div className="cc-section-head cc-record__head">
-            <div>
-              <span className="cc-kicker">Source records</span>
-              <h2>Structure, data quality and audit history</h2>
-            </div>
-            <div className="cc-record__actions">
-              {onArchive && <button type="button" className="eb-link-btn cc-danger-link" onClick={onArchive}>Archive organization</button>}
-            </div>
-          </div>
-          <div className="cc-tabs" role="tablist" aria-label="Organization record sections">
-            {([
-              ['structure', 'Structure'], ['quality', 'Data quality'], ['audit', 'Audit'],
-            ] as Array<[RecordPanel, string]>).map(([key, label]) => (
-              <button key={key} type="button" role="tab" aria-selected={recordPanel === key} className={recordPanel === key ? 'is-active' : ''} onClick={() => setRecordPanel(key)}>{label}</button>
-            ))}
-          </div>
-          {recordLoading && <p className="cc-empty">Loading {recordPanel === 'quality' ? 'data quality' : recordPanel}…</p>}
-          {recordError && <p className="cc-record__error">{recordError}</p>}
-          {!recordLoading && !recordError && recordPanel === 'structure' && <StructurePanel data={recordData} />}
-          {!recordLoading && !recordError && recordPanel === 'quality' && <QualityPanel data={recordData} />}
-          {!recordLoading && !recordError && recordPanel === 'audit' && <AuditPanel data={recordData} />}
-        </section>
       )}
 
       <p className="cc-hint">
