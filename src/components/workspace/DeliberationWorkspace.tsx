@@ -8,7 +8,7 @@ import { HeaderActions, PageHeader } from '../../ui';
 import './IntelligenceSuite.css';
 import { operationsApi } from '../../api/operations';
 import type { LoopMetrics } from '../../api/operations';
-import { DistributionPanel, LifecyclePanel } from './OperationalIntelligencePanels';
+import { DistributionPanel } from './OperationalIntelligencePanels';
 
 type DeliberationOverview = any;
 
@@ -174,28 +174,39 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
         meta={[
           { label: data.organization?.name || 'Organization', title: 'Current tenant scope' },
           {
+            label: `${formatNumber(data.summary?.openCases)} open case${data.summary?.openCases === 1 ? '' : 's'}`,
+            title: 'Investigations not yet resolved',
+          },
+          {
             label: `${formatNumber(data.summary?.pendingDecisions)} pending decision${data.summary?.pendingDecisions === 1 ? '' : 's'}`,
             title: 'Waiting for governance attention',
           },
         ]}
         actions={(
           <HeaderActions>
+            <button
+              type="button"
+              className="u-btn u-btn-secondary"
+              onClick={() => document.getElementById('delib-decision-queue')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            >
+              <Send size={15} aria-hidden="true" /> Decision queue
+            </button>
             <button type="button" className="u-btn u-btn-secondary" onClick={() => load({ background: true })} disabled={refreshing}>
               <RefreshCw size={15} aria-hidden="true" /> {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </HeaderActions>
         )}
         aside={(
-          /* The one figure this screen exists to surface, held beside the
-             actions rather than buried in the stat grid below. */
-          <div className="intel-score-card">
-            <span className="intel-subtle">Current Bottleneck</span>
+          /* Held beside the actions as a compact readout, not a hero figure:
+             the stage name is a label here, so it is sized like one. */
+          <div className="intel-delib-aside">
+            <span className="intel-subtle">Current bottleneck</span>
             <strong>{data.focus?.biggestBottleneck?.label || 'Nothing is stuck'}</strong>
-            <p>
+            <small>
               {data.focus?.biggestBottleneck?.conversionRate != null
                 ? `${formatPercent(data.focus.biggestBottleneck.conversionRate)} conversion from the previous stage`
                 : 'No complete stage conversion metric is available yet.'}
-            </p>
+            </small>
             {refreshing && <div className="intel-refresh-chip" data-variant="deliberation">Refreshing case intelligence...</div>}
           </div>
         )}
@@ -227,56 +238,6 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
           ))}
         </div>
       </section>
-
-      {/*
-        WHAT IS ACTUALLY BEING INVESTIGATED, and where the loop stops.
-
-        Every figure below is a count over this organization's own case,
-        evidence and signal rows. A stage with nothing in it renders the reason
-        rather than a zero — see IntelligenceLoopMetrics on the server.
-      */}
-      {loop && <LifecyclePanel stages={loop.stages} />}
-
-      {loop?.cases.supported && (
-        <section className="intel-section">
-          <div className="intel-section-head">
-            <div>
-              <span className="intel-eyebrow">Investigation posture</span>
-              <h2>Where each investigation has reached</h2>
-            </div>
-          </div>
-          <div className="intel-stat-grid">
-            {[
-              ['Investigations', loop.cases.total, 'Opened against detected signals'],
-              ['Still open', loop.cases.open ?? 0, `${loop.cases.closed ?? 0} closed`],
-              ['Awaiting a cause', loop.cases.awaitingHypothesis ?? 0, 'No hypothesis recorded yet — the loop stops here'],
-              ['Root cause identified', loop.cases.withResolvedCause ?? 0, 'A hypothesis has been accepted'],
-              ['Average age', loop.cases.averageAgeDays != null ? `${loop.cases.averageAgeDays} days` : 'Not dated', 'Across every investigation'],
-              ['Oldest open', loop.cases.oldestOpenDays != null ? `${loop.cases.oldestOpenDays} days` : 'None open', 'The one that has waited longest'],
-            ].map(([label, value, note]) => (
-              <article key={String(label)} className="intel-kpi" data-tone="pending">
-                <span className="intel-kpi-label">{label}</span>
-                <div className="intel-kpi-value">{typeof value === 'number' ? formatNumber(value) : value}</div>
-                <small>{note}</small>
-              </article>
-            ))}
-          </div>
-
-          <div className="opsi-grid-2">
-            <DistributionPanel
-              title="Severity carried over from the triggering signal"
-              rows={(loop.cases.bySeverity ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
-              empty="No investigation is linked to a signal carrying a severity."
-              note="A case has no severity of its own; this is the severity of the signal it was opened for."
-            />
-            <DistributionPanel
-              title="Investigation status"
-              rows={(loop.cases.byStatus ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
-              empty="No investigation carries a status."
-            />
-          </div>
-        </section>
-      )}
 
       <section className="intel-section intel-deliberation-shell">
         <div className="intel-case-list">
@@ -456,7 +417,7 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
         </div>
       </section>
 
-      <section className="intel-section">
+      <section className="intel-section" id="delib-decision-queue">
         <div className="intel-section-head">
           <div>
             <span className="intel-eyebrow">Decision Queue</span>
@@ -537,6 +498,54 @@ export default function DeliberationWorkspace({ tenantId }: { tenantId: string }
           </div>
         </div>
       </section>
+
+      {/*
+        WHAT IS ACTUALLY BEING INVESTIGATED, and where the loop stops.
+
+        Every figure below is a count over this organization's own case,
+        evidence and signal rows. A stage with nothing in it renders the reason
+        rather than a zero — see IntelligenceLoopMetrics on the server.
+      */}
+      {loop?.cases.supported && (
+        <section className="intel-section">
+          <div className="intel-section-head">
+            <div>
+              <span className="intel-eyebrow">Investigation posture</span>
+              <h2>Where each investigation has reached</h2>
+            </div>
+          </div>
+          <div className="intel-stat-grid">
+            {[
+              ['Investigations', loop.cases.total, 'Opened against detected signals'],
+              ['Still open', loop.cases.open ?? 0, `${loop.cases.closed ?? 0} closed`],
+              ['Awaiting a cause', loop.cases.awaitingHypothesis ?? 0, 'No hypothesis recorded yet — the loop stops here'],
+              ['Root cause identified', loop.cases.withResolvedCause ?? 0, 'A hypothesis has been accepted'],
+              ['Average age', loop.cases.averageAgeDays != null ? `${loop.cases.averageAgeDays} days` : 'Not dated', 'Across every investigation'],
+              ['Oldest open', loop.cases.oldestOpenDays != null ? `${loop.cases.oldestOpenDays} days` : 'None open', 'The one that has waited longest'],
+            ].map(([label, value, note]) => (
+              <article key={String(label)} className="intel-kpi" data-tone="pending">
+                <span className="intel-kpi-label">{label}</span>
+                <div className="intel-kpi-value">{typeof value === 'number' ? formatNumber(value) : value}</div>
+                <small>{note}</small>
+              </article>
+            ))}
+          </div>
+
+          <div className="opsi-grid-2">
+            <DistributionPanel
+              title="Severity carried over from the triggering signal"
+              rows={(loop.cases.bySeverity ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
+              empty="No investigation is linked to a signal carrying a severity."
+              note="A case has no severity of its own; this is the severity of the signal it was opened for."
+            />
+            <DistributionPanel
+              title="Investigation status"
+              rows={(loop.cases.byStatus ?? []).map((r) => ({ name: r.label, records: r.count, share: r.share }))}
+              empty="No investigation carries a status."
+            />
+          </div>
+        </section>
+      )}
     </div>
   );
 }
