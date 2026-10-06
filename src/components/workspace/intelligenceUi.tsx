@@ -272,6 +272,7 @@ export function RecommendationCard({ recommendation, onViewEso }: {
 
       <div style={{ marginTop: '16px', paddingLeft: '12px', borderLeft: '2px solid #e2e8f0', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
         <span style={{ fontWeight: 600, color: '#475569' }}>Expected benefit. </span>
+        <span className={`oi-label oi-label--${r.benefit.label.toLowerCase()}`}>{r.benefit.label}</span>{' '}
         <strong>{r.benefit.category}</strong> — {r.benefit.statement}
         {r.benefit.currentValue !== null && (
           <div style={{ marginTop: 5 }}>
@@ -282,6 +283,7 @@ export function RecommendationCard({ recommendation, onViewEso }: {
             </span>
           </div>
         )}
+        <div style={{ marginTop: 5 }}>{r.benefit.why}</div>
       </div>
 
       <div style={{ marginTop: '16px', paddingLeft: '12px', borderLeft: '2px solid #e2e8f0', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
