@@ -100,6 +100,10 @@ export const VIEW_META: Record<View, ViewMeta> = {
   // rather than one absorbing the other.
   globalsearch:     { label: 'Global Search', section: 'Knowledge', icon: Search, requiresOrg: true, description: 'One query across departments, people, signals, evidence and cases.' },
   esolibrary:       { label: 'ESO Library', section: 'Knowledge', icon: Boxes, requiresOrg: true, description: 'Executable strategic objectives.' },
+  // Phase 7.5 — cross-product GraphRAG. Self-contained (own G2G-user-id
+  // lookup box), so unlike viewPerson/viewDepartment it needs no carrier
+  // state or a button elsewhere to reach it.
+  personprofile:    { label: 'Person Profile (Cross-Product)', section: 'Knowledge', icon: Users, requiresOrg: true, description: 'One person\'s record across K-12, G2G and Enterprise Brain.' },
 
   // Hidden aliases for persisted sessions and older in-app navigation. They
   // render AI Assistant, but breadcrumbs no longer advertise separate screens.

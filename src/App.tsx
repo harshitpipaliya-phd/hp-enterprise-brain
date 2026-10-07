@@ -15,6 +15,7 @@ const INTELLIGENCE_WORKSPACE = () => import('./components/workspace/Intelligence
 const DECISION_ANALYTICS_PANEL = () => import('./components/workspace/DecisionAnalyticsPanel');
 const EXECUTIVE_DASHBOARD = () => import('./components/workspace/ExecutiveDashboard');
 const GRAPH_EXPLORER = () => import('./components/workspace/GraphExplorer');
+const PERSON_PROFILE = () => import('./components/workspace/PersonProfile');
 const AGENT_MONITOR = () => import('./components/workspace/AgentMonitor');
 const EVIDENCE_WORKSPACE = () => import('./components/workspace/EvidenceWorkspace');
 const DECISION_INTELLIGENCE = () => import('./components/workspace/DecisionIntelligence');
@@ -61,7 +62,7 @@ import { GlobalLoader } from './ui/GlobalLoader';
 import { API_BASE } from './api/client';
 import { globalLoading } from './ui/globalLoading';
 
-export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion'  | 'ai' | 'signalchain' | 'cases' | 'globalsearch' | 'rbac' | 'workflow' | 'notifications' | 'scheduler' | 'documents' | 'integrations' | 'audit' | 'eventbus';
+export type View = 'home' | 'list' | 'create' | 'edit' | 'details' | 'archive' | 'departments' | 'people' | 'capabilities' | 'signals' | 'workspace' | 'analytics' | 'executive' | 'graph' | 'agents' | 'evidence' | 'copilot' | 'decisionintel' | 'tasks' | 'deliberation' | 'settings' | 'search' | 'policies' | 'mentalmodels' | 'executions' | 'aiworkspace' | 'aiassistant' | 'knowledgelibrary' | 'memory' | 'esolibrary' | 'commandcenter' | 'kasbaexplorer' | 'ingestion'  | 'ai' | 'signalchain' | 'cases' | 'globalsearch' | 'rbac' | 'workflow' | 'notifications' | 'scheduler' | 'documents' | 'integrations' | 'audit' | 'eventbus' | 'personprofile';
 
 export type Organization = OrganizationRow;
 
@@ -893,6 +894,9 @@ function AuthenticatedApp() {
                 loader={GRAPH_EXPLORER}
                 props={{ tenantId: selected.tenantId, organizationName: selected.name, focus: graphFocus, onNavigate: (v: View) => navigate(v, selected), onOpenDepartment: viewDepartment, onOpenPerson: viewPerson, onOpenCase: viewCase, onOpenChain: viewChain }}
               />
+            )}
+            {view === 'personprofile' && selected && (
+              <LazyView label="Person Profile" loader={PERSON_PROFILE} props={{ tenantId: selected.tenantId }} />
             )}
             {view === 'agents' && selected && (
               <LazyView label="Agent Monitor" loader={AGENT_MONITOR} props={{ tenantId: selected.tenantId }} />
