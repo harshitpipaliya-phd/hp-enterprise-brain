@@ -74,6 +74,10 @@ export const decisionIntelligenceApi = {
   // Analytics (Sprint 4 Story 9)
   getAnalytics: (tenantId: string) => request(`/analytics/${tenantId}`),
   getExecutiveSummary: (tenantId: string) => request(`/analytics/${tenantId}/executive-summary`),
+  // Same underlying executiveSummary() computation IntelligenceOverviewController::enterpriseOverview()
+  // already reuses for the strengths/weaknesses panel below — this just asks the LLM to explain
+  // those same deterministic figures in plain language. Called on demand (it's billed), never automatically.
+  getExecutiveNarrative: (tenantId: string) => request(`/analytics/${tenantId}/executive-summary/narrative`),
   getDecisionIntelligence: (tenantId: string) => request(`/analytics/${tenantId}/decision-intelligence`),
   getDeliberationOverview: (tenantId: string, page = 1, pageSize = 8) =>
     request(`/analytics/${tenantId}/deliberation-overview?page=${page}&pageSize=${pageSize}`),

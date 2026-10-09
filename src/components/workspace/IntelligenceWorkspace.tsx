@@ -78,6 +78,26 @@ export default function IntelligenceWorkspace({ tenantId, onNavigate }: { tenant
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // On demand, not automatic — the narrative call is billed. Same figures the
+  // strengths/weaknesses panels already show, explained in plain language.
+  const [narrative, setNarrative] = useState<string | null>(null);
+  const [narrativeStatus, setNarrativeStatus] = useState<string | null>(null);
+  const [narrativeLoading, setNarrativeLoading] = useState(false);
+  const [narrativeError, setNarrativeError] = useState<string | null>(null);
+
+  const loadNarrative = async () => {
+    setNarrativeLoading(true);
+    setNarrativeError(null);
+    try {
+      const result = await decisionIntelligenceApi.getExecutiveNarrative(tenantId);
+      setNarrative(result?.narrative ?? null);
+      setNarrativeStatus(result?.narrativeStatus ?? null);
+    } catch (e: any) {
+      setNarrativeError(e?.message ?? 'Could not generate the narrative.');
+    } finally {
+      setNarrativeLoading(false);
+    }
+  };
 
   const load = async ({ background = false } = {}) => {
     const useBackgroundRefresh = background || !!data;
@@ -428,6 +448,31 @@ export default function IntelligenceWorkspace({ tenantId, onNavigate }: { tenant
                 {weaknesses.length > 0
                   ? <ul className="intel-list">{weaknesses.map((item: string) => <li key={item}>{item}</li>)}</ul>
                   : <EmptyState icon="○" message="Nothing measured falls below the threshold for a weakness." />}
+              </Panel>
+              <Panel
+                icon={<ScrollText size={14} />}
+                eyebrow="Explained"
+                title="What this means, in plain language"
+                action={!narrative ? { label: narrativeLoading ? 'Generating…' : 'Explain this', onClick: () => void loadNarrative() } : undefined}
+              >
+                {narrativeError ? (
+                  <EmptyState icon="○" message={narrativeError} />
+                ) : !narrative && !narrativeLoading ? (
+                  <EmptyState icon="○" message="Computed deterministically above; ask the model to explain it in words, grounded only in those same figures." />
+                ) : narrativeLoading ? (
+                  <EmptyState icon="○" message="Generating a grounded explanation of the figures above…" />
+                ) : narrativeStatus !== 'ok' ? (
+                  <EmptyState
+                    icon="○"
+                    message={
+                      narrativeStatus === 'ai_not_configured'
+                        ? 'No AI model is configured for this tenant, so no narrative could be generated.'
+                        : 'The narrative could not be generated right now — the figures above are unaffected.'
+                    }
+                  />
+                ) : (
+                  <p className="intel-narrative">{narrative}</p>
+                )}
               </Panel>
             </section>
           )}

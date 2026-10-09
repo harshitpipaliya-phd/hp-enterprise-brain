@@ -322,6 +322,12 @@
   border-bottom: 0;
 }
 
+.intel-narrative {
+  margin: 0;
+  color: var(--content-secondary, #576273);
+  line-height: 1.5;
+}
+
 .intel-refresh-chip,
 .intel-refresh-ribbon {
   display: inline-flex;
