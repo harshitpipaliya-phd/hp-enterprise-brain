@@ -109,6 +109,28 @@
   color: var(--content-secondary, #576273);
 }
 
+/* Deliberation header readout: a compact panel, not a hero number. */
+.intel-delib-aside {
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 251, 243, 0.86);
+  border: 1px solid rgba(157, 111, 23, 0.25);
+  color: var(--content-primary, #2b2418);
+}
+.intel-delib-aside strong {
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--color-gold-700, #9d6f17);
+}
+.intel-delib-aside small {
+  color: var(--content-secondary, #576273);
+  line-height: 1.4;
+}
+
 .intel-section-head {
   display: flex;
   justify-content: space-between;
@@ -410,6 +432,16 @@
   color: var(--content-secondary, #576273);
 }
 
+/* The investigation list is a card like the detail beside it, so both columns
+   share one top edge, padding and surface. */
+.intel-deliberation-shell > .intel-case-list {
+  padding: var(--space-5, 20px);
+  border: 1px solid var(--border-subtle, #eadfcd);
+  border-radius: var(--radius, 18px);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow, 0 12px 30px rgba(43, 29, 10, 0.06));
+}
+
 .intel-case-detail {
   padding: var(--space-5, 20px);
   border: 1px solid var(--border-subtle, #eadfcd);
@@ -426,7 +458,8 @@
 
 .intel-timeline-stage {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
+  /* Wide enough for the longest stage name ("Recommendation") on one line. */
+  grid-template-columns: 148px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
@@ -435,9 +468,12 @@
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--content-tertiary, #8a8376);
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
 }
 
 .intel-timeline-card {
@@ -1517,4 +1553,11 @@
   color: var(--content-secondary);
   font-size: 13px;
   line-height: 1.6;
+}
+
+@media (max-width: 680px) {
+  .intel-timeline-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
 }

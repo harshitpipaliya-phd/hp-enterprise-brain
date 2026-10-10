@@ -140,7 +140,7 @@ describe('Organization intelligence home', () => {
   it('shows the real pipeline blocker inside the existing organization home', async () => {
     render(<OrganizationIntelligenceHome organization={organization as any} onNavigate={vi.fn()} />);
 
-    expect(await screen.findByText('Enterprise Brain Pipeline')).toBeInTheDocument();
+    expect(await screen.findByText('School Improvement Pipeline')).toBeInTheDocument();
     expect(screen.getByText('15,000')).toBeInTheDocument();
     expect(screen.getByText('Current stage: cases opened')).toBeInTheDocument();
     expect(screen.getByText('Cases exist; hypothesis and recommendation generation are intentionally not started from this product workflow.')).toBeInTheDocument();

@@ -67,7 +67,7 @@ export const VIEW_META: Record<View, ViewMeta> = {
   archive:          { label: 'Archive Organization', section: 'Foundation', icon: Building2, requiresOrg: true, hidden: true, parent: 'list' },
   departments:      { label: 'Departments', section: 'Foundation', icon: FolderTree, requiresOrg: true, description: 'How the organization is structured, and who leads each unit.' },
   people:           { label: 'People', section: 'Foundation', icon: Users, requiresOrg: true, description: 'Everyone recorded in this organization, and whose record is incomplete.' },
-  capabilities:     { label: 'Capabilities', section: 'Foundation', icon: Target, requiresOrg: true, description: 'What people need to be able to do, and who is assigned to each.' },
+  capabilities:     { label: 'School Capabilities', section: 'Foundation', icon: Target, requiresOrg: true, description: 'What people need to be able to do, and who is assigned to each.' },
   ingestion:        { label: 'Ingestion', section: 'Foundation', icon: Upload, requiresOrg: true, description: 'Bring this organization’s data in from a file.' },
 
   signals:          { label: 'Signals', section: 'Intelligence Loop', icon: Radio, requiresOrg: true, description: 'What the data has flagged, and who it concerns.' },
@@ -85,7 +85,7 @@ export const VIEW_META: Record<View, ViewMeta> = {
   // from a case opened off a recommendation. See viewChain() in App.tsx.
   signalchain:      { label: 'Signal Chain', section: 'Intelligence Loop', icon: Workflow, requiresOrg: true, hidden: true, parent: 'signals', description: 'The full trace from this signal to its evidence, case, decision, execution, outcome and learning.' },
 
-  executive:        { label: 'Executive Dashboard', section: 'Analytics', icon: Gauge, requiresOrg: true, description: 'Organization health at a glance.' },
+  executive:        { label: 'Executive Dashboard', section: 'Analytics', icon: Gauge, requiresOrg: true, description: 'School health at a glance.' },
   analytics:        { label: 'Decision Analytics', section: 'Analytics', icon: ChartNoAxesColumn, requiresOrg: true, description: 'How decisions are performing over time.' },
   decisionintel:    { label: 'Decision Intelligence', section: 'Analytics', icon: TrendingUp, requiresOrg: true, description: 'Patterns across decisions, risks and outcomes.' },
   mentalmodels:     { label: 'Organizational Knowledge', section: 'Analytics', icon: Notebook, requiresOrg: true, description: 'The mental models the organization reasons with.' },

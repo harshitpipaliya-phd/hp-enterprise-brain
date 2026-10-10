@@ -360,8 +360,16 @@ export default function DepartmentList({ organization, departments, loading, onS
     // Bars are sized by whichever population this unit actually holds:
     // students for a class section, staff for a department. The label above
     // them says which, so the two are never read as one number.
+    // ONE population for every bar: students only when every unit has a
+    // student count. Fee data can attach to a single unit (V1 Academy puts all
+    // 840 students on Finance & Accounts), and mixing that with the other
+    // units' staff counts drew a student total beside staff headcounts.
+    const sizeByStudents = filtered.length > 0 && filtered.every((dept) => dept.studentCount != null);
     const sizeRows = filtered
-      .map((dept) => ({ name: dept.name, value: dept.studentCount ?? dept.peopleCount ?? 0 }))
+      .map((dept) => ({
+        name: dept.name,
+        value: (sizeByStudents ? dept.studentCount : dept.peopleCount) ?? 0,
+      }))
       .filter((row) => row.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
@@ -389,6 +397,7 @@ export default function DepartmentList({ organization, departments, loading, onS
       missingHeads,
       avgTeamSize: average(staffCounts),
       totalStudents: filtered.reduce((sum, dept) => sum + (dept.studentCount ?? 0), 0),
+      sizeByStudents,
       feeRows,
       totalOutstanding: feeRows.reduce((sum, dept) => sum + Number(dept.feeIntelligence?.outstanding ?? 0), 0),
       avgCollection: average(feeRows.map((d) => d.feeIntelligence?.collectionRate).filter((v): v is number => v !== null && v !== undefined)),
@@ -654,8 +663,8 @@ export default function DepartmentList({ organization, departments, loading, onS
           {model.sizeRows.length > 0 && (
             <section className="dept-intel__card">
               <div className="dept-intel__card-head">
-                <h2>Largest {unitPlural}</h2>
-                <span>{isSchool ? 'students' : 'people'} per unit</span>
+                <h2>Largest {model.sizeByStudents ? unitPlural : 'departments'}</h2>
+                <span>{model.sizeByStudents ? 'students' : 'people'} per unit</span>
               </div>
               <div className="dept-intel__bars">
                 {model.sizeRows.map((row, index) => (

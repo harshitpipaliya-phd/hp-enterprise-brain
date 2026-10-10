@@ -230,109 +230,120 @@ export function RecommendationCard({ recommendation, onViewEso }: {
   onViewEso?: (esoId: string) => void;
 }) {
   const r = recommendation;
+  const [openTech, setOpenTech] = React.useState(false);
 
   return (
-    <article className={`oi-rec oi-rec--${r.priority}`}>
-      <div className="oi-rec__top">
-        <span className="oi-rec__rank">#{r.rank}</span>
-        <h4 className="oi-rec__title">{r.recommendation}</h4>
-        <span className="oi-chips">
+    <article className={`oi-rec oi-rec--${r.priority}`} style={{ padding: '24px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '16px' }}>
+      <div style={{ marginBottom: '16px' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', margin: '0 0 8px 0', lineHeight: 1.4 }}>
+          {r.recommendation}
+        </h3>
+        
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
           <span className={`oi-chip oi-chip--${r.priority === 'critical' ? 'crit' : r.priority === 'high' ? 'warn' : 'info'}`}>
-            {r.priority}
+            Priority: {r.priority}
           </span>
-          {r.urgency !== 'steady' && <span className="oi-chip oi-chip--warn">{r.urgency}</span>}
-          <span className="oi-chip">{r.area}</span>
+          {r.urgency !== 'steady' && <span className="oi-chip oi-chip--warn">Urgency: {r.urgency}</span>}
           <ConfidenceBar confidence={r.confidence} />
-        </span>
-      </div>
-
-      <p className="oi-rec__why">{r.why}</p>
-
-      <div className="oi-rec__grid">
-        <div className="oi-block">
-          <div className="oi-block__label">Finding</div>
-          <div className="oi-block__body">
-            {r.finding}
-            <div style={{ marginTop: 6 }}><EvidenceList evidence={r.evidence} /></div>
-          </div>
-        </div>
-
-        <div className="oi-block">
-          <div className="oi-block__label">
-            Expected benefit
-            <span className={`oi-label oi-label--${r.benefit.label.toLowerCase()}`}>{r.benefit.label}</span>
-          </div>
-          <div className="oi-block__body">
-            <strong>{r.benefit.category}</strong> — {r.benefit.statement}
-            {r.benefit.currentValue !== null && (
-              <div style={{ marginTop: 5 }}>
-                <span className="oi-chip oi-chip--mono">
-                  now {num(r.benefit.currentValue)}
-                  {r.benefit.targetValue !== null ? ` → ${num(r.benefit.targetValue)}` : ''}
-                  {r.benefit.unit ? ` ${r.benefit.unit}` : ''}
-                </span>
-              </div>
-            )}
-            <div style={{ marginTop: 5, color: 'var(--content-tertiary)' }}>{r.benefit.why}</div>
-          </div>
-        </div>
-
-        <div className="oi-block">
-          <div className="oi-block__label">Priority &amp; effort</div>
-          <div className="oi-block__body">
-            <span className="oi-chip oi-chip--mono">score {num(r.priorityScore)}</span>{' '}
-            <span className="oi-chip oi-chip--mono">severity {num(r.severity)}/5</span>{' '}
-            <span className="oi-chip oi-chip--mono">tractability {num(r.tractability)}</span>
-            <div style={{ marginTop: 6 }}>
-              {r.effort.measurable
-                ? <><strong>{count(r.effort.value)} {r.effort.unit}</strong>. {r.effort.basis}</>
-                : r.effort.basis}
-            </div>
-          </div>
-        </div>
-
-        <div className="oi-block">
-          <div className="oi-block__label">Execution</div>
-          <div className="oi-block__body">
-            Needs a <strong>{r.esoType}</strong> capability. {r.esoNote}
-            {/*
-              A BOUND ESO IS A REAL ONE. `esoId` is set only where an ESO in
-              this organization's catalogue declares this recommendation's gap
-              kind in its own gap_types — never inferred from wording — so the
-              buttons below always resolve to something the library can open.
-              `esoRunnable` is false for a matched-but-withdrawn definition,
-              which is worth showing (the capability was authored and taken out
-              of service) but must never be offered as a run.
-            */}
-            {r.esoId && onViewEso && (
-              <div className="intel-inline-actions" style={{ marginTop: 8 }}>
-                <button type="button" onClick={() => onViewEso(r.esoId as string)}>View ESO</button>
-                <button
-                  type="button"
-                  onClick={() => onViewEso(r.esoId as string)}
-                  disabled={r.esoRunnable === false}
-                  title={r.esoRunnable === false ? 'This ESO is not in service, so it cannot be run.' : undefined}
-                >
-                  {r.esoRunnable === false ? 'Not runnable' : 'Run ESO'}
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      <div className="oi-rec__next">
-        <b>Next action</b>
+      <div style={{ marginTop: '16px', paddingLeft: '12px', borderLeft: '2px solid #e2e8f0', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
+        <span style={{ fontWeight: 600, color: '#475569' }}>What we found. </span>
+        {r.finding}
+      </div>
+
+      <div style={{ marginTop: '16px', paddingLeft: '12px', borderLeft: '2px solid #e2e8f0', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
+        <span style={{ fontWeight: 600, color: '#475569' }}>Why it matters. </span>
+        {r.why}
+      </div>
+
+      <div style={{ marginTop: '16px', paddingLeft: '12px', borderLeft: '2px solid #e2e8f0', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
+        <span style={{ fontWeight: 600, color: '#475569' }}>Supporting details. </span>
+        <div style={{ display: 'inline-block', marginLeft: '4px' }}>
+          <EvidenceList evidence={r.evidence} />
+        </div>
+      </div>
+
+      <div style={{ marginTop: '16px', paddingLeft: '12px', borderLeft: '2px solid #e2e8f0', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
+        <span style={{ fontWeight: 600, color: '#475569' }}>Recommended action. </span>
+        <span style={{ color: '#1e293b', fontWeight: 500 }}>{r.recommendation}</span>
+      </div>
+
+      <div style={{ marginTop: '16px', paddingLeft: '12px', borderLeft: '2px solid #e2e8f0', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
+        <span style={{ fontWeight: 600, color: '#475569' }}>Expected benefit. </span>
+        <span className={`oi-label oi-label--${r.benefit.label.toLowerCase()}`}>{r.benefit.label}</span>{' '}
+        <strong>{r.benefit.category}</strong> — {r.benefit.statement}
+        {r.benefit.currentValue !== null && (
+          <div style={{ marginTop: 5 }}>
+            <span className="oi-chip oi-chip--mono">
+              now {num(r.benefit.currentValue)}
+              {r.benefit.targetValue !== null ? ` → ${num(r.benefit.targetValue)}` : ''}
+              {r.benefit.unit ? ` ${r.benefit.unit}` : ''}
+            </span>
+          </div>
+        )}
+        <div style={{ marginTop: 5 }}>{r.benefit.why}</div>
+      </div>
+
+      <div style={{ marginTop: '16px', paddingLeft: '12px', borderLeft: '2px solid #e2e8f0', color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
+        <span style={{ fontWeight: 600, color: '#475569' }}>Owner. </span>
+        {r.area}
+      </div>
+
+      <div className="oi-rec__next" style={{ marginTop: '16px' }}>
+        <b style={{ marginRight: '8px' }}>Next action:</b>
         {r.nextAction}
       </div>
 
       {r.dependencies.length > 0 && (
-        <p className="oi-rec__dep">
+        <p className="oi-rec__dep" style={{ marginTop: '16px' }}>
           Blocked by {r.dependencies.length} other {r.dependencies.length === 1 ? 'action' : 'actions'}: {r.dependencies.map((d) => d.because).join(' ')}
         </p>
       )}
 
-      <ProvenanceDetails provenance={r.provenance} summary="Where this came from" />
+      {/* Progressive disclosure for technical details */}
+      <button 
+        onClick={() => setOpenTech(!openTech)} 
+        style={{ marginTop: '20px', fontSize: '13px', fontWeight: 600, color: '#4f46e5', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+      >
+        {openTech ? 'Hide technical detail' : 'Technical detail'}
+      </button>
+
+      {openTech && (
+        <div className="oi-rec__grid" style={{ marginTop: '16px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="oi-block">
+            <div className="oi-block__label">Technical Metrics</div>
+            <div className="oi-block__body">
+              <span className="oi-chip oi-chip--mono">score {num(r.priorityScore)}</span>{' '}
+              <span className="oi-chip oi-chip--mono">severity {num(r.severity)}/5</span>{' '}
+              <span className="oi-chip oi-chip--mono">tractability {num(r.tractability)}</span>
+            </div>
+          </div>
+          
+          <div className="oi-block">
+            <div className="oi-block__label">Execution Binding</div>
+            <div className="oi-block__body">
+              Needs a <strong>{r.esoType}</strong> capability. {r.esoNote}
+              {r.esoId && onViewEso && (
+                <div className="intel-inline-actions" style={{ marginTop: 8 }}>
+                  <button type="button" onClick={() => onViewEso(r.esoId as string)}>View ESO</button>
+                  <button
+                    type="button"
+                    onClick={() => onViewEso(r.esoId as string)}
+                    disabled={r.esoRunnable === false}
+                    title={r.esoRunnable === false ? 'This ESO is not in service, so it cannot be run.' : undefined}
+                  >
+                    {r.esoRunnable === false ? 'Not runnable' : 'Run ESO'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <ProvenanceDetails provenance={r.provenance} summary="Where this came from" />
+        </div>
+      )}
     </article>
   );
 }
